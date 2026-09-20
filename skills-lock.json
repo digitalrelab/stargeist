@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "skills": {
+    "code": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/code/SKILL.md",
+      "computedHash": "58b5e73ff55e60c46aba5be731ab324c6766fe6f2c8d2c414b50924c44d0ecc1"
+    },
+    "contributing": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/contributing/SKILL.md",
+      "computedHash": "e1c5000cb4c4911f4bffbd4d48a80fa73ad156b15a99f7245b0a64b1fe5b08d6"
+    },
+    "docs": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/docs/SKILL.md",
+      "computedHash": "1d41a815f08a2b01023201e724a5b6709b9c4d042876f64717969e4a203df266"
+    },
+    "folder-structure": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/folder-structure/SKILL.md",
+      "computedHash": "29b2728606c840b6bfeec20322fb1f37ae0e487725edce31646867e3de7a6cb5"
+    },
+    "implement": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/implement/SKILL.md",
+      "computedHash": "2c29c2cb8544dfb0fc12a0c392c653468761f000f2d6b247e259ad996567a9e6"
+    },
+    "layout": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/layout/SKILL.md",
+      "computedHash": "3ce191e1927da5c00ea1c1203828c5f86b3777f4f5508d1354e44d24343ee16a"
+    },
+    "migration": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/migration/SKILL.md",
+      "computedHash": "cfc688062d43ec2d8296b8a94113e73f994447ab6551443e394293490e8706bc"
+    },
+    "polish": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/polish/SKILL.md",
+      "computedHash": "ed01ddc965e688fcdc600bd558aa3becb942001f8c0eda8e6b4616f5b6a97626"
+    },
+    "react": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/react/SKILL.md",
+      "computedHash": "eac3e91160401ac378234ade984ae7e0e09bfec99882fb5ea22a54890082db1c"
+    },
+    "tests": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/tests/SKILL.md",
+      "computedHash": "46f7af45dac80b500463b61f1d874dbea70376a9f8452af08aba23375e42ce9f"
+    },
+    "ui": {
+      "source": "chiefGui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/ui/SKILL.md",
+      "computedHash": "c6cdcf702eeea8094a74c63d02c4683f2fdac3c47db890eb8fc10b28adfd3c4e"
+    }
+  }
+}

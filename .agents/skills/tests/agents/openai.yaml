@@ -1,0 +1,6 @@
+interface:
+  display_name: "Tests"
+  short_description: "Design, review, and maintain tests."
+
+policy:
+  allow_implicit_invocation: true
