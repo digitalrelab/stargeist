@@ -1,0 +1,50 @@
+{
+  "name": "stargeist",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --cwd apps/sg-desktop dev",
+    "dev:web": "bun run --cwd apps/sg-web dev",
+    "build": "bun run build:web && bun run package",
+    "build:web": "bun run --cwd apps/sg-web build",
+    "package": "bun run --cwd apps/sg-desktop package",
+    "make": "bun run --cwd apps/sg-desktop make",
+    "check": "vp check",
+    "typecheck": "tsc --build",
+    "fmt": "vp fmt",
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.2",
+    "typescript": "7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "overrides": {
+    "vite": "catalog:",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "bun": ">=1.4.2",
+    "node": "^24.21.0"
+  },
+  "packageManager": "bun@1.4.2",
+  "catalog": {
+    "@stylexjs/stylex": "0.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "effect": "4.0.0-rc.116",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.3.3",
+    "vite-plus": "0.3.3"
+  },
+  "trustedDependencies": [
+    "electron",
+    "electron-winstaller"
+  ]
+}

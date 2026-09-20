@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./apps/sg-web" },
+    { "path": "./apps/sg-desktop" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/std" },
+    { "path": "./tsconfig.tools.json" }
+  ]
+}

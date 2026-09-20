@@ -1,0 +1,12 @@
+{
+  "name": "@stargeist/std",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./errors": "./src/errors.ts"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  }
+}

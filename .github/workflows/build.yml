@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+      - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: package.json
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build:web
+      - run: bun run make
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: stargeist-${{ runner.os }}-${{ runner.arch }}
+          path: apps/sg-desktop/out/make/**
+          if-no-files-found: error

@@ -1,0 +1,30 @@
+{
+  "name": "@stargeist/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./vite": "./vite.config.ts"
+  },
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview"
+  },
+  "dependencies": {
+    "@stargeist/std": "workspace:*",
+    "@stargeist/ui": "workspace:*",
+    "@stylexjs/stylex": "catalog:",
+    "@tanstack/react-router": "1.170.38",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@stylexjs/unplugin": "0.19.1",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "6.1.1",
+    "vite-plus": "catalog:"
+  }
+}
