@@ -5,6 +5,7 @@
     { "path": "./apps/sg-desktop" },
     { "path": "./packages/ui" },
     { "path": "./packages/std" },
+    { "path": "./packages/application" },
     { "path": "./tsconfig.tools.json" }
   ]
 }

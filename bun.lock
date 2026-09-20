@@ -22,6 +22,7 @@
         "@electron-forge/maker-zip": "7.11.2",
         "@electron-forge/plugin-vite": "7.11.2",
         "@electron-forge/shared-types": "7.11.2",
+        "@stargeist/application": "workspace:*",
         "@stargeist/std": "workspace:*",
         "@stargeist/web": "workspace:*",
         "@types/electron-squirrel-startup": "1.0.2",
@@ -50,6 +51,13 @@
         "@vitejs/plugin-react": "6.1.1",
         "portless": "0.15.6",
         "vite-plus": "catalog:",
+      },
+    },
+    "packages/application": {
+      "name": "@stargeist/application",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
       },
     },
     "packages/std": {
@@ -374,6 +382,8 @@
     "@sindresorhus/is": ["@sindresorhus/is@4.6.0", "", {}, "sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
+
+    "@stargeist/application": ["@stargeist/application@workspace:packages/application"],
 
     "@stargeist/desktop": ["@stargeist/desktop@workspace:apps/sg-desktop"],
 

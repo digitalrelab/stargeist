@@ -1,12 +1,13 @@
 import { join } from "node:path";
+import { Module } from "@stargeist/application";
 import { BrowserWindow } from "electron";
-import { Data, Effect } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 
 export class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
   readonly cause: unknown;
 }> {}
 
-export const openWindow = Effect.gen(function* () {
+const openWindow = Effect.gen(function* () {
   const window = yield* Effect.acquireRelease(
     Effect.sync(() => {
       const window = new BrowserWindow({
@@ -53,3 +54,12 @@ export const openWindow = Effect.gen(function* () {
     });
   });
 }).pipe(Effect.scoped);
+
+class Windows extends Context.Service<Windows, { readonly open: typeof openWindow }>()(
+  "@stargeist/desktop/Windows",
+) {}
+
+export const WindowsModule = Module.define({
+  exports: Windows,
+  layer: Layer.succeed(Windows, { open: openWindow }),
+});

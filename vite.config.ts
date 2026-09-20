@@ -7,7 +7,12 @@ export default defineConfig({
     ignorePatterns: ["**/dist/**", "**/out/**", "**/.vite/**", ".agents/**"],
     overrides: [
       {
-        files: ["apps/sg-web/src/**", "packages/ui/src/**", "packages/std/src/**"],
+        files: [
+          "apps/sg-web/src/**",
+          "packages/ui/src/**",
+          "packages/std/src/**",
+          "packages/application/src/**",
+        ],
         rules: {
           "no-restricted-imports": [
             "error",
