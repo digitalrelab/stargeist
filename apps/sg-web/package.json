@@ -7,7 +7,7 @@
     "./vite": "./vite.config.ts"
   },
   "scripts": {
-    "dev": "portless \"$(bun dev-name.ts)\" vp dev",
+    "dev": "portless \"$(bun scripts/dev-name.ts)\" vp dev",
     "build": "vp build",
     "preview": "vp preview"
   },
