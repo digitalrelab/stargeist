@@ -2,6 +2,7 @@ import { reportFailure } from "@stargeist/std/errors";
 import { app, BrowserWindow } from "electron";
 import squirrelStartup from "electron-squirrel-startup";
 import { Cause, Effect } from "effect";
+import { configureDevelopmentProfile } from "./development-profile";
 import { openWindow } from "./window";
 
 const fail = (operation: string) =>
@@ -12,6 +13,7 @@ const fail = (operation: string) =>
   );
 
 const program = Effect.gen(function* () {
+  yield* configureDevelopmentProfile;
   yield* Effect.promise(() => app.whenReady());
   const scope = yield* Effect.scope;
   const launchWindow = () => {

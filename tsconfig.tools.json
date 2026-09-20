@@ -3,5 +3,10 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["*.config.ts", "apps/*/*.config.ts", "packages/**/*.test.ts"]
+  "include": [
+    "*.config.ts",
+    "apps/*/*.config.ts",
+    "apps/sg-web/dev-name.ts",
+    "packages/**/*.test.ts"
+  ]
 }

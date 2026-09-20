@@ -7,7 +7,7 @@
     "./vite": "./vite.config.ts"
   },
   "scripts": {
-    "dev": "vp dev",
+    "dev": "portless \"$(bun dev-name.ts)\" vp dev",
     "build": "vp build",
     "preview": "vp preview"
   },
@@ -25,6 +25,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "6.1.1",
+    "portless": "0.15.6",
     "vite-plus": "catalog:"
   }
 }
