@@ -16,9 +16,7 @@ export function FileRow({ entry }: { entry: FileSystemEntry }) {
   return (
     <div {...stylex.props(typography.label, styles.row)}>
       <Icon {...stylex.props(styles.icon)} role="img" aria-label={label} />
-      <span {...stylex.props(styles.name)} title={entry.name}>
-        {entry.name}
-      </span>
+      <span {...stylex.props(styles.name)}>{entry.name}</span>
     </div>
   );
 }
