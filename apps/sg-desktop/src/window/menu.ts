@@ -1,9 +1,8 @@
 import { app, Menu, type MenuItemConstructorOptions } from "electron";
 import { Effect } from "effect";
-import { scaleCommands } from "./scale";
+import type { RunScaleCommand } from "./scale";
 
-export const installWindowMenu = Effect.gen(function* () {
-  const changeScale = yield* scaleCommands;
+export const installWindowMenu = Effect.fnUntraced(function* (changeScale: RunScaleCommand) {
   const view: MenuItemConstructorOptions[] = [];
   if (!app.isPackaged) {
     view.push(

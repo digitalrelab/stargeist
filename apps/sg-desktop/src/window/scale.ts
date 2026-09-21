@@ -4,6 +4,7 @@ import { BrowserWindow, dialog, type WebContents } from "electron";
 import { Cause, Effect, FiberHandle, Stream } from "effect";
 
 export type ScaleCommand = "increase" | "decrease" | "reset";
+export type RunScaleCommand = (command: ScaleCommand) => void;
 
 export const changeInterfaceScale = Effect.fnUntraced(function* (command: ScaleCommand) {
   const preferences = yield* UserPreferences;
@@ -47,12 +48,11 @@ export const scaleCommands = Effect.gen(function* () {
 
 export const withInterfaceScale = Effect.fnUntraced(function* <A, E, R>(
   contents: WebContents,
+  changeScale: RunScaleCommand,
   use: Effect.Effect<A, E, R>,
 ) {
   const preferences = yield* UserPreferences;
-  const changeScale = yield* scaleCommands;
-  const onZoom = (event: Electron.Event, direction: "in" | "out") => {
-    event.preventDefault();
+  const onZoom = (_event: Electron.Event, direction: "in" | "out") => {
     if (direction === "in") changeScale("increase");
     else changeScale("decrease");
   };

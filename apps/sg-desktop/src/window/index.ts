@@ -7,14 +7,14 @@ import { Backend } from "../backend";
 import { applicationIcon } from "../icon";
 import { windowPlacement } from "./placement";
 import { trackWindowState } from "./state";
-import { withInterfaceScale } from "./scale";
+import { scaleCommands, withInterfaceScale, type RunScaleCommand } from "./scale";
 import { installWindowMenu } from "./menu";
 
 class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
   readonly cause: unknown;
 }> {}
 
-const openWindow = Effect.gen(function* () {
+const openWindow = Effect.fnUntraced(function* (changeScale: RunScaleCommand) {
   const backend = yield* Backend;
   const preferences = yield* UserPreferences;
   const saved = yield* preferences.get("window");
@@ -78,6 +78,7 @@ const openWindow = Effect.gen(function* () {
 
     yield* withInterfaceScale(
       window.webContents,
+      changeScale,
       Effect.gen(function* () {
         yield* trackWindowState(
           window,
@@ -97,15 +98,16 @@ const openWindow = Effect.gen(function* () {
       }),
     );
   }).pipe(Effect.raceFirst(Deferred.await(closed)));
-}).pipe(Effect.scoped);
+}, Effect.scoped);
 
 class Windows extends Context.Service<Windows>()("@stargeist/desktop/Windows", {
   make: Effect.gen(function* () {
     const backend = yield* Backend;
     const preferences = yield* UserPreferences;
-    yield* installWindowMenu;
+    const changeScale = yield* scaleCommands;
+    yield* installWindowMenu(changeScale);
     return {
-      open: openWindow.pipe(
+      open: openWindow(changeScale).pipe(
         Effect.provideService(Backend, backend),
         Effect.provideService(UserPreferences, preferences),
       ),

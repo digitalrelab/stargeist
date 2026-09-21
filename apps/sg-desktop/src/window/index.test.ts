@@ -279,11 +279,9 @@ it("restores scale before showing, follows saved changes, and persists native zo
 
   await wait(runtime.preferences.set("interfaceScale", 2));
   await vi.waitFor(() => expect(window.webContents.setZoomFactor).toHaveBeenLastCalledWith(2));
-  const event = { preventDefault: vi.fn() };
-  window.webContents.emit("zoom-changed", event, "out");
+  window.webContents.emit("zoom-changed", {}, "out");
   await vi.waitFor(() => expect(window.webContents.setZoomFactor).toHaveBeenLastCalledWith(1.75));
   expect(await wait(runtime.preferences.get("interfaceScale"))).toBe(1.75);
-  expect(event.preventDefault).toHaveBeenCalledOnce();
 
   window.close();
   await wait(Fiber.join(fiber));
@@ -303,7 +301,7 @@ it("closes cleanly when a saved scale change is still queued for the renderer", 
   expect(window.webContents.setZoomFactor).not.toHaveBeenCalledWith(1.75);
 });
 
-it("keeps one native failure notification open and accepts commands again after dismissal", async () => {
+it("shares one failure notification across menu and mouse zoom and accepts commands after dismissal", async () => {
   const runtime = fixture();
   runtime.open();
   const window = await wait(Deferred.await(runtime.created));
@@ -327,32 +325,29 @@ it("keeps one native failure notification open and accepts commands again after 
     ),
   );
 
-  await wait(
-    Effect.gen(function* () {
-      const command = yield* scaleCommands;
-      const failed = command("increase");
-      yield* Deferred.await(displayed);
-      command("increase");
-      command("decrease");
-      expect(native.alert).toHaveBeenCalledExactlyOnceWith(
-        window,
-        expect.objectContaining({
-          type: "error",
-          detail: "Preferences could not be read.",
-          signal: expect.any(AbortSignal),
-        }),
-      );
-      expect(yield* runtime.preferences.get("interfaceScale")).toBe(1.25);
-      yield* Deferred.succeed(dismissed, undefined);
-      yield* Fiber.join(failed);
-      yield* Fiber.join(command("reset"));
-      expect(yield* runtime.preferences.get("interfaceScale")).toBe(1);
-      command("increase");
-      command("increase");
-      yield* Fiber.join(command("increase"));
-      expect(yield* runtime.preferences.get("interfaceScale")).toBe(1.5);
-    }).pipe(Effect.provideService(UserPreferences, runtime.preferences), Effect.scoped),
+  const view = native.buildMenu.mock.calls[0]![0].find((item) => item.label === "View")?.submenu;
+  if (!Array.isArray(view)) throw new Error("View menu is missing");
+  const increase = view.find((item) => item.label === "Increase Scale")!.click!;
+  Reflect.apply(increase, undefined, []);
+  await wait(Deferred.await(displayed));
+  Reflect.apply(increase, undefined, []);
+  window.webContents.emit("zoom-changed", {}, "out");
+  expect(native.alert).toHaveBeenCalledExactlyOnceWith(
+    window,
+    expect.objectContaining({
+      type: "error",
+      detail: "Preferences could not be read.",
+      signal: expect.any(AbortSignal),
+    }),
   );
+  expect(await wait(runtime.preferences.get("interfaceScale"))).toBe(1.25);
+  Effect.runSync(Deferred.succeed(dismissed, undefined));
+  await native.alert.mock.results[0]!.value;
+  Reflect.apply(increase, undefined, []);
+  expect(await wait(runtime.preferences.get("interfaceScale"))).toBe(1.5);
+  Reflect.apply(increase, undefined, []);
+  Reflect.apply(increase, undefined, []);
+  expect(await wait(runtime.preferences.get("interfaceScale"))).toBe(2);
 });
 
 it.each([true, false])(
@@ -360,7 +355,8 @@ it.each([true, false])(
   async (packaged) => {
     native.packaged = packaged;
     await wait(
-      installWindowMenu.pipe(
+      scaleCommands.pipe(
+        Effect.flatMap(installWindowMenu),
         Effect.provideService(UserPreferences, fixture().preferences),
         Effect.scoped,
       ),

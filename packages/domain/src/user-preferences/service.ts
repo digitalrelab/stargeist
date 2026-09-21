@@ -16,6 +16,7 @@ export class UserPreferences extends Context.Service<
     readonly get: <K extends keyof UserPreferenceValues>(
       key: K,
     ) => Effect.Effect<UserPreferenceValues[K], UserPreferencesError>;
+    /** Emits the current value and saved changes, keeping only the latest value for slow consumers. */
     readonly watch: <K extends keyof UserPreferenceValues>(
       key: K,
     ) => Stream.Stream<UserPreferenceValues[K], UserPreferencesError>;
