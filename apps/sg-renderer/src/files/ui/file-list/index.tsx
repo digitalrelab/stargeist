@@ -2,18 +2,14 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { Selection } from "@stargeist/std/selection";
 import { HashSet } from "effect";
 import { Button, ScrollArea, typography } from "@stargeist/ui";
-import { colors, control, fonts, radii, space } from "@stargeist/ui/tokens.stylex";
+import { colors, fonts, radii, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useEffect } from "react";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
-import {
-  FileListContext,
-  useFileList,
-  useFileListContext,
-  rowHeight,
-  type FileListProps,
-} from "./context";
+import { FileListContext, useFileList, useFileListContext, type FileListProps } from "./context";
+import { layout, rowHeight } from "./layout";
+import { FileNameSkeleton } from "./loading";
 import { FileRow } from "./row";
 
 export function FileList(props: FileListProps) {
@@ -120,7 +116,33 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
   const request = useAtomValue(selection.request);
   const refresh = useAtomRefresh(atom);
 
-  if (result._tag !== "Success") {
+  if (result._tag === "Initial") {
+    return items.map((item) => (
+      <div
+        key={item.index}
+        {...stylex.props(
+          styles.row(item.start),
+          layout.row,
+          focused && item.index === active && styles.activeStatus,
+        )}
+        role="row"
+        aria-rowindex={item.index + 1}
+        aria-busy="true"
+      >
+        <span role="gridcell" id={`${gridId}-${item.index}-0`} />
+        <div
+          role="gridcell"
+          id={`${gridId}-${item.index}-1`}
+          aria-label="Loading file"
+          {...stylex.props(layout.nameCell, layout.name)}
+        >
+          <FileNameSkeleton />
+        </div>
+      </div>
+    ));
+  }
+
+  if (result._tag === "Failure") {
     const first = items.find((item) => item.index === active) ?? items[0];
 
     if (!first) {
@@ -135,21 +157,6 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
       listing.pageOffset(active) === offset
     ) {
       retry = retrySelection;
-    }
-
-    let content = <span role="status">Loading entries…</span>;
-
-    if (result._tag === "Failure") {
-      content = (
-        <>
-          <span role="alert">{failureMessage(result.cause)}</span>
-          {canRetryFailure(result.cause) && (
-            <Button appearance="soft" size="sm" onClick={retry} disabled={result.waiting}>
-              Retry
-            </Button>
-          )}
-        </>
-      );
     }
 
     return (
@@ -169,7 +176,12 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
           id={`${gridId}-${first.index}-1`}
           {...stylex.props(styles.statusContent)}
         >
-          {content}
+          <span role="alert">{failureMessage(result.cause)}</span>
+          {canRetryFailure(result.cause) && (
+            <Button appearance="soft" size="sm" onClick={retry} disabled={result.waiting}>
+              Retry
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -250,7 +262,7 @@ function ListFooter() {
   }
 
   return (
-    <div {...stylex.props(typography.label, styles.footer)}>
+    <div {...stylex.props(typography.label, layout.footer, styles.footer)}>
       <span role="status">{label}</span>
       {action}
       {request._tag === "Failure" && (
@@ -295,17 +307,7 @@ const styles = stylex.create({
   },
   empty: { padding: space[6], color: colors.textMuted, flexGrow: 1 },
   footer: {
-    display: "flex",
-    alignItems: "center",
-    gap: space[3],
-    minHeight: `calc(${control.heightSm} + ${space[6]} + 1px)`,
-    flexShrink: 0,
     fontWeight: fonts.regular,
-    paddingBlock: space[3],
-    paddingInline: space[6],
     color: colors.textMuted,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: colors.borderSubtle,
   },
 });

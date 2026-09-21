@@ -1,11 +1,12 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { WorkspaceId, LibraryId } from "@stargeist/domain";
-import { Button, typography } from "@stargeist/ui";
+import { Button, Skeleton, typography } from "@stargeist/ui";
 import { colors, fonts, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import type { AsyncResult } from "effect/unstable/reactivity";
+import type { ReactNode } from "react";
 import { failureMessage } from "#src/client/index.ts";
-import { FileBrowser } from "#src/files/views.ts";
+import { FileBrowser, FileListSkeleton } from "#src/files/views.ts";
 import { WorkArea } from "#src/shell/index.ts";
 import type { LibraryListing } from "../state";
 import { useLibraryState } from "./use-state";
@@ -27,20 +28,26 @@ export function LibraryPage({
     retry = refresh;
   }
 
+  let heading: ReactNode = library?.displayName ?? "Library";
+  let path: ReactNode = library?.source.path;
+
+  if (!library && (listing._tag === "Initial" || listing.waiting)) {
+    heading = <Skeleton styles={styles.nameSkeleton} />;
+    path = <Skeleton styles={styles.pathSkeleton} />;
+  }
+
   return (
     <WorkArea.Page>
       <WorkArea.Header>
         <div {...stylex.props(styles.title)}>
-          <h1 {...stylex.props(typography.label, styles.name)}>
-            {library?.displayName ?? "Library"}
-          </h1>
-          {library && (
+          <h1 {...stylex.props(typography.label, styles.name)}>{heading}</h1>
+          {path !== undefined && (
             <p
               {...stylex.props(typography.label, styles.path)}
               data-selectable
-              title={library.source.path}
+              title={library?.source.path}
             >
-              {library.source.path}
+              {path}
             </p>
           )}
         </div>
@@ -95,11 +102,7 @@ function LibraryEntries({
     );
   }
 
-  return (
-    <p {...stylex.props(styles.message)} role="status">
-      Opening folder…
-    </p>
-  );
+  return <FileListSkeleton />;
 }
 
 const styles = stylex.create({
@@ -124,7 +127,8 @@ const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  message: { padding: space[6], color: colors.textMuted },
+  nameSkeleton: { inlineSize: "10rem", blockSize: space[3] },
+  pathSkeleton: { inlineSize: "min(80%, 24rem)", blockSize: space[3] },
   failure: {
     display: "flex",
     flexDirection: "column",

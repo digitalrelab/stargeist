@@ -1,10 +1,11 @@
 import { Selection } from "@stargeist/std/selection/react";
 import type { FileSystemEntry } from "@stargeist/domain";
 import { Checkbox, typography } from "@stargeist/ui";
-import { colors, control, focusRing, fonts, radii, space } from "@stargeist/ui/tokens.stylex";
+import { colors, focusRing, fonts, radii } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { FileKind } from "../file-kind";
 import { useFileListContext } from "./context";
+import { layout } from "./layout";
 
 export function FileRow({ entry, index }: { entry: FileSystemEntry; index: number }) {
   const list = useFileListContext();
@@ -17,6 +18,7 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
       {...list.rowProps}
       {...stylex.props(
         stylex.defaultMarker(),
+        layout.row,
         styles.row,
         selected && styles.selected,
         active && styles.active,
@@ -56,8 +58,12 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
           <Checkbox.Indicator />
         </Checkbox.Root>
       </span>
-      <span role="gridcell" id={`${id}-1`} {...stylex.props(styles.nameCell)}>
-        <button type="button" {...stylex.props(typography.label, styles.action)} tabIndex={-1}>
+      <span role="gridcell" id={`${id}-1`} {...stylex.props(layout.nameCell)}>
+        <button
+          type="button"
+          {...stylex.props(typography.label, layout.name, styles.action)}
+          tabIndex={-1}
+        >
           <FileKind.Icon kind={entry.kind} />
           <span {...stylex.props(styles.name)}>{entry.name}</span>
         </button>
@@ -68,10 +74,6 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
 
 const styles = stylex.create({
   row: {
-    display: "grid",
-    gridTemplateColumns: `calc(${space[2]} + ${space[6]} + ${space[3]}) minmax(0, 1fr)`,
-    alignItems: "center",
-    height: "100%",
     position: "relative",
     isolation: "isolate",
     "::before": {
@@ -121,15 +123,7 @@ const styles = stylex.create({
       "@media (hover: none)": 1,
     },
   },
-  nameCell: { minWidth: 0, height: "100%", paddingInlineEnd: space[2] },
   action: {
-    display: "grid",
-    gridTemplateColumns: `${control.iconSize} minmax(0, 1fr)`,
-    alignItems: "center",
-    gap: space[3],
-    minWidth: 0,
-    height: "100%",
-    width: "100%",
     padding: 0,
     appearance: "none",
     borderWidth: 0,

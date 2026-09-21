@@ -4,8 +4,7 @@ import { createContext, useContext, useId, useMemo, useState, type KeyboardEvent
 import { canRetryFailure } from "#src/client/index.ts";
 import { createFileSelectionController, type FileInteraction } from "../../selection";
 import type { FileListing } from "../../state";
-
-export const rowHeight = 42;
+import { rowHeight } from "./layout";
 
 export interface FileListProps {
   listing: FileListing;
