@@ -6,7 +6,7 @@ export const createFileListing = (
   initial: DirectoryListingPage,
   readPage: (offset: number) => Effect.Effect<DirectoryListingPage, unknown>,
 ) => {
-  const { extent, pages, pageOffset } = Pagination.makeIndexed({
+  const { extent, pages, read, pageOffset } = Pagination.makeIndexed({
     pageSize: entryPageSize,
     source: {
       initial: toPage(initial),
@@ -14,12 +14,17 @@ export const createFileListing = (
       read: (offset) => readPage(offset).pipe(Effect.map(toPage)),
     },
   });
-  return { id: initial.listingId, extent, pages, pageOffset };
+
+  return { id: initial.listingId, extent, pages, read, pageOffset };
 };
 
 function toPage(page: DirectoryListingPage) {
   let next: number | null = null;
-  if (page.hasMore) next = page.offset + page.entries.length;
+
+  if (page.hasMore) {
+    next = page.offset + page.entries.length;
+  }
+
   return { items: page.entries, next };
 }
 

@@ -52,7 +52,9 @@ describe("Cursor pagination", () => {
       read: (cursor: string) =>
         Effect.sync(() => {
           requests.push(cursor);
-          if (cursor === "after:a") return { items: [], next: "batch:3" };
+          if (cursor === "after:a") {
+            return { items: [], next: "batch:3" };
+          }
           return { items: ["b", "c", "d"], next: null };
         }),
     });
@@ -142,7 +144,9 @@ describe("Indexed pagination", () => {
         cursorAt: (offset) => offset,
         read: () =>
           Effect.suspend(() => {
-            if (!available) return Effect.fail(failure);
+            if (!available) {
+              return Effect.fail(failure);
+            }
             return Effect.succeed(last);
           }),
       },
@@ -174,7 +178,9 @@ describe("Indexed pagination", () => {
         initial: first,
         cursorAt: (offset) => offset,
         read: (offset) => {
-          if (offset === 2) return Effect.succeed({ items: ["c", "d"], next: 4 });
+          if (offset === 2) {
+            return Effect.succeed({ items: ["c", "d"], next: 4 });
+          }
           return Effect.succeed({ items: [], next: null });
         },
       },
@@ -192,6 +198,47 @@ describe("Indexed pagination", () => {
         expect(registry.get(paging.extent)).toEqual({ count: 4, hasMore: false });
       }).pipe(Effect.timeout("3 seconds")),
     );
+  });
+
+  it("shares an in-flight retry between page readers", async () => {
+    const registry = createRegistry();
+    const response = Effect.runSync(Deferred.make<Pagination.Page<string, number>>());
+    const started = Effect.runSync(Deferred.make<void>());
+    let requests = 0;
+
+    const paging = Pagination.makeIndexed({
+      pageSize: 2,
+      source: {
+        initial: first,
+        cursorAt: (offset) => offset,
+        read: () =>
+          Effect.gen(function* () {
+            requests++;
+
+            if (requests === 1) {
+              return yield* Effect.fail(new Error("Unavailable"));
+            }
+
+            yield* Deferred.succeed(started, undefined);
+            return yield* Deferred.await(response);
+          }),
+      },
+    });
+
+    registry.mount(paging.extent);
+    registry.mount(paging.pages(2));
+
+    const result = Effect.runPromise(
+      Effect.all([paging.read(2, { retry: true }), paging.read(2, { retry: true })], {
+        concurrency: 2,
+      }).pipe(Effect.scoped, Effect.provideService(AtomRegistry.AtomRegistry, registry)),
+    );
+
+    await Effect.runPromise(Deferred.await(started));
+    await Effect.runPromise(Deferred.succeed(response, last));
+
+    expect(await result).toEqual([last, last]);
+    expect(requests).toBe(2);
   });
 
   it("cancels a read when its last observer leaves", async () => {
@@ -233,7 +280,9 @@ describe("Indexed pagination", () => {
     registry.mount(paging.extent);
     const page = paging.pages(2);
     registry.onNodeRemoved = (node) => {
-      if (node.atom === page) Effect.runSync(Deferred.succeed(removed, undefined));
+      if (node.atom === page) {
+        Effect.runSync(Deferred.succeed(removed, undefined));
+      }
     };
     const unmount = registry.mount(page);
 

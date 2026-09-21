@@ -17,7 +17,7 @@ export interface Position<A> {
 type ReadEffect<A, E> = Effect.Effect<A, E, AtomRegistry.AtomRegistry | Scope.Scope>;
 
 export interface ReadOptions {
-  readonly refresh: boolean;
+  readonly retry: boolean;
 }
 
 export interface Source<A, Key, E, CollectionScope> {

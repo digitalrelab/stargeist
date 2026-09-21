@@ -17,8 +17,9 @@ function input(
   selection: SelectionState<string, typeof listingId> = empty,
 ): FileInspectionInput {
   let focused;
-  if (index !== undefined)
+  if (index !== undefined) {
     focused = { index, item: { name: `file-${index}`, kind: "file" as const } };
+  }
   return { libraryId, folder: "/files", total: 10_000, interaction: { type, focused, selection } };
 }
 
@@ -30,10 +31,15 @@ function setup() {
   const updates: Array<string | undefined> = [];
   registry.get(inspection.target);
   registry.subscribe(inspection.target, (value) => {
-    if (!value) return updates.push(undefined);
+    if (!value) {
+      return updates.push(undefined);
+    }
     const description = describeFileInspection(value);
-    if (description.type === "file") updates.push(description.name);
-    else updates.push(description.label);
+    if (description.type === "file") {
+      updates.push(description.name);
+    } else {
+      updates.push(description.label);
+    }
   });
   onTestFinished(() => {
     registry.dispose();
@@ -70,7 +76,9 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   const navigate = (by: number) => {
     registry.set(selection.command, { type: "move", by });
     const interaction = registry.get(selection.interaction);
-    if (!interaction) throw new Error("Expected committed navigation intent");
+    if (!interaction) {
+      throw new Error("Expected committed navigation intent");
+    }
     interact({ ...input("focus", undefined), interaction });
   };
   expect(registry.get(inspection.isOpen)).toBe(false);
@@ -86,7 +94,7 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   expect(target()?.entry?.name).toBe("file-1");
   expect(registry.get(selection.selection)).toBe(membership);
   expect(Selection.count(membership)).toBe(1);
-  expect(registry.get(selection.activated)).toBeUndefined();
+  expect(registry.get(selection.interaction)?.type).toBe("focus");
   send({ type: "close" });
   navigate(-1);
   await vi.advanceTimersByTimeAsync(250);
@@ -144,7 +152,9 @@ it("keeps select-all and exceptions compact, including an unknown total", async 
   interact(input("select", 5, members));
   expect(target()?.files.members).toBe(members);
   expect(members.mode).toBe("all");
-  if (members.mode !== "all") throw new Error("Expected compact select-all");
+  if (members.mode !== "all") {
+    throw new Error("Expected compact select-all");
+  }
   expect(HashSet.size(members.excludedKeys)).toBe(1);
   expect(updates).toEqual(["9,999 files selected"]);
   interact({ ...input("select", undefined, members), total: undefined });
@@ -157,7 +167,9 @@ it("keeps select-all and exceptions compact, including an unknown total", async 
 it("waits until 250ms after navigation stops, including a burst of 5,000 intents", async () => {
   const { interact, target, updates } = setup();
   interact(input("activate", 9_999));
-  for (let index = 0; index < 5_000; index++) interact(input("focus", index));
+  for (let index = 0; index < 5_000; index++) {
+    interact(input("focus", index));
+  }
   expect(updates).toEqual(["file-9999"]);
   for (let index = 5_000; index < 5_010; index++) {
     await vi.advanceTimersByTimeAsync(200);

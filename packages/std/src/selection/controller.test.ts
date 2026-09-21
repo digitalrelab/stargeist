@@ -32,7 +32,9 @@ function setup(overrides: Partial<Source<string, string, Error, string>> = {}) {
   const active = () => registry.get(collection.active);
   const keys = () => {
     const value = selected();
-    if (value.mode !== "explicit") throw new Error("Expected explicit keys");
+    if (value.mode !== "explicit") {
+      throw new Error("Expected explicit keys");
+    }
     return [...value.keys].sort((a, b) => a.localeCompare(b));
   };
   return { registry, collection, send, unmount, selected, active, keys, reads, ranges };
@@ -47,7 +49,7 @@ describe("Collection navigation and selection", () => {
     send({ type: "move", by: 1 });
     expect(active()).toBe(1);
     expect(selected()).toBe(initial);
-    expect(registry.get(collection.activated)).toBeUndefined();
+    expect(registry.get(collection.interaction)?.type).toBe("focus");
     send({ type: "first" });
     send({ type: "move", by: -1 });
     expect(active()).toBe(0);
@@ -63,18 +65,20 @@ describe("Collection navigation and selection", () => {
     send({ type: "focus", value: { index: 2, item: "file-2" } });
     send({ type: "toggle" });
     expect(keys()).toEqual(["file-2"]);
-    expect(registry.get(collection.activated)).toBeUndefined();
+    expect(registry.get(collection.interaction)?.type).toBe("select");
     send({ type: "activate" });
-    const inspected = registry.get(collection.activated);
-    expect(inspected).toEqual({ index: 2, item: "file-2" });
+    expect(registry.get(collection.interaction)).toMatchObject({
+      type: "activate",
+      focused: { index: 2, item: "file-2" },
+    });
     send({ type: "move", by: 1 });
     send({ type: "toggle" });
     expect(keys()).toEqual(["file-2", "file-3"]);
-    expect(registry.get(collection.activated)).toBe(inspected);
+    expect(registry.get(collection.interaction)?.type).toBe("select");
     send({ type: "clear" });
     expect(keys()).toEqual([]);
     expect(active()).toBe(3);
-    expect(registry.get(collection.activated)).toBe(inspected);
+    expect(registry.get(collection.interaction)?.type).toBe("select");
   });
 
   it("selects an unknown collection without reading any pages and isolates listing scopes", () => {
@@ -132,6 +136,18 @@ describe("Collection navigation and selection", () => {
     expect(keys()).toEqual(["file-0", "file-1", "file-2", "file-3", "file-4", "file-7", "file-8"]);
   });
 
+  it("ends a range when plain navigation reaches the collection boundary", () => {
+    const { send, keys, reads } = setup({
+      extent: Atom.make<Extent>({ count: 6, hasMore: false }),
+    });
+    send({ type: "focus", value: { index: 0, item: "file-0" } });
+    send({ type: "range", index: 5 });
+    send({ type: "move", by: 1 });
+    expect(reads).toEqual([5]);
+    send({ type: "move", by: -1, extend: true });
+    expect(keys()).toEqual(["file-0", "file-1", "file-2", "file-3", "file-4", "file-5"]);
+  });
+
   it("restores the previous membership when an overlapping range shrinks or reverses", () => {
     const { send, keys } = setup();
     send({ type: "replace", keys: ["file-1", "file-3", "file-9"] });
@@ -168,7 +184,9 @@ describe("Collection navigation and selection", () => {
     registry.get(collection.interaction);
     onTestFinished(
       registry.subscribe(collection.interaction, (value) => {
-        if (value) interactions.push(value);
+        if (value) {
+          interactions.push(value);
+        }
       }),
     );
     send({ type: "toggle", value: { index: 0, item: "file-0" } });
@@ -236,11 +254,13 @@ describe("Collection navigation and selection", () => {
   });
 
   it("keeps the previous selection on range failure and retries the same intent", async () => {
-    const refreshes: boolean[] = [];
+    const retries: boolean[] = [];
     const { send, registry, collection, keys } = setup({
-      readRange: (_from, _to, { refresh }) => {
-        refreshes.push(refresh);
-        if (!refresh) return Effect.fail(new Error("Unavailable"));
+      readRange: (_from, _to, { retry }) => {
+        retries.push(retry);
+        if (!retry) {
+          return Effect.fail(new Error("Unavailable"));
+        }
         return Effect.succeed(["file-0", "file-1"]);
       },
     });
@@ -251,7 +271,7 @@ describe("Collection navigation and selection", () => {
     send({ type: "retry" });
     await Effect.runPromise(AtomRegistry.getResult(registry, collection.request));
     expect(keys()).toEqual(["file-0", "file-1"]);
-    expect(refreshes).toEqual([false, true]);
+    expect(retries).toEqual([false, true]);
   });
 
   it("publishes resolved focus independently of selection and explicit activation", async () => {
@@ -260,7 +280,9 @@ describe("Collection navigation and selection", () => {
     const focused: number[] = [];
     registry.get(collection.current);
     const unsubscribe = registry.subscribe(collection.current, (value) => {
-      if (value) focused.push(value.index);
+      if (value) {
+        focused.push(value.index);
+      }
     });
     onTestFinished(unsubscribe);
     send({ type: "focus", value: { index: 0, item: "file-0" } });
@@ -275,7 +297,7 @@ describe("Collection navigation and selection", () => {
     expect(registry.get(collection.current)).toEqual({ index: 1, item: "file-1" });
     expect(focused).toEqual([0, 1]);
     expect(Selection.count(selected())).toBe(0);
-    expect(registry.get(collection.activated)).toBeUndefined();
+    expect(registry.get(collection.interaction)?.type).toBe("focus");
     send({ type: "all" });
     send({ type: "toggle" });
     expect(focused).toEqual([0, 1]);
@@ -289,7 +311,7 @@ describe("Collection navigation and selection", () => {
     await Effect.runPromise(Deferred.succeed(pending, "late"));
     expect(active()).toBe(4);
     expect(registry.get(collection.current)).toEqual({ index: 4, item: "file-4" });
-    expect(registry.get(collection.activated)).toBeUndefined();
+    expect(registry.get(collection.interaction)?.type).toBe("focus");
   });
 
   it("deduplicates frontier reads, restores focus on an empty final page, and ignores empty collections", async () => {
@@ -328,7 +350,9 @@ describe("Collection navigation and selection", () => {
           Effect.onInterrupt(() =>
             Effect.gen(function* () {
               cancelled++;
-              if (cancelled === 2) yield* Deferred.succeed(disposed, undefined);
+              if (cancelled === 2) {
+                yield* Deferred.succeed(disposed, undefined);
+              }
             }),
           ),
         ),

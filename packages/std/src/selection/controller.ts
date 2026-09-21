@@ -24,7 +24,6 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
     interaction: undefined,
   });
   const intent = Atom.make<Request | undefined>(undefined);
-  const activated = Atom.make<Position<A> | undefined>(undefined);
   const interaction = Atom.map(state, (value) => value.interaction);
 
   function commit(
@@ -36,23 +35,21 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
       ...next,
       interaction: { type, focused: next.current, selection: next.selection },
     });
-    if (type === "activate" && next.current) ctx.set(activated, { ...next.current });
   }
 
   const request = Atom.fn((input: Request, get) =>
     Effect.gen(function* () {
       const before = get(state);
       const item = yield* source.read(input.index, input);
+
       if (item === undefined) {
-        get.set(state, {
-          ...before,
-          active: before.current?.index,
-          anchor: before.current?.index,
-          range: undefined,
-        });
+        get.set(state, settle(before));
+
         return;
       }
+
       const position = { index: input.index, item };
+
       if (input.operation === "range") {
         const anchor = before.anchor ?? before.current?.index ?? input.index;
         const range = yield* extendRange(
@@ -63,6 +60,7 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
           input.index,
           input,
         );
+
         commit(
           get,
           {
@@ -74,8 +72,10 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
           },
           "select",
         );
+
         return;
       }
+
       commit(
         get,
         focusPosition(before, position, input.operation),
@@ -90,7 +90,11 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
     operation: Operation,
   ): Omit<State<A, Key, Scope>, "interaction"> {
     let selection = before.selection;
-    if (operation === "toggle") selection = Membership.toggle(selection, source.keyOf(value.item));
+
+    if (operation === "toggle") {
+      selection = Membership.toggle(selection, source.keyOf(value.item));
+    }
+
     return {
       selection,
       active: value.index,
@@ -105,107 +109,135 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
       get.mount(source.extent);
       get.mount(state);
       get.mount(intent);
-      get.mount(activated);
       get.mount(request);
     },
     (ctx, action: Command<A, Key>) => {
       const before = ctx.get(state);
+
       const cancel = () => {
         ctx.set(request, Atom.Reset);
         ctx.set(intent, undefined);
       };
+
       const replace = (selection: Membership.Selection<Key, Scope>) => {
         cancel();
-        commit(
-          ctx,
-          {
-            ...before,
-            selection,
-            active: before.current?.index,
-            anchor: before.current?.index,
-            range: undefined,
-          },
-          "select",
-        );
+        commit(ctx, { ...settle(before), selection }, "select");
       };
+
       const focus = (position: Position<A>, operation: Operation) => {
         cancel();
         commit(ctx, focusPosition(before, position, operation), interactionType(operation));
       };
+
       const resolve = (index: number, operation: Operation) => {
         const extent = ctx.get(source.extent);
-        if (extent.count === 0 && !extent.hasMore) return;
+
+        if (extent.count === 0 && !extent.hasMore) {
+          return;
+        }
+
         const target = clamp(index, extent);
         const previous = ctx.get(intent);
         const pending = ctx.get(request).waiting;
-        if (pending && previous?.index === target && previous.operation === operation) return;
+
+        if (pending && previous?.index === target && previous.operation === operation) {
+          return;
+        }
+
         if (
           !pending &&
           operation === "focus" &&
-          target === before.current?.index &&
+          before.current &&
+          target === before.current.index &&
           target === before.active
         ) {
-          commit(ctx, before, "focus");
-          return;
+          return focus(before.current, "focus");
         }
-        ctx.set(request, Atom.Reset);
+
         let anchor = before.anchor;
         let range = before.range;
+
         if (operation !== "range") {
           anchor = target;
           range = undefined;
         }
+
+        const next = { index: target, operation, retry: false };
+
+        ctx.set(request, Atom.Reset);
         ctx.set(state, { ...before, active: target, anchor, range });
-        const next = { index: target, operation, refresh: false };
         ctx.set(intent, next);
         ctx.set(request, next);
       };
+
       const navigate = (index: number, extend = false) => {
-        if (extend) resolve(index, "range");
-        else resolve(index, "focus");
+        if (extend) {
+          resolve(index, "range");
+        } else {
+          resolve(index, "focus");
+        }
       };
+
       const activateOrToggle = (operation: "activate" | "toggle", value?: Position<A>) => {
-        if (value) return focus(value, operation);
-        if (before.current && before.current.index === before.active)
+        if (value) {
+          return focus(value, operation);
+        }
+
+        if (before.current && before.current.index === before.active) {
           return focus(before.current, operation);
+        }
+
         resolve(before.active ?? 0, operation);
       };
 
       switch (action.type) {
         case "all":
           return replace(Membership.all(source.scope));
+
         case "clear":
           return replace(Membership.empty(source.scope));
+
         case "replace":
           return replace(Membership.replace(source.scope, action.keys));
+
         case "cancel":
           cancel();
-          ctx.set(state, {
-            ...before,
-            active: before.current?.index,
-            anchor: before.current?.index,
-            range: undefined,
-          });
+          ctx.set(state, settle(before));
           return;
+
         case "focus":
           return focus(action.value, "focus");
+
         case "toggle":
           return activateOrToggle("toggle", action.value);
+
         case "activate":
           return activateOrToggle("activate", action.value);
+
         case "range":
           return resolve(action.index, "range");
+
         case "first":
           return navigate(0, action.extend);
+
         case "last":
           return navigate(ctx.get(source.extent).count - 1, action.extend);
+
         case "move": {
-          if (before.active === undefined) return navigate(0, action.extend);
+          if (before.active === undefined) {
+            return navigate(0, action.extend);
+          }
+
           return navigate(before.active + action.by, action.extend);
         }
+
         case "retry": {
           const previous = ctx.get(intent);
-          if (previous) ctx.set(request, { ...previous, refresh: true });
+
+          if (previous) {
+            ctx.set(request, { ...previous, retry: true });
+          }
+
           return;
         }
       }
@@ -213,19 +245,27 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
   ).pipe(Atom.setIdleTTL(0));
 
   const selection = Atom.map(state, (value) => value.selection);
+
   return {
-    scope: source.scope,
     active: Atom.map(state, (value) => value.active),
     current: Atom.map(state, (value) => value.current),
     selection,
     isSelected: Atom.family((key: Key) =>
       Atom.map(selection, (value) => Membership.contains(value, key)),
     ),
-    activated,
     interaction,
     operation: Atom.map(intent, (value) => value?.operation),
     request,
     command,
+  };
+}
+
+function settle<A, Key, Scope>(state: State<A, Key, Scope>): State<A, Key, Scope> {
+  return {
+    ...state,
+    active: state.current?.index,
+    anchor: state.current?.index,
+    range: undefined,
   };
 }
 
@@ -234,6 +274,7 @@ function interactionType(operation: Operation): Interaction<unknown, unknown, un
     case "focus":
     case "activate":
       return operation;
+
     case "range":
     case "toggle":
       return "select";
@@ -242,7 +283,11 @@ function interactionType(operation: Operation): Interaction<unknown, unknown, un
 
 function clamp(index: number, extent: Extent) {
   let last = extent.count - 1;
-  if (extent.hasMore) last = extent.count;
+
+  if (extent.hasMore) {
+    last = extent.count;
+  }
+
   return Math.max(0, Math.min(index, last));
 }
 
