@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "main",
+  "neverConnectToCloud": true,
+  "parallel": 2,
+  "tui": {
+    "enabled": false
+  },
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": [
+      "{workspaceRoot}/*",
+      "{workspaceRoot}/.github/workflows/**/*",
+      "{workspaceRoot}/.vite-hooks/**/*",
+      "{workspaceRoot}/tooling/checks/**/*"
+    ]
+  },
+  "targetDefaults": {
+    "*": {
+      "cache": false,
+      "inputs": ["default", "^default"]
+    }
+  }
+}

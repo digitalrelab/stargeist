@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "sg dev",
     "package": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "electron-forge make",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.preload.json",
+    "test": "vp test run --root ../.. apps/sg-desktop/src --maxWorkers 2"
   },
   "devDependencies": {
     "@electron-forge/cli": "7.11.2",
@@ -32,6 +34,21 @@
     "electron-squirrel-startup": "1.0.1",
     "electron-store": "11.0.2",
     "vite-plus": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ],
+    "targets": {
+      "ci:build": {
+        "executor": "nx:run-script",
+        "options": {
+          "script": "make"
+        }
+      }
+    }
   },
   "productName": "Stargeist"
 }

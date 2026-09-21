@@ -1,4 +1,4 @@
-name: Build
+name: Checks
 
 on:
   push:
@@ -15,32 +15,102 @@ permissions:
 
 env:
   VP_GIT_HOOKS: "0"
+  NX_DAEMON: "false"
+  NX_NO_CLOUD: "true"
+  NX_SKIP_NX_CACHE: "true"
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  prepare:
+    name: Plan and quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has-targets: ${{ steps.plan.outputs.has-targets }}
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
       - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version-file: package.json
-      - if: runner.os == 'Linux'
+      - run: bun install --frozen-lockfile
+      - name: Plan checks
+        id: plan
+        env:
+          CHECKS_BASE: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          args=(plan --committed --github)
+
+          if [[ -n "$CHECKS_BASE" ]]; then
+            args+=(--base "$CHECKS_BASE")
+          fi
+
+          node tooling/checks/bin/checks.mjs "${args[@]}"
+      - name: Check formatting, lint, and types
+        env:
+          CHECKS_PLAN: ${{ steps.plan.outputs.plan }}
+        run: bun run checks run --job quality
+
+  targets:
+    name: Validate (${{ matrix.platform }})
+    needs: prepare
+    if: needs.prepare.outputs.has-targets == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+      - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: package.json
+      - if: runner.os == 'Linux' && matrix.desktop
         run: sudo apt-get update && sudo apt-get install -y rpm
       - run: bun install --frozen-lockfile
-      - run: bun run check
-      - run: bun run typecheck
-      - run: bun run test
-      - run: bun run build:renderer
-      - run: bun run make
+      - name: Test and build affected packages
+        env:
+          CHECKS_PLAN: ${{ needs.prepare.outputs.plan }}
+        run: bun run checks run --job ${{ matrix.platform }}
       - uses: actions/upload-artifact@v7.0.1
+        if: matrix.desktop
         with:
           name: stargeist-${{ runner.os }}-${{ runner.arch }}
           path: apps/sg-desktop/out/make/**
           if-no-files-found: error
+          retention-days: 7
+
+  required:
+    name: Required checks
+    needs: [prepare, targets]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+      - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile --ignore-scripts --filter @stargeist/checks
+      - name: Verify every required job succeeded
+        env:
+          CHECKS_RESULTS: ${{ toJSON(needs) }}
+        run: node tooling/checks/bin/checks.mjs verify
