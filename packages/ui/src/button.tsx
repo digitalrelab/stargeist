@@ -63,7 +63,6 @@ const styles = stylex.create({
     alignItems: "center",
     appearance: "none",
     borderWidth: 0,
-    borderRadius: radii.md,
     display: "inline-flex",
     fontWeight: fonts.semibold,
     gap: space[2],
@@ -108,11 +107,13 @@ const appearances = stylex.create({
 
 const sizes = stylex.create({
   sm: {
+    borderRadius: radii.md,
     minHeight: controlHeight.sm,
     paddingBlock: space[1],
     paddingInline: space[3],
   },
   md: {
+    borderRadius: radii.lg,
     minHeight: controlHeight.md,
     paddingBlock: space[2],
     paddingInline: space[4],

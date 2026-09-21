@@ -27,7 +27,7 @@ export function WorkspaceScreen({ id }: { id: WorkspaceId }) {
     <main {...stylex.props(styles.screen)}>
       <header {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.title)}>
-          <h1 {...stylex.props(typography.heading)}>
+          <h1 {...stylex.props(styles.name, typography.heading)}>
             {details._tag === "Success" ? details.value.name : "Workspace"}
           </h1>
           {details._tag === "Success" && (
@@ -86,8 +86,23 @@ function Failure({ message, retry }: { message: string; retry: () => void }) {
 
 const styles = stylex.create({
   screen: { display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
-  header: { display: "flex", alignItems: "center", gap: space[4], padding: space[6] },
-  title: { flexGrow: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space[1] },
+  header: {
+    display: "flex",
+    flexWrap: "wrap",
+    flexShrink: 0,
+    alignItems: "center",
+    gap: space[4],
+    padding: space[6],
+  },
+  title: {
+    flexGrow: 1,
+    flexBasis: "12rem",
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: space[1],
+  },
+  name: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   path: {
     color: colors.textMuted,
     overflow: "hidden",

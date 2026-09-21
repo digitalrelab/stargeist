@@ -20,7 +20,13 @@ const styles = stylex.create({
     alignItems: "flex-start",
     justifyContent: "center",
     gap: space[3],
-    padding: space[8],
+    minWidth: 0,
+    minHeight: 0,
+    overflowY: "auto",
+    padding: {
+      default: space[8],
+      "@media (max-width: 640px)": space[4],
+    },
   },
   description: { color: colors.textMuted },
 });
