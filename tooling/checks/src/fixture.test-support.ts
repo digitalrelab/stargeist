@@ -57,16 +57,7 @@ export function fixture() {
       encoding: "utf8",
       timeout: 20000,
       input,
-      env: { ...process.env, CHECKS_PLAN: "", CHECKS_RESULTS: "", ...env },
-    });
-  }
-
-  function nx(...args: string[]) {
-    return spawnSync(process.execPath, [require.resolve("nx/bin/nx.js"), ...args], {
-      cwd: root,
-      encoding: "utf8",
-      timeout: 20000,
-      env: { ...process.env, NX_DAEMON: "false", NX_NO_CLOUD: "true", NX_TUI: "false" },
+      env: { ...process.env, CHECKS_BASE: "", ...env },
     });
   }
 
@@ -107,5 +98,5 @@ export function fixture() {
   git("init", "-q");
   const base = commit();
 
-  return { root, write, git, commit, run, nx, base };
+  return { root, write, git, commit, run, base };
 }

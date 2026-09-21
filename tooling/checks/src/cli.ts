@@ -1,41 +1,39 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeStream from "@effect/platform-node/NodeStream";
-import { Cause, Console, Effect, Option, Schema, Stream } from "effect";
+import { Cause, Config, Console, Effect, FileSystem, Schema, Stream } from "effect";
 import { CliConfig, Command, Flag, GlobalFlag } from "effect/unstable/cli";
-import { planChecks } from "./plan.ts";
-import { attempt, ChecksError, decode, PlanReference, Platform, PushUpdate } from "./input.ts";
-import { changes, checkCheckout, git, rootAt } from "./git.ts";
+import { ChecksError, decode, Platform, PushUpdate } from "./input.ts";
+import { checkCheckout, git, rootAt } from "./git.ts";
 import { readWorkspace } from "./nx.ts";
 import { invocations, runChecks } from "./run.ts";
-import { publishPlan, referenceFor, verifyResults } from "./github.ts";
+import type { Job } from "./run.ts";
 
 const revisionFlags = {
-  base: Flag.String("base").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
-  head: Flag.String("head").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
+  base: Flag.String("base").pipe(
+    Flag.withFallbackConfig(Config.String("CHECKS_BASE").pipe(Config.withDefault(""))),
+  ),
   committed: Flag.Boolean("committed").pipe(Flag.withDefault(false)),
 };
 
-const createPlan = Effect.fn("checks.createPlan")(function* (
+const execute = Effect.fn("checks.execute")(function* (
   root: string,
-  base: string | undefined,
-  head: string | undefined,
-  committed: boolean,
+  base: string,
+  job: Job,
+  head?: string,
 ) {
-  const change = yield* changes(root, base, head, !committed);
-  const { packages, selected } = yield* readWorkspace(root, change);
-
-  return planChecks(packages, selected, change);
-});
-
-const restorePlan = Effect.fn("checks.restorePlan")(function* (root: string, source: string) {
-  const saved = yield* decode(Schema.fromJsonString(PlanReference), source, "Plan reference");
-  const current = yield* createPlan(root, saved.base ?? undefined, saved.head, !saved.workingTree);
-
-  if (JSON.stringify(saved) !== JSON.stringify(referenceFor(current))) {
-    return yield* new ChecksError({ message: "Plan does not match this checkout; regenerate it" });
+  if (head) {
+    yield* checkCheckout(root, head);
   }
 
-  return current;
+  const plan = yield* readWorkspace(root, base, head !== undefined);
+  const platform = yield* decode(Platform, process.platform, "Current platform");
+
+  yield* Console.error(JSON.stringify(plan, null, 2));
+  yield* runChecks(root, invocations(plan, job, platform));
+
+  if (head) {
+    yield* checkCheckout(root, head);
+  }
 });
 
 const prePush = Effect.fn("checks.prePush")(function* () {
@@ -44,7 +42,6 @@ const prePush = Effect.fn("checks.prePush")(function* () {
     Stream.decodeText(),
     Stream.mkString,
   );
-
   const updates: Array<{ head: string; remote: string }> = [];
 
   for (const line of input.trim().split("\n").filter(Boolean)) {
@@ -71,47 +68,56 @@ const prePush = Effect.fn("checks.prePush")(function* () {
     });
   }
 
-  let base: string | undefined;
+  let base = "";
 
   if (updates.length === 1 && !/^0+$/.test(updates[0]!.remote)) {
     base = updates[0]!.remote;
   }
 
-  const plan = yield* createPlan(root, base, head, true);
-  const platform = yield* decode(Platform, process.platform, "Current platform");
-  const commands = yield* attempt(() => invocations(plan, "local", platform));
-
-  yield* Console.error(JSON.stringify(plan, null, 2));
-  yield* runChecks(root, commands);
-  yield* checkCheckout(root, head);
+  yield* execute(root, base, "local", head);
 });
 
 const plan = Command.make(
   "plan",
-  {
-    ...revisionFlags,
-    github: Flag.Boolean("github").pipe(Flag.withDefault(false)),
-  },
+  { ...revisionFlags, github: Flag.Boolean("github").pipe(Flag.withDefault(false)) },
   Effect.fn("checks.planCommand")(function* (options) {
     const root = yield* rootAt(process.cwd());
-    const result = yield* createPlan(
-      root,
-      Option.getOrUndefined(options.base),
-      Option.getOrUndefined(options.head),
-      options.committed,
-    );
+
+    if (options.committed) {
+      yield* checkCheckout(root);
+    }
+
+    const result = yield* readWorkspace(root, options.base, options.committed);
+    const json = JSON.stringify(result, null, 2);
 
     if (options.github) {
+      const fs = yield* FileSystem.FileSystem;
       const output = yield* decode(
         Schema.NonEmptyString,
         process.env.GITHUB_OUTPUT,
         "GITHUB_OUTPUT",
       );
 
-      yield* publishPlan(result, output, process.env.GITHUB_STEP_SUMMARY);
+      yield* fs.writeFileString(
+        output,
+        [
+          `matrix=${JSON.stringify(result.matrix)}`,
+          `has-targets=${result.matrix.include.length > 0}`,
+          "",
+        ].join("\n"),
+        { flag: "a" },
+      );
+
+      if (process.env.GITHUB_STEP_SUMMARY) {
+        yield* fs.writeFileString(
+          process.env.GITHUB_STEP_SUMMARY,
+          `## Check plan\n\n\`\`\`json\n${json}\n\`\`\`\n`,
+          { flag: "a" },
+        );
+      }
     }
 
-    yield* Console.log(JSON.stringify(result, null, 2));
+    yield* Console.log(json);
   }),
 );
 
@@ -119,59 +125,22 @@ const run = Command.make(
   "run",
   {
     ...revisionFlags,
-    job: Flag.Literals("job", ["quality", "local", "linux", "darwin", "win32"]).pipe(
-      Flag.withDefault("local"),
-    ),
+    job: Flag.Literals("job", ["quality", "local", "platform"]).pipe(Flag.withDefault("local")),
   },
   Effect.fn("checks.runCommand")(function* (options) {
     const root = yield* rootAt(process.cwd());
-    const reference = process.env.CHECKS_PLAN;
+    let head: string | undefined;
 
-    if (
-      reference &&
-      (Option.isSome(options.base) || Option.isSome(options.head) || options.committed)
-    ) {
-      return yield* new ChecksError({
-        message: "CHECKS_PLAN cannot be combined with revision options",
-      });
+    if (options.committed) {
+      head = yield* git(root, "rev-parse", "HEAD");
     }
 
-    let selected;
-
-    if (reference) {
-      selected = yield* restorePlan(root, reference);
-    } else {
-      selected = yield* createPlan(
-        root,
-        Option.getOrUndefined(options.base),
-        Option.getOrUndefined(options.head),
-        options.committed,
-      );
-    }
-
-    const platform = yield* decode(Platform, process.platform, "Current platform");
-    const commands = yield* attempt(() => invocations(selected, options.job, platform));
-
-    yield* Console.error(JSON.stringify(selected, null, 2));
-    yield* runChecks(root, commands);
-
-    if (!selected.change.workingTree) {
-      yield* checkCheckout(root, selected.change.head);
-    }
-  }),
-);
-
-const verify = Command.make(
-  "verify",
-  {},
-  Effect.fn("checks.verifyCommand")(function* () {
-    yield* verifyResults(process.env.CHECKS_RESULTS);
-    yield* Console.log("All required checks succeeded.");
+    yield* execute(root, options.base, options.job, head);
   }),
 );
 
 const command = Command.make("stargeist-checks").pipe(
-  Command.withSubcommands([plan, run, verify, Command.make("pre-push", {}, prePush)]),
+  Command.withSubcommands([plan, run, Command.make("pre-push", {}, prePush)]),
 );
 
 export function runCli(args: string[]) {

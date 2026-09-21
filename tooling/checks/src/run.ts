@@ -4,7 +4,9 @@ import { ChecksError } from "./input.ts";
 import type { Plan, Platform } from "./plan.ts";
 import { nxCommand, nxEnvironment } from "./nx.ts";
 
-export function invocations(plan: Plan, job: string, platform: Platform): string[][] {
+export type Job = "quality" | "local" | "platform";
+
+export function invocations(plan: Plan, job: Job, platform: Platform): string[][] {
   const commands: string[][] = [];
 
   function tasks(targets: string[], names: string[]) {
@@ -16,8 +18,6 @@ export function invocations(plan: Plan, job: string, platform: Platform): string
       "run-many",
       `--targets=${targets.join(",")}`,
       `--projects=${names.join(",")}`,
-      "--skip-nx-cache",
-      "--no-cloud",
       "--outputStyle=static",
     ]);
   }
@@ -31,10 +31,6 @@ export function invocations(plan: Plan, job: string, platform: Platform): string
 
   if (job === "quality") {
     return commands;
-  }
-
-  if (job !== "local" && job !== platform) {
-    throw new Error(`Cannot run job ${job} on ${platform}`);
   }
 
   const packages = plan.packages.filter((pkg) => pkg.platforms.includes(platform));

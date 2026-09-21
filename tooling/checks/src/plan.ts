@@ -9,16 +9,7 @@ export interface WorkspacePackage {
   build: boolean;
 }
 
-export interface Change {
-  base: string | null;
-  head: string;
-  workingTree: boolean;
-  files: string[];
-}
-
 export interface Plan {
-  version: 1;
-  change: Change;
   packages: WorkspacePackage[];
   excluded: string[];
   matrix: { include: Array<{ platform: Platform; runner: string; desktop: boolean }> };
@@ -30,11 +21,7 @@ const runners: Record<Platform, string> = {
   win32: "windows-2025",
 };
 
-export function planChecks(
-  packages: WorkspacePackage[],
-  selected: ReadonlySet<string>,
-  change: Change,
-): Plan {
+export function planChecks(packages: WorkspacePackage[], selected: ReadonlySet<string>): Plan {
   const affected = packages.filter((pkg) => selected.has(pkg.name));
   const excluded = packages.filter((pkg) => !selected.has(pkg.name)).map((pkg) => pkg.name);
 
@@ -50,5 +37,5 @@ export function planChecks(
       ),
     }));
 
-  return { version: 1, change, packages: affected, excluded, matrix: { include } };
+  return { packages: affected, excluded, matrix: { include } };
 }

@@ -1,8 +1,9 @@
 import { createRequire } from "node:module";
-import { Effect, Schema, Stream } from "effect";
+import { Effect, Schema } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 import { ChecksError, decode, Platform } from "./input.ts";
-import type { Change, WorkspacePackage } from "./plan.ts";
+import { planChecks } from "./plan.ts";
+import type { WorkspacePackage } from "./plan.ts";
 import { capture } from "./process.ts";
 import { git } from "./git.ts";
 
@@ -29,11 +30,11 @@ export const nxEnvironment = Effect.fn("checks.nxEnvironment")(function* (root: 
     ...process.env,
     VP_GIT_HOOKS: "0",
     NX_DAEMON: "false",
-    NX_NO_CLOUD: "true",
-    NX_SKIP_NX_CACHE: "true",
-    NX_TUI: "false",
     NX_LOAD_DOT_ENV_FILES: "false",
   };
+  delete environment.NX_BASE;
+  delete environment.NX_HEAD;
+
   const variables = yield* git(root, "rev-parse", "--local-env-vars");
 
   for (const variable of variables.split("\n")) {
@@ -47,7 +48,7 @@ export function nxCommand(
   root: string,
   args: string[],
   environment: NodeJS.ProcessEnv,
-  options: Pick<ChildProcess.CommandOptions, "stdin" | "stdout"> = {},
+  options: Pick<ChildProcess.CommandOptions, "stdout"> = {},
 ) {
   return ChildProcess.make(process.execPath, [executable, ...args], {
     cwd: root,
@@ -61,20 +62,21 @@ export function nxCommand(
 
 export const readWorkspace = Effect.fn("checks.readWorkspace")(function* (
   root: string,
-  change: Change,
+  base: string,
+  committed: boolean,
 ) {
   const environment = yield* nxEnvironment(root);
   const selectionArgs = ["show", "projects", "--json"];
 
-  if (change.base !== null) {
-    selectionArgs.push("--affected", "--stdin");
+  if (base) {
+    selectionArgs.push("--affected", "--base", base);
+
+    if (committed) {
+      selectionArgs.push("--head", "HEAD");
+    }
   }
 
-  const selection = yield* capture(
-    nxCommand(root, selectionArgs, environment, {
-      stdin: Stream.fromIterable([new TextEncoder().encode(change.files.join("\n"))]),
-    }),
-  );
+  const selection = yield* capture(nxCommand(root, selectionArgs, environment));
   const names = yield* decode(
     Schema.fromJsonString(Schema.Array(Schema.String)),
     selection,
@@ -114,5 +116,5 @@ export const readWorkspace = Effect.fn("checks.readWorkspace")(function* (
     });
   }
 
-  return { packages, selected: new Set(names) };
+  return planChecks(packages, new Set(names));
 });
