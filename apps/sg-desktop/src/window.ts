@@ -4,7 +4,7 @@ import { BrowserWindow } from "electron";
 import { Context, Data, Effect, Layer } from "effect";
 import { Backend } from "./backend";
 
-export class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
+class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
   readonly cause: unknown;
 }> {}
 

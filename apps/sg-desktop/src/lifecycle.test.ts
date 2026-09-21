@@ -48,6 +48,7 @@ function desktop(
   options: {
     readonly initialize?: Effect.Effect<void, Error>;
     readonly release?: Effect.Effect<void>;
+    readonly releaseWindow?: Effect.Effect<void>;
     readonly open?: Effect.Effect<void, Error> | undefined;
   } = {},
 ) {
@@ -93,7 +94,7 @@ function desktop(
         Effect.sync(() => {
           windowCount--;
           events.push("window released");
-        }),
+        }).pipe(Effect.andThen(options.releaseWindow ?? Effect.void)),
     ).pipe(
       Effect.andThen(Queue.offer(opened, { close, closed })),
       Effect.andThen(Deferred.await(close)),
@@ -186,6 +187,9 @@ it("cancels unfinished initialization and waits for cleanup before allowing quit
   const runtime = desktop({
     initialize: Effect.never,
     release: Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Deferred.await(release))),
+  });
+  onTestFinished(() => {
+    complete(release);
   });
   await wait(Deferred.await(runtime.acquired));
 
@@ -281,13 +285,24 @@ it.each(["initialization", "window", "backend"])(
   },
 );
 
-it("reports cleanup failure instead of accepting a successful quit", async () => {
-  const runtime = desktop({ release: Effect.die(new Error("Cleanup failed")) });
-  await wait(Queue.take(runtime.opened));
-  requestQuit();
-  await wait(Fiber.join(runtime.fiber));
+it.each(["initialization", "window", "backend"])(
+  "reports %s cleanup failure instead of accepting a successful quit",
+  async (stage) => {
+    const cleanup = Effect.die(new Error("Cleanup failed"));
+    const runtime = desktop({
+      initialize: stage === "initialization" ? Effect.never : Effect.void,
+      release: stage === "window" ? Effect.void : cleanup,
+      releaseWindow: stage === "window" ? cleanup : Effect.void,
+    });
+    await wait(
+      stage === "initialization" ? Deferred.await(runtime.acquired) : Queue.take(runtime.opened),
+    );
+    requestQuit();
+    await wait(Fiber.join(runtime.fiber));
 
-  expect(native.exit).toHaveBeenCalledExactlyOnceWith(1);
-  expect(native.quitAccepted).not.toHaveBeenCalled();
-  expect(app.eventNames()).toEqual([]);
-});
+    expect(native.exit).toHaveBeenCalledExactlyOnceWith(1);
+    expect(native.quitAccepted).not.toHaveBeenCalled();
+    if (stage === "window") expect(runtime.events.at(-1)).toBe("backend released");
+    expect(app.eventNames()).toEqual([]);
+  },
+);

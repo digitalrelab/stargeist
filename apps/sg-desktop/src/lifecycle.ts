@@ -10,67 +10,72 @@ interface DesktopServices {
 
 export const runDesktop = (application: Application.Application<DesktopServices, unknown>) =>
   Effect.gen(function* () {
-    const shutdown = yield* Deferred.make<void, unknown>();
+    const shutdown = yield* Deferred.make<void>();
+    const completion = yield* Deferred.make<void, unknown>();
+    const fail = (cause: Cause.Cause<unknown>) =>
+      Cause.hasInterruptsOnly(cause)
+        ? Effect.void
+        : Deferred.failCause(completion, cause).pipe(
+            Effect.andThen(Deferred.succeed(shutdown, undefined)),
+          );
 
-    const quit = (event: Electron.Event) => {
-      event.preventDefault();
-      Effect.runSync(Deferred.succeed(shutdown, undefined));
-    };
-
-    yield* Effect.acquireRelease(
-      Effect.sync(() => {
-        app.on("before-quit", quit);
-      }),
-      () =>
-        Effect.sync(() => {
-          app.removeListener("before-quit", quit);
-        }),
-    );
-
-    const running = Effect.gen(function* () {
-      yield* Effect.promise(() => app.whenReady());
-
-      const desktop = yield* application.make;
-      const runWindow = yield* FiberSet.makeRuntime();
-
-      const launchWindow = () => {
-        runWindow(
-          desktop.windows.open.pipe(
-            Effect.catchCause((cause) =>
-              Cause.hasInterruptsOnly(cause) ? Effect.void : Deferred.failCause(shutdown, cause),
-            ),
-          ),
-        );
-      };
-
-      const activate = () => {
-        if (BrowserWindow.getAllWindows().length === 0) launchWindow();
-      };
-
-      const close = () => {
-        if (process.platform !== "darwin") app.quit();
+    yield* Effect.gen(function* () {
+      const quit = (event: Electron.Event) => {
+        event.preventDefault();
+        Effect.runSync(Deferred.succeed(shutdown, undefined));
       };
 
       yield* Effect.acquireRelease(
         Effect.sync(() => {
-          app.on("activate", activate);
-          app.on("window-all-closed", close);
+          app.on("before-quit", quit);
         }),
         () =>
           Effect.sync(() => {
-            app.removeListener("activate", activate);
-            app.removeListener("window-all-closed", close);
+            app.removeListener("before-quit", quit);
           }),
       );
 
-      launchWindow();
+      const running = Effect.gen(function* () {
+        yield* Effect.promise(() => app.whenReady());
 
-      yield* desktop.backend.failure;
-    });
+        const desktop = yield* application.make;
+        const runWindow = yield* FiberSet.makeRuntime();
 
-    yield* running.pipe(Effect.raceFirst(Deferred.await(shutdown)));
+        const launchWindow = () => {
+          runWindow(desktop.windows.open.pipe(Effect.onError(fail)));
+        };
+
+        const activate = () => {
+          if (BrowserWindow.getAllWindows().length === 0) launchWindow();
+        };
+
+        const close = () => {
+          if (process.platform !== "darwin") app.quit();
+        };
+
+        yield* Effect.acquireRelease(
+          Effect.sync(() => {
+            app.on("activate", activate);
+            app.on("window-all-closed", close);
+          }),
+          () =>
+            Effect.sync(() => {
+              app.removeListener("activate", activate);
+              app.removeListener("window-all-closed", close);
+            }),
+        );
+
+        launchWindow();
+
+        yield* desktop.backend.failure;
+      });
+
+      yield* running.pipe(Effect.onError(fail), Effect.raceFirst(Deferred.await(shutdown)));
+    }).pipe(Effect.scoped, Effect.catchCause(fail));
+
+    yield* Deferred.succeed(completion, undefined);
+    yield* Deferred.await(completion);
   }).pipe(
-    Effect.scoped,
     Effect.matchCauseEffect({
       onFailure: (cause) =>
         reportFailure("desktop.application", cause).pipe(
