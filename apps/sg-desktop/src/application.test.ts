@@ -14,6 +14,7 @@ const native = vi.hoisted(() => ({
   stopBackend: vi.fn(),
   quit: vi.fn(),
   exit: vi.fn(),
+  encryptionAvailable: vi.fn(),
 }));
 
 vi.mock("electron", async () => {
@@ -26,20 +27,27 @@ vi.mock("electron", async () => {
     quit: native.quit,
     exit: native.exit,
   });
-  const electron = { app, ipcMain: new EventEmitter(), BrowserWindow: { getAllWindows: () => [] } };
+  const electron = {
+    app,
+    ipcMain: new EventEmitter(),
+    BrowserWindow: { getAllWindows: () => [] },
+    safeStorage: { isAsyncEncryptionAvailable: native.encryptionAvailable },
+  };
   return { ...electron, default: electron };
 });
 
 vi.mock("./backend", async () => {
   const { Context, Effect, Layer } = await import("effect");
+  const { AIProviderConnections } = await import("@stargeist/domain/ai");
   class Backend extends Context.Service<Backend, { readonly failure: Effect.Effect<never> }>()(
     "test/Backend",
   ) {}
   const backendLayer = Layer.effect(
     Backend,
     Effect.acquireRelease(
-      Effect.sync(() => {
-        native.startBackend();
+      Effect.gen(function* () {
+        const connections = yield* AIProviderConnections;
+        native.startBackend(connections);
         return { failure: Effect.never };
       }),
       () =>
@@ -97,5 +105,36 @@ it.each([true, false])(
     expect(native.stopBackend).toHaveBeenCalledOnce();
     expect(await readFile(filename, "utf8")).toBe(contents);
     expect(app.eventNames()).toEqual([]);
+    expect(native.encryptionAvailable).not.toHaveBeenCalled();
   },
 );
+
+it("shares provider connections with the backend within each application lifetime", async () => {
+  vi.clearAllMocks();
+  const profile = await mkdtemp(join(tmpdir(), "stargeist-connections-application-"));
+  onTestFinished(() => rm(profile, { recursive: true, force: true }));
+  native.getPath.mockReturnValue(profile);
+
+  const first = await Effect.runPromise(
+    DesktopApplication.make.pipe(
+      Effect.map((services) => {
+        expect(services.aiProviderConnections).toBe(native.startBackend.mock.calls[0]?.[0]);
+        return services.aiProviderConnections;
+      }),
+      Effect.scoped,
+    ),
+  );
+  const second = await Effect.runPromise(
+    DesktopApplication.make.pipe(
+      Effect.map((services) => {
+        expect(services.aiProviderConnections).toBe(native.startBackend.mock.calls[1]?.[0]);
+        return services.aiProviderConnections;
+      }),
+      Effect.scoped,
+    ),
+  );
+
+  expect(second).not.toBe(first);
+  expect(native.stopBackend).toHaveBeenCalledTimes(2);
+  expect(native.encryptionAvailable).not.toHaveBeenCalled();
+});

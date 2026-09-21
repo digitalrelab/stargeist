@@ -6,6 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./ai": "./src/ai/index.ts",
     ".": "./src/index.ts",
     "./filesystem": "./src/filesystem/index.ts",
     "./workspaces": "./src/workspaces/index.ts",
