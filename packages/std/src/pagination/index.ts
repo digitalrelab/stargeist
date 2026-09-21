@@ -1,5 +1,5 @@
-import { Effect, Schema } from "effect";
-import { Atom, AsyncResult } from "effect/unstable/reactivity";
+import { Effect, Schema, type Scope } from "effect";
+import { Atom, AtomRegistry, AsyncResult } from "effect/unstable/reactivity";
 
 export type Cursor = string | number;
 
@@ -16,14 +16,16 @@ export interface Source<A, C extends Cursor, E> {
 export interface Pagination<A, C extends Cursor, E> {
   readonly initial: Atom.Atom<Page<A, C>>;
   readonly pages: (cursor: C) => Atom.Atom<AsyncResult.AsyncResult<Page<A, C>, E>>;
+  readonly read: PageReader<C, Page<A, C>, E>;
   readonly reset: Atom.Writable<void, Source<A, C, E>>;
 }
 
 export function make<A, C extends Cursor, E>(initialSource: Source<A, C, E>): Pagination<A, C, E> {
   const source = Atom.make({ value: initialSource });
   const initial = Atom.make((get) => get(source).value.initial);
-  const pages = pageFamily((get, cursor: C) => {
+  const { pages, read } = pageFamily((get, cursor: C) => {
     const current = get(source).value;
+
     return Effect.suspend(() => current.read(cursor));
   });
   const reset = Atom.writable(
@@ -31,7 +33,7 @@ export function make<A, C extends Cursor, E>(initialSource: Source<A, C, E>): Pa
     (ctx, replacement: Source<A, C, E>) => ctx.set(source, { value: replacement }),
   );
 
-  return { initial, pages, reset };
+  return { initial, pages, read, reset };
 }
 
 export interface Extent {
@@ -53,6 +55,7 @@ export interface IndexedPagination<A, C extends Cursor, E> {
   readonly pages: (
     offset: number,
   ) => Atom.Atom<AsyncResult.AsyncResult<Page<A, C>, E | PaginationError>>;
+  readonly read: PageReader<number, Page<A, C>, E | PaginationError>;
   readonly reset: Atom.Writable<void, IndexedSource<A, C, E>>;
   readonly pageOffset: (index: number) => number;
 }
@@ -99,6 +102,7 @@ export function makeIndexed<A, C extends Cursor, E>(options: {
   const session = Atom.make(sessionFor(options.source));
   const extent = Atom.make((get): Extent => {
     const progress = get(get(session).progress);
+
     return { count: progress.count, hasMore: progress.next !== null };
   });
   const reset = Atom.writable(
@@ -106,7 +110,7 @@ export function makeIndexed<A, C extends Cursor, E>(options: {
     (ctx, source: IndexedSource<A, C, E>) => ctx.set(session, sessionFor(source)),
   );
 
-  const pages = pageFamily((get, offset: number) => {
+  const { pages, read } = pageFamily((get, offset: number) => {
     const current = get(session);
 
     return Effect.gen(function* () {
@@ -116,9 +120,12 @@ export function makeIndexed<A, C extends Cursor, E>(options: {
         ),
       );
 
-      if (offset === 0) return current.source.initial;
+      if (offset === 0) {
+        return current.source.initial;
+      }
 
       const previous = get.once(current.progress);
+
       if (offset > previous.count || (offset === previous.count && previous.next === null)) {
         return yield* new PaginationError({
           code: "InvalidOffset",
@@ -127,11 +134,13 @@ export function makeIndexed<A, C extends Cursor, E>(options: {
       }
 
       let cursor: C;
+
       if (offset === previous.count && previous.next !== null) {
         cursor = previous.next;
       } else {
         cursor = current.source.cursorAt(offset);
       }
+
       const page = yield* current.source.read(cursor);
       yield* decodePage({ length: page.items.length, hasMore: page.next !== null }).pipe(
         Effect.mapError(
@@ -145,6 +154,7 @@ export function makeIndexed<A, C extends Cursor, E>(options: {
 
       const latest = get.once(current.progress);
       const count = offset + page.items.length;
+
       if (count > latest.count) {
         get.set(current.progress, { count, next: page.next });
       } else if (count === latest.count && page.next === null && latest.next !== null) {
@@ -155,19 +165,52 @@ export function makeIndexed<A, C extends Cursor, E>(options: {
     });
   });
 
-  return { extent, pages, reset, pageOffset: (index) => Math.floor(index / pageSize) * pageSize };
+  return {
+    extent,
+    pages,
+    read,
+    reset,
+    pageOffset: (index) => Math.floor(index / pageSize) * pageSize,
+  };
 }
 
-function pageFamily<K, A, E>(read: (get: Atom.AtomContext, key: K) => Effect.Effect<A, E>) {
-  return Atom.family((key: K) =>
-    Atom.make((get) => read(get, key)).pipe(
-      Atom.setIdleTTL(0),
-      Atom.map((result): AsyncResult.AsyncResult<A, E> => {
-        if (result.waiting) return AsyncResult.initial(true);
-        if (result._tag === "Failure") return AsyncResult.failure(result.cause);
-        return result;
-      }),
-      Atom.setIdleTTL(0),
-    ),
+type PageReader<K, A, E> = (
+  key: K,
+  options?: { readonly retry?: boolean },
+) => Effect.Effect<A, E, AtomRegistry.AtomRegistry | Scope.Scope>;
+
+function pageFamily<K, A, E>(fetch: (get: Atom.AtomContext, key: K) => Effect.Effect<A, E>) {
+  const requests = Atom.family((key: K) =>
+    Atom.make((get) => fetch(get, key)).pipe(Atom.setIdleTTL(0)),
   );
+
+  const pages = Atom.family((key: K) =>
+    Atom.map(requests(key), (result): AsyncResult.AsyncResult<A, E> => {
+      if (result.waiting) {
+        return AsyncResult.initial(true);
+      }
+
+      if (result._tag === "Failure") {
+        return AsyncResult.failure(result.cause);
+      }
+
+      return result;
+    }).pipe(Atom.setIdleTTL(0)),
+  );
+
+  const read = Effect.fnUntraced(function* (key: K, options?: { readonly retry?: boolean }) {
+    const registry = yield* AtomRegistry.AtomRegistry;
+    const request = requests(key);
+    yield* AtomRegistry.mount(registry, request);
+
+    const result = registry.get(request);
+
+    if (options?.retry && result._tag === "Failure" && !result.waiting) {
+      registry.refresh(request);
+    }
+
+    return yield* AtomRegistry.getResult(registry, request, { suspendOnWaiting: true });
+  });
+
+  return { pages, read };
 }

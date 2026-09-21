@@ -1,4 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { SettingsLayout } from "#src/settings/index.ts";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { SettingsSidebar } from "#src/settings/index.ts";
 
-export const Route = createFileRoute("/settings")({ component: SettingsLayout });
+export const Route = createFileRoute("/settings")({
+  component: Outlet,
+  staticData: { primarySidebar: SettingsSidebar },
+});

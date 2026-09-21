@@ -1,11 +1,12 @@
-import { colors, radii, space } from "@stargeist/ui/tokens.stylex";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps } from "react";
+import { surface } from "./surface";
 
 type Props<T extends "div" | "main" | "header"> = Omit<ComponentProps<T>, "className" | "style">;
 
 export function Root(props: Props<"div">) {
-  return <div {...props} {...stylex.props(styles.root)} />;
+  return <div {...props} {...stylex.props(surface.root, styles.root)} />;
 }
 
 export function Page(props: Props<"main">) {
@@ -25,14 +26,6 @@ const styles = stylex.create({
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr)",
     gridTemplateRows: "minmax(0, 1fr)",
-    minWidth: 0,
-    minHeight: 0,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.lg,
-    overflow: "hidden",
   },
   page: {
     display: "flex",

@@ -1,0 +1,89 @@
+import { useAtomValue } from "@effect/atom-react";
+import { Button, CloseIcon, typography } from "@stargeist/ui";
+import { colors, fonts, space } from "@stargeist/ui/tokens.stylex";
+import * as stylex from "@stylexjs/stylex";
+import { useId } from "react";
+import { SecondarySidebar } from "#src/shell/index.ts";
+import { FileKind } from "../file-kind";
+import { useFileInspection } from "./context";
+import { describeFileInspection, type FileInspection } from "./state";
+
+export function FileInspector() {
+  const inspection = useFileInspection();
+  const { close } = inspection;
+  const target = useAtomValue(inspection.target);
+  const headingId = useId();
+
+  if (!target) {
+    return null;
+  }
+
+  return (
+    <SecondarySidebar.Root aria-labelledby={headingId}>
+      <SecondarySidebar.Header>
+        <h2 id={headingId} {...stylex.props(typography.label, styles.heading)}>
+          File details
+        </h2>
+        <Button appearance="ghost" size="icon" aria-label="Close file inspector" onClick={close}>
+          <CloseIcon aria-hidden="true" />
+        </Button>
+      </SecondarySidebar.Header>
+      <SecondarySidebar.Content>
+        <InspectionContent target={target} />
+      </SecondarySidebar.Content>
+    </SecondarySidebar.Root>
+  );
+}
+
+function InspectionContent({ target }: { target: FileInspection }) {
+  const description = describeFileInspection(target);
+
+  if (description.type === "selection") {
+    return <p {...stylex.props(typography.label)}>{description.label}</p>;
+  }
+
+  const { folder } = target.files;
+
+  return (
+    <dl {...stylex.props(typography.label, styles.details)}>
+      <div {...stylex.props(styles.field)}>
+        <dt {...stylex.props(styles.label)}>Name</dt>
+        <dd {...stylex.props(styles.value)} data-selectable>
+          {description.name}
+        </dd>
+      </div>
+      {description.kind && (
+        <div {...stylex.props(styles.field)}>
+          <dt {...stylex.props(styles.label)}>Kind</dt>
+          <dd {...stylex.props(styles.kind)}>
+            <FileKind.Icon kind={description.kind} decorative />
+            <FileKind.Label kind={description.kind} />
+          </dd>
+        </div>
+      )}
+      {folder && (
+        <div {...stylex.props(styles.field)}>
+          <dt {...stylex.props(styles.label)}>Folder</dt>
+          <dd {...stylex.props(styles.value)} data-selectable>
+            {folder}
+          </dd>
+        </div>
+      )}
+    </dl>
+  );
+}
+
+const styles = stylex.create({
+  heading: { minWidth: 0, overflowWrap: "anywhere" },
+  details: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space[6],
+    fontWeight: fonts.regular,
+    margin: 0,
+  },
+  field: { display: "flex", flexDirection: "column", gap: space[2], minWidth: 0 },
+  label: { color: colors.textMuted },
+  value: { overflowWrap: "anywhere", margin: 0 },
+  kind: { display: "flex", alignItems: "center", gap: space[2], margin: 0 },
+});
