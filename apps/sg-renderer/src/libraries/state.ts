@@ -1,8 +1,14 @@
-import type { DirectoryListingPage, WorkspaceId, LibraryId } from "@stargeist/domain";
+import type { ListingId, WorkspaceId, LibraryId } from "@stargeist/domain";
 import { Effect } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { canRetryFailure } from "#src/client/index.ts";
+import { createFileListing, type FileListing } from "#src/files/index.ts";
 import type { LibrariesClient } from "./client";
+
+export interface LibraryListing {
+  readonly id: ListingId;
+  readonly files: FileListing;
+}
 
 export const createLibraryState = (client: LibrariesClient) => {
   const libraries = Atom.family((workspaceId: WorkspaceId) =>
@@ -29,6 +35,13 @@ export const createLibraryState = (client: LibrariesClient) => {
           Effect.suspend(() => client.openDirectory({ workspaceId, id })),
           (page) => client.closeDirectory({ listingId: page.listingId }).pipe(Effect.ignore),
           { interruptible: true },
+        ).pipe(
+          Effect.map((initial): LibraryListing => ({
+            id: initial.listingId,
+            files: createFileListing(initial, (offset) =>
+              client.readDirectory({ listingId: initial.listingId, offset }),
+            ),
+          })),
         ),
       ).pipe(Atom.setIdleTTL(0));
 
@@ -66,33 +79,7 @@ export const createLibraryState = (client: LibrariesClient) => {
     }),
   );
 
-  const directoryView = (initial: DirectoryListingPage) => {
-    const extent = Atom.make({ count: initial.entries.length, hasMore: initial.hasMore });
-
-    const pages = Atom.family((offset: number) => {
-      if (offset === 0) return Atom.make(AsyncResult.success(initial));
-
-      return Atom.make((get) =>
-        Effect.gen(function* () {
-          const page = yield* client.readDirectory({ listingId: initial.listingId, offset });
-
-          const previous = get.once(extent);
-
-          if (offset + page.entries.length >= previous.count) {
-            get.set(extent, { count: offset + page.entries.length, hasMore: page.hasMore });
-          }
-
-          return page;
-        }),
-      ).pipe(Atom.setIdleTTL(0));
-    });
-
-    return { extent, pages };
-  };
-
-  return { libraries, addLibrary, detail, directoryView };
+  return { libraries, addLibrary, detail };
 };
 
 export type LibraryState = ReturnType<typeof createLibraryState>;
-
-export type DirectoryView = ReturnType<LibraryState["directoryView"]>;
