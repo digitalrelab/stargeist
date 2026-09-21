@@ -2,7 +2,7 @@ import { WorkspaceId } from "@stargeist/domain/workspaces";
 import { LibraryId } from "@stargeist/domain/libraries";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { LibraryPage } from "#src/libraries/index.ts";
+import { LibraryPage } from "#src/libraries/pages.ts";
 
 export const Route = createFileRoute("/_workspaces/workspaces/$workspaceId/libraries/$libraryId/")({
   params: {

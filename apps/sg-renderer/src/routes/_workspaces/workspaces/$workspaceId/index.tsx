@@ -1,7 +1,7 @@
 import { WorkspaceId } from "@stargeist/domain/workspaces";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { WorkspacePage } from "#src/workspaces/index.ts";
+import { WorkspacePage } from "#src/workspaces/pages.ts";
 
 export const Route = createFileRoute("/_workspaces/workspaces/$workspaceId/")({
   params: {
