@@ -4,10 +4,8 @@ import {
   type DirectoryListingPage,
   entryPageSize,
 } from "@stargeist/domain/filesystem";
-import { Button } from "@stargeist/ui/button";
-import { colors } from "@stargeist/ui/colors.stylex";
-import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
+import { Button, typography } from "@stargeist/ui";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";

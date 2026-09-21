@@ -1,10 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Button } from "@stargeist/ui/button";
-import { SettingsIcon } from "@stargeist/ui/icons";
-import * as Sidebar from "@stargeist/ui/sidebar";
-import { colors } from "@stargeist/ui/colors.stylex";
-import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
+import { Button, SettingsIcon, Sidebar, typography } from "@stargeist/ui";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";

@@ -1,10 +1,8 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { DirectoryListingPage } from "@stargeist/domain/filesystem";
 import { WorkspaceId } from "@stargeist/domain/workspaces";
-import { Button } from "@stargeist/ui/button";
-import { colors } from "@stargeist/ui/colors.stylex";
-import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
+import { Button, typography } from "@stargeist/ui";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
