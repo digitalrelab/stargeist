@@ -20,9 +20,9 @@ export function developmentTool(context: ToolingContext) {
     }
 
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
-      bin: string | Record<string, string>;
+      bin: Record<string, string>;
     };
-    const entry = typeof manifest.bin === "string" ? manifest.bin : manifest.bin[binary];
+    const entry = manifest.bin[binary];
 
     if (!entry) {
       throw new Error(`Missing ${binary} executable.`);
