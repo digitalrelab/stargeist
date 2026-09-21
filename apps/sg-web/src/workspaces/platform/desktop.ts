@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
 import { DesktopConnection, desktopConnectionLayer } from "#src/desktop/index.ts";
-import { WorkspacesClient, makeRpcWorkspacesClient } from "#src/workspaces/rpc.ts";
+import { WorkspacesClient } from "../client";
+import { makeRpcWorkspacesClient } from "../rpc";
 
 export const workspacesLayer = Layer.effect(
   WorkspacesClient,

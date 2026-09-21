@@ -11,7 +11,7 @@ import { typography } from "@stargeist/ui/typography";
 import * as stylex from "@stylexjs/stylex";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
-import { failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
 import { useWorkspaceState, type DirectoryView } from "#src/workspaces/index.ts";
 
 const rowHeight = 40;
@@ -109,9 +109,11 @@ function PageRows({
         {result._tag === "Failure" ? (
           <>
             <span role="alert">{failureMessage(result.cause)}</span>
-            <Button appearance="soft" size="sm" onClick={refresh}>
-              Retry
-            </Button>
+            {canRetryFailure(result.cause) && (
+              <Button appearance="soft" size="sm" onClick={refresh} disabled={result.waiting}>
+                Retry
+              </Button>
+            )}
           </>
         ) : (
           <span role="status">Loading entries…</span>

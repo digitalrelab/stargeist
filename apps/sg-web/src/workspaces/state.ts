@@ -2,7 +2,7 @@ import type { DirectoryListingPage } from "@stargeist/domain/filesystem";
 import type { WorkspaceId } from "@stargeist/domain/workspaces";
 import { Effect, type Layer } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
-import type { ClientUnavailableError } from "#src/rpc/index.ts";
+import { canRetryFailure, type ClientUnavailableError } from "#src/rpc/index.ts";
 import { WorkspacesClient } from "./client";
 
 export type WorkspaceClientLayer = Layer.Layer<WorkspacesClient, ClientUnavailableError>;
@@ -25,12 +25,9 @@ export const createWorkspaceState = (layer: WorkspaceClientLayer) => {
     }),
   );
 
-  const workspace = Atom.family((id: WorkspaceId) =>
-    runtime.atom(Effect.flatMap(WorkspacesClient, (client) => client.get({ id }))),
-  );
-
-  const directory = Atom.family((id: WorkspaceId) =>
-    runtime
+  const detail = Atom.family((id: WorkspaceId) => {
+    const metadata = runtime.atom(Effect.flatMap(WorkspacesClient, (client) => client.get({ id })));
+    const listing = runtime
       .atom(
         Effect.gen(function* () {
           const client = yield* WorkspacesClient;
@@ -40,8 +37,37 @@ export const createWorkspaceState = (layer: WorkspaceClientLayer) => {
           );
         }),
       )
-      .pipe(Atom.setIdleTTL(0)),
-  );
+      .pipe(Atom.setIdleTTL(0));
+
+    return Atom.readable(
+      (get) => {
+        const details = get(metadata);
+        const entries = get(listing);
+
+        return {
+          workspace: details._tag === "Success" ? details.value : undefined,
+          listing:
+            details._tag === "Failure"
+              ? AsyncResult.failure<
+                  DirectoryListingPage,
+                  AsyncResult.AsyncResult.Failure<typeof details>
+                >(details.cause, {
+                  waiting: details.waiting,
+                })
+              : entries,
+          canRefresh:
+            !details.waiting &&
+            !entries.waiting &&
+            (details._tag !== "Failure" || canRetryFailure(details.cause)) &&
+            (entries._tag !== "Failure" || canRetryFailure(entries.cause)),
+        };
+      },
+      (refresh) => {
+        refresh(metadata);
+        refresh(listing);
+      },
+    ).pipe(Atom.setIdleTTL(0));
+  });
 
   const directoryView = (initial: DirectoryListingPage) => {
     const extent = Atom.make({ count: initial.entries.length, hasMore: initial.hasMore });
@@ -70,7 +96,7 @@ export const createWorkspaceState = (layer: WorkspaceClientLayer) => {
     return { extent, pages };
   };
 
-  return { runtime, workspaces, createWorkspace, workspace, directory, directoryView };
+  return { runtime, workspaces, createWorkspace, detail, directoryView };
 };
 
 export type WorkspaceState = ReturnType<typeof createWorkspaceState>;

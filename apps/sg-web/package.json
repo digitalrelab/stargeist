@@ -6,9 +6,9 @@
   "type": "module",
   "imports": {
     "#src/*": "./src/*",
-    "#platform": {
-      "stargeist-desktop": "./src/platform/desktop.ts",
-      "default": "./src/platform/web.ts"
+    "#workspaces/platform": {
+      "stargeist-desktop": "./src/workspaces/platform/desktop.ts",
+      "default": "./src/workspaces/platform/web.ts"
     }
   },
   "exports": {

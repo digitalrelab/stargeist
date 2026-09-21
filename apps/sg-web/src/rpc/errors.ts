@@ -6,6 +6,13 @@ export class ClientUnavailableError extends Data.TaggedError("ClientUnavailableE
   readonly cause?: unknown;
 }> {}
 
+export const canRetryFailure = (cause: Cause.Cause<unknown>) => {
+  const error = Cause.squash(cause);
+  return !(
+    error instanceof ClientUnavailableError || error instanceof RpcClientError.RpcClientError
+  );
+};
+
 export const failureMessage = (cause: Cause.Cause<unknown>) => {
   const error = Cause.squash(cause);
 

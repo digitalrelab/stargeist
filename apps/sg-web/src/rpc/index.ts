@@ -1,1 +1,1 @@
-export { ClientUnavailableError, failureMessage } from "./errors";
+export { ClientUnavailableError, canRetryFailure, failureMessage } from "./errors";

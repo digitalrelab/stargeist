@@ -6,16 +6,49 @@ import { space } from "@stargeist/ui/tokens.stylex";
 import { typography } from "@stargeist/ui/typography";
 import * as stylex from "@stylexjs/stylex";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
 import { useWorkspaceState } from "#src/workspaces/index.ts";
 
 export function WorkspaceSidebar() {
+  const { runtime } = useWorkspaceState();
+  const startup = useAtomValue(runtime);
+
+  return (
+    <Sidebar.Root aria-label="Workspaces">
+      <Sidebar.Header>
+        <Link to="/" {...stylex.props(styles.brand, typography.label)}>
+          Stargeist
+        </Link>
+        {startup._tag === "Success" ? (
+          <CreateWorkspace />
+        ) : (
+          <Button disabled>Create workspace</Button>
+        )}
+      </Sidebar.Header>
+      <Sidebar.Nav aria-label="Remembered workspaces">
+        {startup._tag === "Success" ? (
+          <WorkspaceNavigation />
+        ) : (
+          <p {...stylex.props(styles.message, typography.label)}>
+            {startup._tag === "Failure" ? "Workspaces unavailable." : "Opening workspaces…"}
+          </p>
+        )}
+      </Sidebar.Nav>
+    </Sidebar.Root>
+  );
+}
+
+function CreateWorkspace() {
   const { createWorkspace } = useWorkspaceState();
   const creation = useAtomValue(createWorkspace);
   const create = useAtomSet(createWorkspace, { mode: "promiseExit" });
   const navigate = useNavigate();
+  const canCreate =
+    !creation.waiting && (creation._tag !== "Failure" || canRetryFailure(creation.cause));
 
   const chooseFolder = async () => {
+    if (!canCreate) return;
+
     const result = await create();
 
     if (result._tag !== "Success" || !result.value) return;
@@ -24,24 +57,16 @@ export function WorkspaceSidebar() {
   };
 
   return (
-    <Sidebar.Root aria-label="Workspaces">
-      <Sidebar.Header>
-        <Link to="/" {...stylex.props(styles.brand, typography.label)}>
-          Stargeist
-        </Link>
-        <Button onClick={() => void chooseFolder()} disabled={creation.waiting}>
-          {creation.waiting ? "Choosing folder…" : "Create workspace"}
-        </Button>
-        {creation._tag === "Failure" && (
-          <p {...stylex.props(styles.message, typography.label)} role="alert">
-            {failureMessage(creation.cause)}
-          </p>
-        )}
-      </Sidebar.Header>
-      <Sidebar.Nav aria-label="Remembered workspaces">
-        <WorkspaceNavigation />
-      </Sidebar.Nav>
-    </Sidebar.Root>
+    <>
+      <Button onClick={() => void chooseFolder()} disabled={!canCreate}>
+        {creation.waiting ? "Choosing folder…" : "Create workspace"}
+      </Button>
+      {creation._tag === "Failure" && (
+        <p {...stylex.props(styles.message, typography.label)} role="alert">
+          {failureMessage(creation.cause)}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -56,9 +81,11 @@ function WorkspaceNavigation() {
         <p {...stylex.props(styles.message, typography.label)} role="alert">
           {failureMessage(list.cause)}
         </p>
-        <Button appearance="ghost" size="sm" onClick={refresh}>
-          Retry
-        </Button>
+        {canRetryFailure(list.cause) && (
+          <Button appearance="ghost" size="sm" onClick={refresh} disabled={list.waiting}>
+            Retry
+          </Button>
+        )}
       </div>
     );
   }
