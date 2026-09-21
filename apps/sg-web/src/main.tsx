@@ -1,3 +1,4 @@
+import { RegistryProvider } from "@effect/atom-react";
 import { reportFailure } from "@stargeist/std/errors";
 import { colors } from "@stargeist/ui/colors.stylex";
 import { typography } from "@stargeist/ui/typography";
@@ -34,6 +35,8 @@ createRoot(root, {
   onRecoverableError: (error) => Effect.runSync(reportFailure("web.recover", Cause.die(error))),
 }).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <RegistryProvider>
+      <RouterProvider router={router} />
+    </RegistryProvider>
   </StrictMode>,
 );

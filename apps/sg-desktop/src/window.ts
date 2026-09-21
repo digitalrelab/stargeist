@@ -2,12 +2,14 @@ import { join } from "node:path";
 import { Module } from "@stargeist/application";
 import { BrowserWindow } from "electron";
 import { Context, Data, Effect, Layer } from "effect";
+import { Backend } from "./backend";
 
 export class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
   readonly cause: unknown;
 }> {}
 
 const openWindow = Effect.gen(function* () {
+  const backend = yield* Backend;
   const window = yield* Effect.acquireRelease(
     Effect.sync(() => {
       const window = new BrowserWindow({
@@ -19,11 +21,18 @@ const openWindow = Effect.gen(function* () {
         backgroundColor: "#111113",
         show: false,
         autoHideMenuBar: true,
-        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+        webPreferences: {
+          preload: join(__dirname, "preload.js"),
+          nodeIntegration: false,
+          contextIsolation: true,
+          sandbox: true,
+        },
       });
 
       window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-      window.webContents.on("will-navigate", (event) => event.preventDefault());
+      window.webContents.on("will-navigate", (event) => {
+        if (event.url !== window.webContents.getURL()) event.preventDefault();
+      });
       window.webContents.session.setPermissionRequestHandler((_webContents, _permission, respond) =>
         respond(false),
       );
@@ -36,6 +45,8 @@ const openWindow = Effect.gen(function* () {
         if (!window.isDestroyed()) window.destroy();
       }),
   );
+
+  yield* backend.connect(window.webContents);
 
   yield* Effect.tryPromise({
     try: () =>
@@ -55,11 +66,13 @@ const openWindow = Effect.gen(function* () {
   });
 }).pipe(Effect.scoped);
 
-class Windows extends Context.Service<Windows, { readonly open: typeof openWindow }>()(
-  "@stargeist/desktop/Windows",
-) {}
+class Windows extends Context.Service<Windows>()("@stargeist/desktop/Windows", {
+  make: Effect.map(Backend, (backend) => ({
+    open: openWindow.pipe(Effect.provideService(Backend, backend)),
+  })),
+}) {}
 
 export const WindowsModule = Module.define({
   exports: Windows,
-  layer: Layer.succeed(Windows, { open: openWindow }),
+  layer: Layer.effect(Windows, Windows.make),
 });

@@ -1,17 +1,26 @@
-import { Application } from "@stargeist/application";
+import { Application, Module } from "@stargeist/application";
 import { reportFailure } from "@stargeist/std/errors";
 import { app, BrowserWindow } from "electron";
 import squirrelStartup from "electron-squirrel-startup";
 import { Deferred, Effect, FiberSet } from "effect";
 import { configureDevelopmentProfile } from "./development-profile";
+import { Backend, backendLayer } from "./backend";
 import { WindowsModule, type WindowLoadError } from "./window";
 
-const Desktop = Application.define({ modules: { windows: WindowsModule } });
+const Desktop = Application.define({
+  modules: {
+    windows: WindowsModule,
+    backend: Module.define({ exports: Backend, layer: backendLayer }),
+  },
+  provide: backendLayer,
+});
 
 const program = Effect.gen(function* () {
   yield* configureDevelopmentProfile;
   yield* Effect.promise(() => app.whenReady());
+
   const shutdown = yield* Deferred.make<void, WindowLoadError>();
+
   const quit = (event: Electron.Event) => {
     event.preventDefault();
     Effect.runSync(Deferred.succeed(shutdown, undefined));
@@ -29,14 +38,17 @@ const program = Effect.gen(function* () {
 
   const desktop = yield* Desktop.make;
   const runWindow = yield* FiberSet.makeRuntime();
+
   const launchWindow = () => {
     runWindow(
       desktop.windows.open.pipe(Effect.catchCause((cause) => Deferred.failCause(shutdown, cause))),
     );
   };
+
   const activate = () => {
     if (BrowserWindow.getAllWindows().length === 0) launchWindow();
   };
+
   const close = () => {
     if (process.platform !== "darwin") app.quit();
   };
@@ -55,7 +67,7 @@ const program = Effect.gen(function* () {
 
   launchWindow();
 
-  yield* Deferred.await(shutdown);
+  yield* Deferred.await(shutdown).pipe(Effect.raceFirst(desktop.backend.failure));
 }).pipe(
   Effect.scoped,
   Effect.matchCauseEffect({

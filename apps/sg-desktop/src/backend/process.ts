@@ -1,0 +1,63 @@
+import { join } from "node:path";
+import { app, utilityProcess } from "electron";
+import { Data, Deferred, Effect } from "effect";
+
+class BackendError extends Data.TaggedError("BackendError")<{ readonly message: string }> {}
+
+export const startBackendProcess = Effect.gen(function* () {
+  const exited = yield* Deferred.make<number>();
+
+  const child = yield* Effect.acquireRelease(
+    Effect.sync(() => {
+      const child = utilityProcess.fork(join(__dirname, "backend.js"), [app.getPath("userData")], {
+        serviceName: "Stargeist backend",
+      });
+
+      child.once("exit", (code) => Effect.runSync(Deferred.succeed(exited, code)));
+
+      return child;
+    }),
+    (child) =>
+      Effect.gen(function* () {
+        if (child.pid === undefined) return;
+
+        yield* Effect.sync(() => child.postMessage({ type: "stop" }));
+
+        yield* Deferred.await(exited).pipe(
+          Effect.timeout("5 seconds"),
+          Effect.catch(() =>
+            Effect.sync(() => {
+              child.kill();
+            }),
+          ),
+        );
+      }),
+  );
+
+  yield* Effect.callback<void, BackendError>((resume) => {
+    const ready = (data: unknown) => {
+      if (data && typeof data === "object" && "type" in data && data.type === "ready") {
+        resume(Effect.void);
+      }
+    };
+
+    child.on("message", ready);
+
+    return Effect.sync(() => {
+      child.removeListener("message", ready);
+    });
+  }).pipe(
+    Effect.raceFirst(
+      Deferred.await(exited).pipe(
+        Effect.andThen(Effect.fail(new BackendError({ message: "The backend could not start." }))),
+      ),
+    ),
+    Effect.timeout("15 seconds"),
+  );
+
+  const failure = Deferred.await(exited).pipe(
+    Effect.andThen(Effect.fail(new BackendError({ message: "The backend stopped unexpectedly." }))),
+  );
+
+  return { child, failure };
+});

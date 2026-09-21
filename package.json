@@ -7,6 +7,7 @@
   ],
   "type": "module",
   "scripts": {
+    "postinstall": "bun run --cwd apps/sg-web generate",
     "dev": "bun run --cwd apps/sg-desktop dev",
     "dev:web": "bun run --cwd apps/sg-web dev",
     "build": "bun run build:web && bun run package",

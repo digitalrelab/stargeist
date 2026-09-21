@@ -3,6 +3,7 @@ dist/
 out/
 .vite/
 .cache/
+.generated/
 coverage/
 *.tsbuildinfo
 *.log

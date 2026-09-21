@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./button": "./src/button.tsx",
+    "./sidebar": "./src/sidebar.tsx",
     "./colors.stylex": "./src/colors.stylex.ts",
     "./tokens.stylex": "./src/tokens.stylex.ts",
     "./typography": "./src/typography.ts"

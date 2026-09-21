@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import stylex from "@stylexjs/unplugin";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
 
@@ -10,6 +11,7 @@ const developmentSocketOrigin = process.env.PORTLESS_URL
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
   plugins: [
+    tanstackRouter({ target: "react", autoCodeSplitting: true }),
     stylex.vite({
       useCSSLayers: { before: ["reset"] },
       unstable_moduleResolution: {

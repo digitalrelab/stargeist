@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./errors": "./src/errors.ts"
+    "./errors": "./src/errors.ts",
+    "./id": "./src/id.ts",
+    "./rpc": "./src/rpc.ts"
   },
   "dependencies": {
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "typeid-js": "1.2.0"
   }
 }

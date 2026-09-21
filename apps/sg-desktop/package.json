@@ -19,6 +19,8 @@
     "@electron-forge/plugin-vite": "7.11.2",
     "@electron-forge/shared-types": "7.11.2",
     "@stargeist/application": "workspace:*",
+    "@stargeist/database": "workspace:*",
+    "@stargeist/domain": "workspace:*",
     "@stargeist/std": "workspace:*",
     "@stargeist/web": "workspace:*",
     "@types/electron-squirrel-startup": "1.0.2",

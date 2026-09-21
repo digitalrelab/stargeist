@@ -3,25 +3,38 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#src/*": "./src/*",
+    "#platform": {
+      "stargeist-desktop": "./src/platform/desktop.ts",
+      "default": "./src/platform/web.ts"
+    }
+  },
   "exports": {
     "./vite": "./vite.config.ts"
   },
   "scripts": {
+    "generate": "tsr generate",
     "dev": "portless \"$(bun scripts/dev-name.ts)\" vp dev",
     "build": "vp build",
     "preview": "vp preview"
   },
   "dependencies": {
+    "@effect/atom-react": "4.0.0-rc.116",
+    "@stargeist/domain": "workspace:*",
     "@stargeist/std": "workspace:*",
     "@stargeist/ui": "workspace:*",
     "@stylexjs/stylex": "catalog:",
     "@tanstack/react-router": "1.170.38",
+    "@tanstack/react-virtual": "3.14.13",
     "effect": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
   "devDependencies": {
     "@stylexjs/unplugin": "0.19.1",
+    "@tanstack/router-cli": "1.167.38",
+    "@tanstack/router-plugin": "1.168.40",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "6.1.1",

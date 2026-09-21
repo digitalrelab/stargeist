@@ -43,14 +43,33 @@
   }
 }
 
-:where(
-  button,
-  [role="button"],
-  input[type="button"],
-  input[type="submit"],
-  input[type="reset"],
-  input[type="image"]
-),
-:where(button, [role="button"]) * {
+*,
+*::before,
+*::after {
   cursor: default !important;
+}
+
+:where(
+  input:not([type]),
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="url"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  [contenteditable=""],
+  [contenteditable="true"],
+  [contenteditable="plaintext-only"],
+  [data-selectable]
+),
+:where(
+    [contenteditable=""],
+    [contenteditable="true"],
+    [contenteditable="plaintext-only"],
+    [data-selectable]
+  )
+  * {
+  cursor: text !important;
 }
