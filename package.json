@@ -19,11 +19,15 @@
     "check": "vp check",
     "typecheck": "tsc --build",
     "fmt": "vp fmt",
-    "test": "vp test run"
+    "test": "vp test run",
+    "checks": "node tooling/checks/bin/checks.mjs",
+    "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json"
   },
   "devDependencies": {
+    "@stargeist/checks": "workspace:*",
     "@stargeist/dev-tools": "workspace:*",
     "@types/node": "26.6.2",
+    "nx": "23.2.1",
     "typescript": "7.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
@@ -47,6 +51,24 @@
     "react-dom": "19.3.0",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.3.3",
     "vite-plus": "0.3.3"
+  },
+  "nx": {
+    "includedScripts": [
+      "check",
+      "typecheck:tools"
+    ],
+    "targets": {
+      "typecheck:tools": {
+        "dependsOn": [
+          {
+            "projects": [
+              "@stargeist/renderer"
+            ],
+            "target": "generate"
+          }
+        ]
+      }
+    }
   },
   "trustedDependencies": [
     "electron",

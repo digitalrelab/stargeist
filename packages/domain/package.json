@@ -12,8 +12,18 @@
     "./libraries": "./src/libraries/index.ts",
     "./user-preferences": "./src/user-preferences/index.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@stargeist/std": "workspace:*",
     "effect": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ]
   }
 }

@@ -11,7 +11,9 @@
     "./filesystem": "./src/filesystem/index.ts"
   },
   "scripts": {
-    "schema:generate": "bun generate-schema.ts"
+    "schema:generate": "bun generate-schema.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test run --root ../.. packages/database/src --maxWorkers 2"
   },
   "dependencies": {
     "@effect/sql-sqlite-node": "4.0.0-rc.116",
@@ -22,5 +24,12 @@
   },
   "devDependencies": {
     "drizzle-kit": "1.0.0-rc.5-5935859"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ]
   }
 }

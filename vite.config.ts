@@ -23,6 +23,8 @@ const platformImports = [
   "drizzle-orm/*",
 ];
 const appImports = [
+  "@stargeist/checks",
+  "@stargeist/checks/*",
   "@stargeist/renderer",
   "@stargeist/renderer/*",
   "@stargeist/desktop",
@@ -55,6 +57,11 @@ const uiImports = [
 ];
 
 const boundaries = [
+  {
+    files: ["tooling/checks/src/**"],
+    portable: false,
+    patterns: [...appImports, ...featureImports, "@stargeist/database", "@stargeist/database/*"],
+  },
   {
     files: ["tooling/dev/src/**"],
     portable: false,

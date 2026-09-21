@@ -9,6 +9,9 @@
     "./tokens.stylex": "./src/tokens.stylex.ts",
     "./reset.css": "./src/reset.css"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@base-ui/react": "1.8.0",
     "@stylexjs/stylex": "catalog:",
@@ -21,5 +24,12 @@
   "peerDependencies": {
     "react": "catalog:",
     "react-dom": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ]
   }
 }

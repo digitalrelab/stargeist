@@ -10,6 +10,10 @@
   "exports": {
     "./vite": "./src/desktop/vite.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test run --root ../.. tooling/dev/src --maxWorkers 2"
+  },
   "dependencies": {
     "@effect/platform-node": "4.0.0-rc.116",
     "effect": "catalog:",
@@ -21,5 +25,12 @@
     "@types/semver": "7.8.0",
     "electron": "44.4.3",
     "vite": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ]
   }
 }
