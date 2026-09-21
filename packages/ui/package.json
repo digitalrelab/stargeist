@@ -15,7 +15,7 @@
     "./vite": "./vite.config.ts"
   },
   "scripts": {
-    "storybook": "storybook dev --host localhost --port 6006 --no-open",
+    "storybook": "sg dev ui",
     "build-storybook": "storybook build --output-dir dist/storybook"
   },
   "dependencies": {
@@ -24,6 +24,7 @@
     "lucide-react": "1.47.0"
   },
   "devDependencies": {
+    "@stargeist/dev-tools": "workspace:*",
     "@storybook/addon-docs": "10.6.0",
     "@storybook/react-vite": "10.6.0",
     "@stylexjs/unplugin": "0.19.1",

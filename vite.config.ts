@@ -23,6 +23,8 @@ const appImports = [
   "@stargeist/renderer/*",
   "@stargeist/desktop",
   "@stargeist/desktop/*",
+  "@stargeist/dev-tools",
+  "@stargeist/dev-tools/*",
 ];
 const featureImports = [
   "@stargeist/domain",
@@ -39,6 +41,11 @@ const uiImports = [
 ];
 
 const boundaries = [
+  {
+    files: ["tooling/dev/src/**"],
+    portable: false,
+    patterns: appImports,
+  },
   {
     files: ["apps/sg-renderer/src/**"],
     portable: true,
@@ -96,6 +103,10 @@ const boundaries = [
 ];
 
 export default defineConfig({
+  staged: {
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix --no-error-on-unmatched-pattern",
+    "*.{json,jsonc,md,mdx,yaml,yml,css,scss,html}": "vp fmt --no-error-on-unmatched-pattern",
+  },
   lint: {
     options: { typeAware: true, typeCheck: true },
     ignorePatterns: ["**/dist/**", "**/out/**", "**/.vite/**", "**/.generated/**", ".agents/**"],
@@ -104,6 +115,7 @@ export default defineConfig({
         files,
         rules: {
           "no-restricted-imports": ["error", { patterns: [sourceImports, ...patterns] }],
+          curly: files[0]?.startsWith("tooling/") ? "error" : "off",
         },
       },
       {
@@ -131,5 +143,7 @@ export default defineConfig({
       "skills-lock.json",
     ],
   },
-  test: { include: ["packages/**/*.test.ts", "apps/*/src/**/*.test.ts"] },
+  test: {
+    include: ["packages/**/*.test.ts", "apps/*/src/**/*.test.ts", "tooling/*/src/**/*.test.ts"],
+  },
 });

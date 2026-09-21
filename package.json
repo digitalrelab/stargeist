@@ -4,13 +4,15 @@
   "license": "Apache-2.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tooling/*"
   ],
   "type": "module",
   "scripts": {
+    "prepare": "vp config --no-agent",
     "postinstall": "bun run --cwd apps/sg-renderer generate",
-    "dev": "bun run --cwd apps/sg-desktop dev",
-    "dev:ui": "bun run --cwd packages/ui storybook",
+    "dev": "sg dev",
+    "dev:ui": "sg dev ui",
     "build": "bun run package",
     "build:renderer": "bun run --cwd apps/sg-renderer build",
     "build:ui": "bun run --cwd packages/ui build-storybook",
@@ -22,12 +24,14 @@
     "test": "vp test run"
   },
   "devDependencies": {
+    "@stargeist/dev-tools": "workspace:*",
     "@types/node": "26.6.2",
     "typescript": "7.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
   "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.116",
     "vite": "catalog:",
     "vitest": "4.1.11"
   },

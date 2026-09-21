@@ -13,6 +13,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  VP_GIT_HOOKS: "0"
+
 jobs:
   build:
     strategy:
