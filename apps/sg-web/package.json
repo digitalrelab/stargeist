@@ -16,7 +16,7 @@
   },
   "scripts": {
     "generate": "tsr generate",
-    "dev": "portless \"$(bun scripts/dev-name.ts)\" vp dev",
+    "dev": "sg dev web",
     "build": "vp build",
     "preview": "vp preview"
   },
@@ -33,13 +33,13 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@stargeist/dev-tools": "workspace:*",
     "@stylexjs/unplugin": "0.19.1",
     "@tanstack/router-cli": "1.167.38",
     "@tanstack/router-plugin": "1.168.40",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "6.1.1",
-    "portless": "0.15.6",
     "vite-plus": "catalog:"
   }
 }

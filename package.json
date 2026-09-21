@@ -4,13 +4,15 @@
   "license": "Apache-2.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tooling/*"
   ],
   "type": "module",
   "scripts": {
+    "prepare": "vp config --no-agent",
     "postinstall": "bun run --cwd apps/sg-web generate",
-    "dev": "bun run --cwd apps/sg-desktop dev",
-    "dev:web": "bun run --cwd apps/sg-web dev",
+    "dev": "sg dev",
+    "dev:web": "sg dev web",
     "build": "bun run build:web && bun run package",
     "build:web": "bun run --cwd apps/sg-web build",
     "package": "bun run --cwd apps/sg-desktop package",
@@ -21,12 +23,14 @@
     "test": "vp test run"
   },
   "devDependencies": {
+    "@stargeist/dev-tools": "workspace:*",
     "@types/node": "26.6.2",
     "typescript": "7.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
   "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.116",
     "vite": "catalog:",
     "vitest": "4.1.11"
   },

@@ -6,8 +6,8 @@
   "include": [
     "*.config.ts",
     "apps/*/*.config.ts",
-    "apps/sg-web/scripts/dev-name.ts",
     "packages/**/*.test.ts",
-    "apps/*/src/**/*.test.ts"
+    "apps/*/src/**/*.test.ts",
+    "tooling/*/src/**/*.test.ts"
   ]
 }
