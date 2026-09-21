@@ -5,18 +5,31 @@ import { MakerZIP } from "@electron-forge/maker-zip";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 
+const executableName = "Stargeist";
+
+const linuxPackageOptions = {
+  name: "stargeist",
+  bin: executableName,
+  homepage: "https://github.com/digitalrelab/stargeist",
+};
+
 export default {
-  packagerConfig: { asar: true, name: "Stargeist", appBundleId: "com.digitalrelab.stargeist" },
+  packagerConfig: {
+    asar: true,
+    name: executableName,
+    executableName,
+    appBundleId: "com.digitalrelab.stargeist",
+  },
   makers: [
-    new MakerSquirrel({ name: "Stargeist" }),
+    new MakerSquirrel({ name: executableName }),
     new MakerZIP({}, ["darwin"]),
     new MakerDeb({
       options: {
+        ...linuxPackageOptions,
         maintainer: "digitalrelab",
-        homepage: "https://github.com/digitalrelab/stargeist",
       },
     }),
-    new MakerRpm({ options: { homepage: "https://github.com/digitalrelab/stargeist" } }),
+    new MakerRpm({ options: linuxPackageOptions }),
   ],
   plugins: [
     new VitePlugin({

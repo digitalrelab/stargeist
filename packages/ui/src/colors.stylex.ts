@@ -22,6 +22,7 @@ export const colors = stylex.defineVars({
   text: slateDark.slate12,
   textMuted: slateDark.slate11,
   textDisabled: slateDark.slate10,
+  borderSubtle: slateDark.slate3,
   border: slateDark.slate6,
   borderStrong: slateDark.slate8,
   action: slateDark.slate12,

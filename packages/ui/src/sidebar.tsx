@@ -31,10 +31,6 @@ const styles = stylex.create({
     minHeight: 0,
     gap: space[4],
     padding: space[4],
-    backgroundColor: colors.surface,
-    borderRightWidth: 1,
-    borderRightStyle: "solid",
-    borderRightColor: colors.border,
   },
   header: { display: "flex", flexDirection: "column", gap: space[4] },
   navigation: {
