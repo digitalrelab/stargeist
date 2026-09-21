@@ -2,9 +2,9 @@ import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { entryPageSize } from "@stargeist/domain/filesystem";
-import { Effect, Exit, Scope } from "effect";
+import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { AppDirectories, directoriesLayer } from "../storage";
+import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { openListing } from "./index";
 
 async function createFixture(names: string[] = []) {
@@ -15,7 +15,10 @@ async function createFixture(names: string[] = []) {
   await mkdir(content);
   await Promise.all(names.map((name) => writeFile(join(content, name), "")));
 
-  return { content, layer: directoriesLayer(join(root, "profile")) };
+  return {
+    content,
+    layer: temporaryStorageLayer.pipe(Layer.provide(pathsLayer(join(root, "profile")))),
+  };
 }
 
 describe("directory listings", () => {
@@ -65,22 +68,22 @@ describe("directory listings", () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        const paths = yield* AppDirectories;
+        const paths = yield* TemporaryStorage;
         const firstScope = yield* Scope.fork(yield* Effect.scope);
         const secondScope = yield* Scope.fork(yield* Effect.scope);
         const first = yield* openListing(content).pipe(Scope.provide(firstScope));
         const second = yield* openListing(content).pipe(Scope.provide(secondScope));
 
         expect(first.listingId).not.toBe(second.listingId);
-        expect(yield* Effect.promise(() => readdir(paths.temporary))).toHaveLength(2);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(2);
 
         yield* Scope.close(firstScope, Exit.void);
 
-        expect(yield* Effect.promise(() => readdir(paths.temporary))).toHaveLength(1);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(1);
         expect((yield* second.read(0)).entries).toEqual([{ name: "file.txt", kind: "file" }]);
 
         yield* Scope.close(secondScope, Exit.void);
-        expect(yield* Effect.promise(() => readdir(paths.temporary))).toEqual([]);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
   });

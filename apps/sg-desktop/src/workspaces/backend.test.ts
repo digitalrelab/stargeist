@@ -1,11 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
 import { RpcTest } from "effect/unstable/rpc";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { BackendApplication } from "../backend/application";
-import { directoriesLayer } from "../storage";
+import { pathsLayer, temporaryStorageLayer } from "../storage";
 import { backendHandlers } from "../backend/server";
 import { ControlRpcs, RendererRpcs } from "../backend/rpc";
 
@@ -80,7 +80,24 @@ it("creates a workspace and first library from a folder and browses the selected
         first,
         second,
       ]);
-    }).pipe(Effect.scoped, Effect.provide(directoriesLayer(join(root, "profile")))),
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(join(root, "profile")))),
+      ),
+    ),
+  );
+  expect(await readdir(join(root, "profile", "temporary"))).toEqual([]);
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const application = yield* BackendApplication.make;
+      const workspaces = yield* application.workspaces.list;
+      expect(workspaces.map((workspace) => workspace.displayName).sort()).toEqual([
+        "Archive",
+        "Interviews",
+      ]);
+      expect(yield* Effect.promise(() => readdir(join(root, "profile", "temporary")))).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(pathsLayer(join(root, "profile")))),
   );
   expect(await readFile(join(interviews, "interview.txt"), "utf8")).toBe("original");
 });

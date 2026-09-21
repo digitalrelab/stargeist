@@ -1,16 +1,18 @@
 import { join } from "node:path";
-import { app, utilityProcess } from "electron";
+import { utilityProcess } from "electron";
 import { Data, Deferred, Effect } from "effect";
+import { StoragePaths } from "../storage";
 
 class BackendError extends Data.TaggedError("BackendError")<{ readonly message: string }> {}
 
 export const startBackendProcess = Effect.gen(function* () {
+  const { profile } = yield* StoragePaths;
   const exited = yield* Deferred.make<number>();
   const onExit = (code: number) => Effect.runSync(Deferred.succeed(exited, code));
 
   const child = yield* Effect.acquireRelease(
     Effect.sync(() => {
-      const child = utilityProcess.fork(join(__dirname, "backend.js"), [app.getPath("userData")], {
+      const child = utilityProcess.fork(join(__dirname, "backend.js"), [profile], {
         serviceName: "Stargeist backend",
       });
 

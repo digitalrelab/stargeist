@@ -1,6 +1,6 @@
 import { reportFailure } from "@stargeist/std/errors";
-import { Deferred, Effect, Fiber, FiberSet } from "effect";
-import { AppDirectories, directoriesLayer } from "../storage";
+import { Deferred, Effect, Fiber, FiberSet, Layer } from "effect";
+import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { BackendApplication } from "./application";
 import { makeBackendServer } from "./server";
 
@@ -15,7 +15,7 @@ const parent = process.parentPort;
 const program = Effect.gen(function* () {
   const backend = yield* BackendApplication.make;
   const stop = yield* Deferred.make<void>();
-  const run = yield* FiberSet.makeRuntime<AppDirectories>();
+  const run = yield* FiberSet.makeRuntime<TemporaryStorage>();
 
   const sessions = new Map<string, Fiber.Fiber<unknown, unknown>>();
 
@@ -74,7 +74,10 @@ const program = Effect.gen(function* () {
 
   parent.postMessage({ type: "ready" });
   yield* Deferred.await(stop);
-}).pipe(Effect.scoped, Effect.provide(directoriesLayer(profile)));
+}).pipe(
+  Effect.scoped,
+  Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+);
 
 Effect.runFork(
   program.pipe(

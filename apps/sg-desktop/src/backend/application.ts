@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Application } from "@stargeist/application";
 import { sqliteLayer } from "@stargeist/database";
 import { repositoryLayer as libraryRepositoryLayer } from "@stargeist/database/libraries";
@@ -6,12 +7,14 @@ import { LibrariesModule } from "@stargeist/domain/libraries/service";
 import { repositoryLayer } from "@stargeist/database/workspaces";
 import { WorkspacesModule } from "@stargeist/domain/workspaces/service";
 import { Effect, Layer } from "effect";
-import { AppDirectories } from "../storage";
+import { StoragePaths } from "../storage";
 
 const database = Layer.unwrap(
-  Effect.map(AppDirectories, ({ data }) =>
-    sqliteLayer({ filename: join(data, "stargeist.sqlite") }),
-  ),
+  Effect.gen(function* () {
+    const { database } = yield* StoragePaths;
+    yield* Effect.promise(() => mkdir(dirname(database), { recursive: true }));
+    return sqliteLayer({ filename: database });
+  }),
 );
 
 export const BackendApplication = Application.define({

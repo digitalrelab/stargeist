@@ -1,12 +1,12 @@
 import { EventEmitter } from "node:events";
 import { Cause, Deferred, Effect, Fiber } from "effect";
 import { beforeEach, expect, it, onTestFinished, vi } from "vite-plus/test";
+import { pathsLayer } from "../storage";
 import { startBackendProcess } from "./process";
 
 const native = vi.hoisted(() => ({ fork: vi.fn() }));
 
 vi.mock("electron", () => ({
-  app: { getPath: () => "/test-profile" },
   utilityProcess: { fork: native.fork },
 }));
 
@@ -29,7 +29,9 @@ function backend() {
     return child;
   });
 
-  const fiber = Effect.runFork(startBackendProcess.pipe(Effect.scoped));
+  const fiber = Effect.runFork(
+    startBackendProcess.pipe(Effect.scoped, Effect.provide(pathsLayer("/test-profile"))),
+  );
   onTestFinished(async () => {
     child.emit("exit", 0);
     await Effect.runPromise(Fiber.interrupt(fiber));
@@ -50,6 +52,11 @@ it("waits for a backend cancelled before spawn to stop", async () => {
   const stopping = Effect.runFork(Fiber.interrupt(runtime.fiber));
   await wait(Deferred.await(runtime.stopRequested));
 
+  expect(native.fork).toHaveBeenCalledExactlyOnceWith(
+    expect.stringContaining("backend.js"),
+    ["/test-profile"],
+    { serviceName: "Stargeist backend" },
+  );
   expect(runtime.child.pid).toBeUndefined();
   expect(runtime.child.postMessage).toHaveBeenCalledExactlyOnceWith({ type: "stop" });
   expect(stopping.pollUnsafe()).toBeUndefined();

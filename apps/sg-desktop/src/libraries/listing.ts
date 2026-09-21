@@ -2,7 +2,7 @@ import type { DirectoryError, ListingId } from "@stargeist/domain/filesystem";
 import { LibraryError } from "@stargeist/domain/libraries";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import { openListing } from "../filesystem";
-import { AppDirectories } from "../storage";
+import { TemporaryStorage } from "../storage";
 
 const libraryError = (error: DirectoryError) =>
   new LibraryError({ code: error.code, message: error.message });
@@ -20,7 +20,7 @@ type ActiveListing = {
 
 export const makeLibraryListing = Effect.gen(function* () {
   const parent = yield* Effect.scope;
-  const appDirectories = yield* AppDirectories;
+  const temporaryStorage = yield* TemporaryStorage;
   const lock = yield* Semaphore.make(1);
 
   let active: ActiveListing | undefined;
@@ -42,7 +42,7 @@ export const makeLibraryListing = Effect.gen(function* () {
     return yield* openListing(path).pipe(
       Effect.mapError(libraryError),
       Scope.provide(scope),
-      Effect.provideService(AppDirectories, appDirectories),
+      Effect.provideService(TemporaryStorage, temporaryStorage),
       Effect.map((snapshot) => {
         active = { scope, snapshot };
 
