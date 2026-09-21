@@ -6,6 +6,7 @@ import {
   ChevronsUpDown,
   Settings2,
   Palette,
+  Sparkles,
   File,
   FileQuestionMark,
   Folder,
@@ -46,6 +47,10 @@ export function SettingsIcon(props: LucideProps) {
 
 export function AppearanceIcon(props: LucideProps) {
   return <Palette size={control.iconSize} {...props} />;
+}
+
+export function AIIcon(props: LucideProps) {
+  return <Sparkles size={control.iconSize} {...props} />;
 }
 
 export function CheckIcon(props: LucideProps) {

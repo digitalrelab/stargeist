@@ -4,6 +4,7 @@ export {
   BackIcon,
   SettingsIcon,
   AppearanceIcon,
+  AIIcon,
   FileIcon,
   FolderIcon,
   LinkIcon,

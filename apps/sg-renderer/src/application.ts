@@ -4,12 +4,17 @@ import type { DesktopConnection } from "#src/desktop/index.ts";
 import type { ClientUnavailableError } from "#src/client/index.ts";
 import { LibraryStateModule } from "#src/libraries/desktop.ts";
 import { WorkspaceStateModule } from "#src/workspaces/desktop.ts";
+import { AIProviderConnectionsStateModule } from "#src/ai/desktop.ts";
 
 export const createRendererApplication = (
   connection: Layer.Layer<DesktopConnection, ClientUnavailableError>,
 ) =>
   Application.define({
-    modules: { workspaces: WorkspaceStateModule, libraries: LibraryStateModule },
+    modules: {
+      workspaces: WorkspaceStateModule,
+      libraries: LibraryStateModule,
+      aiProviderConnections: AIProviderConnectionsStateModule,
+    },
     provide: connection,
   });
 
