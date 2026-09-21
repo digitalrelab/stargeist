@@ -1,17 +1,8 @@
 import { Button, BackIcon, Sidebar, typography } from "@stargeist/ui";
 import * as stylex from "@stylexjs/stylex";
-import { Link, Outlet } from "@tanstack/react-router";
-import { AppShell } from "#src/shell/index.ts";
+import { Link } from "@tanstack/react-router";
 
-export function SettingsLayout() {
-  return (
-    <AppShell sidebar={<SettingsSidebar />}>
-      <Outlet />
-    </AppShell>
-  );
-}
-
-function SettingsSidebar() {
+export function SettingsSidebar() {
   return (
     <Sidebar.Root aria-label="Settings">
       <Sidebar.Header>

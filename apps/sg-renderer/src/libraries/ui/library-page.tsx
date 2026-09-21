@@ -5,7 +5,7 @@ import { colors, fonts, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import type { AsyncResult } from "effect/unstable/reactivity";
 import { failureMessage } from "#src/client/index.ts";
-import { FileList } from "#src/files/views.ts";
+import { FileBrowser } from "#src/files/views.ts";
 import { WorkArea } from "#src/shell/index.ts";
 import type { LibraryListing } from "../state";
 import { useLibraryState } from "./use-state";
@@ -47,7 +47,12 @@ export function LibraryPage({
         </Button>
       </WorkArea.Header>
       <WorkArea.Content>
-        <LibraryEntries entries={listing} retry={retry} />
+        <LibraryEntries
+          entries={listing}
+          retry={retry}
+          libraryId={libraryId}
+          folder={library?.source.path}
+        />
       </WorkArea.Content>
     </WorkArea.Page>
   );
@@ -56,12 +61,23 @@ export function LibraryPage({
 function LibraryEntries({
   entries,
   retry,
+  libraryId,
+  folder,
 }: {
   entries: AsyncResult.AsyncResult<LibraryListing, unknown>;
   retry: (() => void) | undefined;
+  libraryId: LibraryId;
+  folder: string | undefined;
 }) {
   if (entries._tag === "Success" && !entries.waiting) {
-    return <FileList key={entries.value.id} listing={entries.value.files} />;
+    return (
+      <FileBrowser
+        key={entries.value.id}
+        listing={entries.value.files}
+        libraryId={libraryId}
+        folder={folder}
+      />
+    );
   }
 
   if (entries._tag === "Failure" && !entries.waiting) {
