@@ -3,10 +3,10 @@ import { Button, SettingsIcon, Sidebar, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Link, useParams } from "@tanstack/react-router";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
 import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
-import { useLibraryState, AddLibrary } from "#src/libraries/index.ts";
-import { CreateWorkspace, useWorkspaceState } from "#src/workspaces/index.ts";
+import { LibraryNavigation } from "#src/libraries/index.ts";
+import { CreateWorkspace } from "./create-workspace";
+import { useWorkspaceState } from "./use-state";
 
 export function WorkspaceSidebar() {
   return (
@@ -89,69 +89,7 @@ function WorkspaceNavigation() {
   ));
 }
 
-function LibraryNavigation({ workspaceId }: { workspaceId: WorkspaceId }) {
-  return (
-    <div {...stylex.props(styles.libraries)}>
-      <LibraryLinks workspaceId={workspaceId} />
-      <AddLibrary workspaceId={workspaceId} />
-    </div>
-  );
-}
-
-function LibraryLinks({ workspaceId }: { workspaceId: WorkspaceId }) {
-  const { libraries } = useLibraryState();
-  const list = useAtomValue(libraries(workspaceId));
-  const refresh = useAtomRefresh(libraries(workspaceId));
-
-  if (list._tag === "Failure") {
-    return (
-      <>
-        <p role="alert" {...stylex.props(styles.message, typography.label)}>
-          {failureMessage(list.cause)}
-        </p>
-        {canRetryFailure(list.cause) && (
-          <Button appearance="ghost" size="sm" onClick={refresh} disabled={list.waiting}>
-            Retry
-          </Button>
-        )}
-      </>
-    );
-  }
-
-  if (list._tag !== "Success") {
-    return (
-      <p role="status" {...stylex.props(styles.message, typography.label)}>
-        Loading libraries…
-      </p>
-    );
-  }
-
-  if (list.value.length === 0) {
-    return <p {...stylex.props(styles.message, typography.label)}>No libraries yet.</p>;
-  }
-
-  return list.value.map((library) => (
-    <Sidebar.Link
-      key={library.id}
-      render={
-        <Link
-          to="/workspaces/$workspaceId/libraries/$libraryId"
-          params={{ workspaceId, libraryId: library.id }}
-        />
-      }
-    >
-      {library.displayName}
-    </Sidebar.Link>
-  ));
-}
-
 const styles = stylex.create({
-  libraries: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space[1],
-    paddingInlineStart: space[3],
-  },
   brand: { color: colors.text, textDecoration: "none", paddingBlock: space[2] },
   message: { color: colors.textMuted, overflowWrap: "anywhere" },
   error: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space[2] },
