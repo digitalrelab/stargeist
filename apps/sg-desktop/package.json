@@ -21,6 +21,7 @@
     "@electron-forge/shared-types": "7.11.2",
     "@stargeist/application": "workspace:*",
     "@stargeist/database": "workspace:*",
+    "@stargeist/dev-tools": "workspace:*",
     "@stargeist/domain": "workspace:*",
     "@stargeist/std": "workspace:*",
     "@stargeist/web": "workspace:*",

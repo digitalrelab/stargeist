@@ -3,7 +3,6 @@ import { reportFailure } from "@stargeist/std/errors";
 import { app, BrowserWindow } from "electron";
 import squirrelStartup from "electron-squirrel-startup";
 import { Deferred, Effect, FiberSet } from "effect";
-import { configureDevelopmentProfile } from "./development-profile";
 import { Backend, backendLayer } from "./backend";
 import { WindowsModule, type WindowLoadError } from "./window";
 
@@ -16,7 +15,6 @@ const Desktop = Application.define({
 });
 
 const program = Effect.gen(function* () {
-  yield* configureDevelopmentProfile;
   yield* Effect.promise(() => app.whenReady());
 
   const shutdown = yield* Deferred.make<void, WindowLoadError>();

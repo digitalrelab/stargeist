@@ -4,13 +4,16 @@
   "license": "Apache-2.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tooling/*"
   ],
   "type": "module",
   "scripts": {
+    "prepare": "vp config --no-agent",
     "postinstall": "bun run --cwd apps/sg-web generate",
     "dev": "bun run --cwd apps/sg-desktop dev",
     "dev:web": "bun run --cwd apps/sg-web dev",
+    "sg": "bun run --cwd tooling/dev cli",
     "build": "bun run build:web && bun run package",
     "build:web": "bun run --cwd apps/sg-web build",
     "package": "bun run --cwd apps/sg-desktop package",
@@ -27,6 +30,7 @@
     "vite-plus": "catalog:"
   },
   "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.116",
     "vite": "catalog:",
     "vitest": "4.1.11"
   },

@@ -1,14 +1,35 @@
 {
   "files": [],
   "references": [
-    { "path": "./apps/sg-web" },
-    { "path": "./apps/sg-desktop" },
-    { "path": "./apps/sg-desktop/tsconfig.preload.json" },
-    { "path": "./packages/ui" },
-    { "path": "./packages/std" },
-    { "path": "./packages/application" },
-    { "path": "./packages/domain" },
-    { "path": "./packages/database" },
-    { "path": "./tsconfig.tools.json" }
+    {
+      "path": "./apps/sg-web"
+    },
+    {
+      "path": "./apps/sg-desktop"
+    },
+    {
+      "path": "./apps/sg-desktop/tsconfig.preload.json"
+    },
+    {
+      "path": "./packages/ui"
+    },
+    {
+      "path": "./packages/std"
+    },
+    {
+      "path": "./packages/application"
+    },
+    {
+      "path": "./packages/domain"
+    },
+    {
+      "path": "./packages/database"
+    },
+    {
+      "path": "./tsconfig.tools.json"
+    },
+    {
+      "path": "./tooling/dev"
+    }
   ]
 }
