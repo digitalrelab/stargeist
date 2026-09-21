@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { WorkspaceError } from "@stargeist/domain/workspaces";
+import { LibraryError } from "@stargeist/domain/libraries";
 import { Cause, Effect, Logger, References, Schema } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { selectedFolder } from "./selected-folder";
@@ -20,12 +20,12 @@ it("logs filesystem diagnostics without exposing the failing path in the public 
     selectedFolder(path).pipe(Effect.flip, Effect.provide(Logger.layer([logger]))),
   );
 
-  expect(Schema.encodeSync(WorkspaceError)(error)).toEqual({
-    _tag: "WorkspaceError",
+  expect(Schema.encodeSync(LibraryError)(error)).toEqual({
+    _tag: "LibraryError",
     code: "FolderUnavailable",
     message: "This folder is unavailable or cannot be read. Check its location and permissions.",
   });
   expect(entries).toHaveLength(1);
-  expect(entries[0]?.operation).toBe("workspaces.folder.resolve");
+  expect(entries[0]?.operation).toBe("libraries.folder.resolve");
   expect(Cause.squash(entries[0]!.cause)).toMatchObject({ cause: { code: "ENOENT", path } });
 });

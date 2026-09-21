@@ -1,13 +1,17 @@
+import { Library, type LibrarySource, makeLibraryId } from "@stargeist/domain/libraries";
 import {
   Workspace,
   WorkspaceError,
   type WorkspaceId,
   makeWorkspaceId,
 } from "@stargeist/domain/workspaces";
-import { WorkspaceRepository, type SelectedFolder } from "@stargeist/domain/workspaces/repository";
+import { WorkspaceRepository } from "@stargeist/domain/workspaces/repository";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Layer, Schema } from "effect";
-import { SqlClient } from "effect/unstable/sql";
+import { desc, eq } from "drizzle-orm";
+import { Database } from "../sqlite";
+import { libraries } from "../libraries/schema";
+import { workspaces } from "./schema";
 
 const storageError = () =>
   new WorkspaceError({
@@ -15,72 +19,86 @@ const storageError = () =>
     message: "Workspace records could not be read or saved. Try again.",
   });
 
-const decode = Schema.decodeUnknownEffect(Schema.Array(Workspace));
+const decodeWorkspaces = Schema.decodeUnknownEffect(Schema.Array(Workspace));
+
+const notFound = () =>
+  new WorkspaceError({ code: "NotFound", message: "This workspace is no longer available." });
 
 export const repositoryLayer = Layer.effect(
   WorkspaceRepository,
   Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient;
+    const database = yield* Database;
 
-    const list = sql`
-      SELECT id, name, root_path AS rootPath, created_at AS createdAt, opened_at AS openedAt
-      FROM workspaces
-      ORDER BY opened_at DESC, id
-    `.pipe(
-      Effect.flatMap(decode),
-      Effect.onError((cause) => reportFailure("workspaces.list", cause)),
-      Effect.mapError(storageError),
-    );
+    const list = database
+      .select()
+      .from(workspaces)
+      .orderBy(desc(workspaces.createdAt), workspaces.id)
+      .all()
+      .pipe(
+        Effect.flatMap(decodeWorkspaces),
+        Effect.onError((cause) => reportFailure("workspaces.list", cause)),
+        Effect.mapError(storageError),
+      );
 
     const get = (id: WorkspaceId) =>
       Effect.gen(function* () {
-        const rows = yield* sql`
-          SELECT id, name, root_path AS rootPath, created_at AS createdAt, opened_at AS openedAt
-          FROM workspaces
-          WHERE id = ${id}
-        `.pipe(
-          Effect.flatMap(decode),
-          Effect.onError((cause) => reportFailure("workspaces.get", cause)),
-          Effect.mapError(storageError),
-        );
+        const rows = yield* database
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.id, id))
+          .all()
+          .pipe(
+            Effect.flatMap(decodeWorkspaces),
+            Effect.onError((cause) => reportFailure("workspaces.get", cause)),
+            Effect.mapError(storageError),
+          );
 
         const workspace = rows[0];
 
         if (!workspace) {
-          return yield* Effect.fail(
-            new WorkspaceError({
-              code: "NotFound",
-              message: "This workspace is no longer available.",
-            }),
-          );
+          return yield* Effect.fail(notFound());
         }
 
         return workspace;
       });
 
-    const register = (folder: SelectedFolder, now: number) =>
+    const create = (displayName: string, source: typeof LibrarySource.Type, now: number) =>
       Effect.gen(function* () {
-        const id = yield* makeWorkspaceId;
-        const rows = yield* sql`
-          INSERT INTO workspaces (id, identity, name, root_path, created_at, opened_at)
-          VALUES (${id}, ${folder.identity}, ${folder.name}, ${folder.rootPath}, ${now}, ${now})
-          ON CONFLICT(identity) DO UPDATE SET
-            root_path = excluded.root_path,
-            name = excluded.name,
-            opened_at = excluded.opened_at
-          RETURNING id, name, root_path AS rootPath, created_at AS createdAt, opened_at AS openedAt
-        `;
+        const workspaceId = yield* makeWorkspaceId;
+        const libraryId = yield* makeLibraryId;
+        const workspace = new Workspace({ id: workspaceId, displayName, createdAt: now });
+        const library = new Library({
+          id: libraryId,
+          workspaceId,
+          displayName,
+          source,
+          createdAt: now,
+        });
 
-        const [workspace] = yield* decode(rows);
+        yield* database.transaction((transaction) =>
+          Effect.gen(function* () {
+            yield* transaction.insert(workspaces).values(workspace).run();
 
-        if (!workspace) return yield* Effect.fail(storageError());
+            yield* transaction
+              .insert(libraries)
+              .values({
+                id: library.id,
+                workspaceId,
+                displayName,
+                sourceKind: source.kind,
+                sourcePath: source.path,
+                createdAt: now,
+              })
+              .run();
+          }),
+        );
 
-        return workspace;
+        return { workspace, library };
       }).pipe(
-        Effect.onError((cause) => reportFailure("workspaces.register", cause)),
+        Effect.onError((cause) => reportFailure("workspaces.create", cause)),
         Effect.mapError(storageError),
       );
 
-    return { list, get, register } satisfies WorkspaceRepository["Service"];
+    return { list, get, create } satisfies WorkspaceRepository["Service"];
   }),
 );

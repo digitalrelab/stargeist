@@ -1,34 +1,16 @@
 import { WorkspaceError } from "@stargeist/domain/workspaces";
 import { WorkspaceDialogRpcs } from "@stargeist/domain/workspaces/rpc";
 import { reportFailure } from "@stargeist/std/errors";
-import { BrowserWindow, dialog, type WebContents } from "electron";
+import type { WebContents } from "electron";
 import { Cause, Effect } from "effect";
-import type { RpcClient, RpcClientError } from "effect/unstable/rpc";
-import { WorkspaceControlRpcs } from "./control";
-
-export { WorkspaceDialogRpcs } from "@stargeist/domain/workspaces/rpc";
-export { WorkspaceControlRpcs } from "./control";
-
-export type WorkspaceControlClient = RpcClient.FromGroup<
-  typeof WorkspaceControlRpcs,
-  RpcClientError.RpcClientError
->;
+import type { WorkspaceControlClient } from "./control";
+import { chooseFolder } from "../filesystem/host";
 
 export const workspaceDialogHandlers = (contents: WebContents, client: WorkspaceControlClient) =>
   WorkspaceDialogRpcs.toLayer({
-    create: () =>
+    "workspaces.create": () =>
       Effect.gen(function* () {
-        const window = BrowserWindow.fromWebContents(contents);
-
-        if (!window) return null;
-
-        const result = yield* Effect.tryPromise(() =>
-          dialog.showOpenDialog(window, {
-            title: "Create workspace",
-            buttonLabel: "Use folder",
-            properties: ["openDirectory"],
-          }),
-        ).pipe(
+        const path = yield* chooseFolder(contents, "Create workspace").pipe(
           Effect.onError((cause) => reportFailure("workspaces.dialog.open", cause)),
           Effect.mapError(
             () =>
@@ -39,13 +21,11 @@ export const workspaceDialogHandlers = (contents: WebContents, client: Workspace
           ),
         );
 
-        const path = result.filePaths[0];
+        if (!path) return null;
 
-        if (result.canceled || !path) return null;
-
-        return yield* client.register({ path }).pipe(
+        return yield* client["workspaces.create"]({ path }).pipe(
           Effect.catchTag("RpcClientError", (error) =>
-            reportFailure("workspaces.dialog.register", Cause.fail(error)).pipe(
+            reportFailure("workspaces.dialog.save", Cause.fail(error)).pipe(
               Effect.andThen(
                 Effect.fail(
                   new WorkspaceError({

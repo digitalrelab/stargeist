@@ -1,0 +1,5 @@
+[
+  "CREATE TABLE `libraries` (\n\t`id` text PRIMARY KEY,\n\t`workspace_id` text NOT NULL,\n\t`display_name` text NOT NULL,\n\t`source_kind` text NOT NULL,\n\t`source_path` text NOT NULL,\n\t`created_at` integer NOT NULL,\n\tCONSTRAINT `fk_libraries_workspace_id_workspaces_id_fk` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces`(`id`),\n\tCONSTRAINT \"libraries_display_name\" CHECK(length(\"display_name\") > 0),\n\tCONSTRAINT \"libraries_source_kind\" CHECK(\"source_kind\" = 'local-fs')\n);\n",
+  "CREATE TABLE `workspaces` (\n\t`id` text PRIMARY KEY,\n\t`display_name` text NOT NULL,\n\t`created_at` integer NOT NULL,\n\tCONSTRAINT \"workspaces_display_name\" CHECK(length(\"display_name\") > 0)\n);\n",
+  "CREATE INDEX `libraries_workspace_id` ON `libraries` (`workspace_id`);"
+]

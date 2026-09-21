@@ -1,29 +1,30 @@
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { WorkspaceError } from "@stargeist/domain/workspaces";
+import { LibraryError } from "@stargeist/domain/libraries";
 import { Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { AppDirectories, directoriesLayer } from "../storage";
-import { makeWorkspaceListing } from "./listing";
+import { makeLibraryListing } from "./listing";
 
 async function createFixture() {
   const root = await mkdtemp(join(tmpdir(), "stargeist-workspace-listing-test-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
+
   return { root, layer: directoriesLayer(join(root, "profile")) };
 }
 
-describe("active Workspace listing", () => {
+describe("active library listing", () => {
   it("releases failed acquisitions without leaving temporary files", async () => {
     const { root, layer } = await createFixture();
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const paths = yield* AppDirectories;
-        const listing = yield* makeWorkspaceListing;
+        const listing = yield* makeLibraryListing;
         const error = yield* listing.open(join(root, "missing")).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(WorkspaceError);
+        expect(error).toBeInstanceOf(LibraryError);
         expect(error.code).toBe("FolderUnavailable");
         expect(yield* Effect.promise(() => readdir(paths.temporary))).toEqual([]);
       }).pipe(Effect.scoped, Effect.provide(layer)),
@@ -37,7 +38,7 @@ describe("active Workspace listing", () => {
       Effect.gen(function* () {
         const paths = yield* AppDirectories;
         const scope = yield* Scope.fork(yield* Effect.scope);
-        const listing = yield* makeWorkspaceListing.pipe(Scope.provide(scope));
+        const listing = yield* makeLibraryListing.pipe(Scope.provide(scope));
         const first = yield* listing.open(root);
         const second = yield* listing.open(root);
 
@@ -62,7 +63,7 @@ describe("active Workspace listing", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const paths = yield* AppDirectories;
-        const listing = yield* makeWorkspaceListing;
+        const listing = yield* makeLibraryListing;
         const page = yield* listing.open(root);
 
         yield* listing.close(page.listingId);

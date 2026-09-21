@@ -12,7 +12,7 @@ import {
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema, Semaphore } from "effect";
 import { AppDirectories } from "../storage";
-import { openDirectoryCache } from "./cache";
+import { openDirectoryCache } from "@stargeist/database/filesystem";
 
 const expired = () =>
   new DirectoryError({

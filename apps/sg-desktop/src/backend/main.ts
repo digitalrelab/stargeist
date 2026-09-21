@@ -1,17 +1,8 @@
-import { Workspaces } from "@stargeist/domain/workspaces/service";
 import { reportFailure } from "@stargeist/std/errors";
-import { serverProtocol } from "@stargeist/std/rpc";
 import { Deferred, Effect, Fiber, FiberSet } from "effect";
-import { RpcServer } from "effect/unstable/rpc";
 import { AppDirectories, directoriesLayer } from "../storage";
-import {
-  WorkspaceRpcs,
-  WorkspaceControlRpcs,
-  workspaceHandlers,
-  workspaceControlHandlers,
-} from "../workspaces/backend";
 import { BackendApplication } from "./application";
-import { connectPort, type NativePort } from "./port";
+import { makeBackendServer } from "./server";
 
 const profile = process.argv[2];
 
@@ -28,31 +19,7 @@ const program = Effect.gen(function* () {
 
   const sessions = new Map<string, Fiber.Fiber<unknown, unknown>>();
 
-  const control = (port: NativePort) =>
-    Effect.gen(function* () {
-      const connection = connectPort(port);
-      const protocol = yield* serverProtocol(connection);
-
-      yield* RpcServer.make(WorkspaceControlRpcs).pipe(
-        Effect.provide(workspaceControlHandlers),
-        Effect.provideService(Workspaces, backend.workspaces),
-        Effect.provideService(RpcServer.Protocol, protocol),
-        Effect.raceFirst(connection.closed),
-      );
-    }).pipe(Effect.scoped);
-
-  const renderer = (port: NativePort) =>
-    Effect.gen(function* () {
-      const connection = connectPort(port);
-      const protocol = yield* serverProtocol(connection);
-
-      yield* RpcServer.make(WorkspaceRpcs, { concurrency: 8 }).pipe(
-        Effect.provide(workspaceHandlers),
-        Effect.provideService(Workspaces, backend.workspaces),
-        Effect.provideService(RpcServer.Protocol, protocol),
-        Effect.raceFirst(connection.closed),
-      );
-    }).pipe(Effect.scoped);
+  const server = makeBackendServer(backend);
 
   const receive = (event: Electron.MessageEvent) => {
     const data: unknown = event.data;
@@ -82,7 +49,7 @@ const program = Effect.gen(function* () {
 
     if (!port) return;
 
-    const task = data.type === "control" ? control(port) : renderer(port);
+    const task = data.type === "control" ? server.control(port) : server.renderer(port);
     const fiber = run(
       task.pipe(
         Effect.catchCause((cause) => reportFailure("backend.connection", cause)),

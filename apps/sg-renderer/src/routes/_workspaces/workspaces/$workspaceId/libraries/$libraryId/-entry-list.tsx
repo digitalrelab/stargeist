@@ -10,7 +10,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
 import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
-import { useWorkspaceState, type DirectoryView } from "#src/workspaces/index.ts";
+import { useLibraryState, type DirectoryView } from "#src/libraries/index.ts";
 
 const rowHeight = 40;
 
@@ -22,7 +22,7 @@ const entryLabels: Record<FileSystemEntry["kind"], string> = {
 };
 
 export function EntryList({ initial }: { initial: DirectoryListingPage }) {
-  const { directoryView } = useWorkspaceState();
+  const { directoryView } = useLibraryState();
   const view = useMemo(() => directoryView(initial), [directoryView, initial]);
   const extent = useAtomValue(view.extent);
   const viewport = useRef<HTMLDivElement>(null);

@@ -7,7 +7,9 @@
   "exports": {
     "./filesystem": "./src/filesystem/index.ts",
     "./workspaces": "./src/workspaces/index.ts",
-    "./workspaces/*": "./src/workspaces/*.ts"
+    "./workspaces/*": "./src/workspaces/*.ts",
+    "./libraries": "./src/libraries/index.ts",
+    "./libraries/*": "./src/libraries/*.ts"
   },
   "dependencies": {
     "@stargeist/application": "workspace:*",

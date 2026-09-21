@@ -1,1 +1,1 @@
-export { sqliteLayer } from "./sqlite";
+export { Database, sqliteLayer } from "./sqlite";

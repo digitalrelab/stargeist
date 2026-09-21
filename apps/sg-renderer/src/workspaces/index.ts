@@ -1,2 +1,2 @@
-export { WorkspaceProvider, useWorkspaceState } from "./provider";
-export type { DirectoryView } from "./state";
+export { useWorkspaceState } from "./use-state";
+export { CreateWorkspace } from "./create-workspace";
