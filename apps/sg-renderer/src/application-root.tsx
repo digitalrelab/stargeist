@@ -6,20 +6,20 @@ import { typography } from "@stargeist/ui/typography";
 import * as stylex from "@stylexjs/stylex";
 import { RouterProvider } from "@tanstack/react-router";
 import type { AsyncResult, Atom } from "effect/unstable/reactivity";
-import { useMemo } from "react";
 import { failureMessage, type ClientUnavailableError } from "#src/rpc/index.ts";
-import type { RendererServices } from "./application";
-import { createAppRouter } from "./router";
+import type { createAppRouter } from "./router";
 
 export function ApplicationRoot({
   startup,
 }: {
-  startup: Atom.Atom<AsyncResult.AsyncResult<RendererServices, ClientUnavailableError>>;
+  startup: Atom.Atom<
+    AsyncResult.AsyncResult<ReturnType<typeof createAppRouter>, ClientUnavailableError>
+  >;
 }) {
   const result = useAtomValue(startup);
   const retry = useAtomRefresh(startup);
 
-  if (result._tag === "Success") return <ReadyApplication application={result.value} />;
+  if (result._tag === "Success") return <RouterProvider router={result.value} />;
 
   return (
     <main {...stylex.props(styles.startup)}>
@@ -34,11 +34,6 @@ export function ApplicationRoot({
       )}
     </main>
   );
-}
-
-function ReadyApplication({ application }: { application: RendererServices }) {
-  const router = useMemo(() => createAppRouter(application), [application]);
-  return <RouterProvider router={router} />;
 }
 
 const styles = stylex.create({

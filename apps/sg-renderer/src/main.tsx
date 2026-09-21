@@ -10,6 +10,7 @@ import { createRoot } from "react-dom/client";
 import { ApplicationRoot } from "./application-root";
 import { createRendererApplication } from "./application";
 import { desktopConnectionLayer } from "./desktop/connection";
+import { createAppRouter } from "./router";
 import "./reset.css";
 
 const styles = stylex.create({
@@ -35,6 +36,12 @@ if (!root) {
 const registry = AtomRegistry.make();
 const startup = Atom.make(
   createRendererApplication(desktopConnectionLayer).make.pipe(
+    Effect.flatMap((application) =>
+      Effect.acquireRelease(
+        Effect.sync(() => createAppRouter(application)),
+        (router) => Effect.sync(() => router.history.destroy()),
+      ),
+    ),
     Effect.onError((cause) => reportFailure("renderer.startup", cause)),
   ),
 ).pipe(Atom.keepAlive);
