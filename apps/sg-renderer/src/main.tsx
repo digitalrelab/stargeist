@@ -1,7 +1,7 @@
 import { RegistryContext } from "@effect/atom-react";
 import { reportFailure } from "@stargeist/std/errors";
-import { colors } from "@stargeist/ui/colors.stylex";
-import { typography } from "@stargeist/ui/typography";
+import { typography } from "@stargeist/ui";
+import { colors } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Cause, Effect } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";

@@ -1,14 +1,12 @@
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Button } from "@stargeist/ui/button";
-import { SettingsIcon } from "@stargeist/ui/icons";
-import * as Sidebar from "@stargeist/ui/sidebar";
-import { colors } from "@stargeist/ui/colors.stylex";
-import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import { Button, SettingsIcon, Sidebar, typography } from "@stargeist/ui";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
+import type { WorkspaceId } from "@stargeist/domain/workspaces";
 import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
-import { useWorkspaceState } from "#src/workspaces/index.ts";
+import { useLibraryState, AddLibrary } from "#src/libraries/index.ts";
+import { CreateWorkspace, useWorkspaceState } from "#src/workspaces/index.ts";
 
 export function WorkspaceSidebar() {
   return (
@@ -40,39 +38,8 @@ export function WorkspaceSidebar() {
   );
 }
 
-function CreateWorkspace() {
-  const { createWorkspace } = useWorkspaceState();
-  const creation = useAtomValue(createWorkspace);
-  const create = useAtomSet(createWorkspace, { mode: "promiseExit" });
-  const navigate = useNavigate();
-  const canCreate =
-    !creation.waiting && (creation._tag !== "Failure" || canRetryFailure(creation.cause));
-
-  const chooseFolder = async () => {
-    if (!canCreate) return;
-
-    const result = await create();
-
-    if (result._tag !== "Success" || !result.value) return;
-
-    await navigate({ to: "/workspaces/$workspaceId", params: { workspaceId: result.value.id } });
-  };
-
-  return (
-    <>
-      <Button onClick={() => void chooseFolder()} disabled={!canCreate}>
-        {creation.waiting ? "Choosing folder…" : "Create workspace"}
-      </Button>
-      {creation._tag === "Failure" && (
-        <p {...stylex.props(styles.message, typography.label)} role="alert">
-          {failureMessage(creation.cause)}
-        </p>
-      )}
-    </>
-  );
-}
-
 function WorkspaceNavigation() {
+  const { workspaceId } = useParams({ strict: false });
   const { workspaces } = useWorkspaceState();
   const list = useAtomValue(workspaces);
   const refresh = useAtomRefresh(workspaces);
@@ -105,16 +72,86 @@ function WorkspaceNavigation() {
   }
 
   return list.value.map((workspace) => (
+    <div key={workspace.id}>
+      <Sidebar.Link
+        render={
+          <Link
+            to="/workspaces/$workspaceId"
+            params={{ workspaceId: workspace.id }}
+            activeOptions={{ exact: true }}
+          />
+        }
+      >
+        {workspace.displayName}
+      </Sidebar.Link>
+      {workspaceId === workspace.id && <LibraryNavigation workspaceId={workspace.id} />}
+    </div>
+  ));
+}
+
+function LibraryNavigation({ workspaceId }: { workspaceId: WorkspaceId }) {
+  return (
+    <div {...stylex.props(styles.libraries)}>
+      <LibraryLinks workspaceId={workspaceId} />
+      <AddLibrary workspaceId={workspaceId} />
+    </div>
+  );
+}
+
+function LibraryLinks({ workspaceId }: { workspaceId: WorkspaceId }) {
+  const { libraries } = useLibraryState();
+  const list = useAtomValue(libraries(workspaceId));
+  const refresh = useAtomRefresh(libraries(workspaceId));
+
+  if (list._tag === "Failure") {
+    return (
+      <>
+        <p role="alert" {...stylex.props(styles.message, typography.label)}>
+          {failureMessage(list.cause)}
+        </p>
+        {canRetryFailure(list.cause) && (
+          <Button appearance="ghost" size="sm" onClick={refresh} disabled={list.waiting}>
+            Retry
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  if (list._tag !== "Success") {
+    return (
+      <p role="status" {...stylex.props(styles.message, typography.label)}>
+        Loading libraries…
+      </p>
+    );
+  }
+
+  if (list.value.length === 0) {
+    return <p {...stylex.props(styles.message, typography.label)}>No libraries yet.</p>;
+  }
+
+  return list.value.map((library) => (
     <Sidebar.Link
-      key={workspace.id}
-      render={<Link to="/workspaces/$workspaceId" params={{ workspaceId: workspace.id }} />}
+      key={library.id}
+      render={
+        <Link
+          to="/workspaces/$workspaceId/libraries/$libraryId"
+          params={{ workspaceId, libraryId: library.id }}
+        />
+      }
     >
-      {workspace.name}
+      {library.displayName}
     </Sidebar.Link>
   ));
 }
 
 const styles = stylex.create({
+  libraries: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space[1],
+    paddingInlineStart: space[3],
+  },
   brand: { color: colors.text, textDecoration: "none", paddingBlock: space[2] },
   message: { color: colors.textMuted, overflowWrap: "anywhere" },
   error: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space[2] },

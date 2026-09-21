@@ -1,103 +1,37 @@
-import { randomUUID } from "node:crypto";
 import { reportFailure } from "@stargeist/std/errors";
 import { clientProtocol, serverProtocol } from "@stargeist/std/rpc";
-import { ipcMain, MessageChannelMain, type UtilityProcess, type WebContents } from "electron";
-import { Context, Effect, FiberSet, Layer } from "effect";
+import { MessageChannelMain, type WebContents } from "electron";
+import { Context, Effect, Layer } from "effect";
 import { RpcClient, RpcServer } from "effect/unstable/rpc";
-import {
-  WorkspaceControlRpcs,
-  WorkspaceDialogRpcs,
-  workspaceDialogHandlers,
-  type WorkspaceControlClient,
-} from "../workspaces/host";
+import { workspaceDialogHandlers } from "../workspaces/host";
+import { libraryDialogHandlers } from "../libraries/host";
+import { ControlRpcs, HostRpcs, type ControlClient } from "./rpc";
+import { connectRenderer } from "./renderer";
 import { connectPort, type NativePort } from "./port";
 import { startBackendProcess } from "./process";
 
-const serveDialogs = (port: NativePort, contents: WebContents, client: WorkspaceControlClient) =>
-  Effect.gen(function* () {
+const serveDialogs = Effect.fnUntraced(
+  function* (port: NativePort, contents: WebContents, client: ControlClient) {
     const connection = connectPort(port);
     const protocol = yield* serverProtocol(connection);
 
-    yield* RpcServer.make(WorkspaceDialogRpcs, { concurrency: 1 }).pipe(
+    yield* RpcServer.make(HostRpcs, { concurrency: 1 }).pipe(
       Effect.provide(workspaceDialogHandlers(contents, client)),
+      Effect.provide(libraryDialogHandlers(contents, client)),
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.raceFirst(connection.closed),
     );
-  }).pipe(
-    Effect.scoped,
-    Effect.catchCause((cause) => reportFailure("desktop.connection", cause)),
-  );
-
-const connectRenderer = (
-  child: UtilityProcess,
-  client: WorkspaceControlClient,
-  contents: WebContents,
-) =>
-  Effect.gen(function* () {
-    const run = yield* FiberSet.makeRuntime();
-
-    let current: { readonly id: string; readonly close: () => void } | undefined;
-
-    const disconnect = () => {
-      if (!current) return;
-
-      current.close();
-
-      if (child.pid !== undefined) {
-        child.postMessage({ type: "disconnect", id: current.id });
-      }
-
-      current = undefined;
-    };
-
-    const navigate = (event: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>) => {
-      if (event.isMainFrame && !event.isSameDocument) disconnect();
-    };
-
-    const request = (event: Electron.IpcMainEvent, nonce: unknown) => {
-      if (event.sender !== contents || event.senderFrame !== contents.mainFrame) return;
-      if (typeof nonce !== "string" || nonce.length > 64) return;
-
-      disconnect();
-
-      const id = randomUUID();
-      const backendChannel = new MessageChannelMain();
-      const hostChannel = new MessageChannelMain();
-
-      current = { id, close: () => hostChannel.port1.close() };
-      run(serveDialogs(hostChannel.port1, contents, client));
-
-      child.postMessage({ type: "renderer", id }, [backendChannel.port2]);
-      event.senderFrame.postMessage("stargeist:ports", nonce, [
-        backendChannel.port1,
-        hostChannel.port2,
-      ]);
-    };
-
-    yield* Effect.acquireRelease(
-      Effect.sync(() => {
-        ipcMain.on("stargeist:connect", request);
-        contents.on("render-process-gone", disconnect);
-        contents.on("did-start-navigation", navigate);
-        contents.on("destroyed", disconnect);
-      }),
-      () =>
-        Effect.sync(() => {
-          ipcMain.removeListener("stargeist:connect", request);
-          contents.removeListener("render-process-gone", disconnect);
-          contents.removeListener("did-start-navigation", navigate);
-          contents.removeListener("destroyed", disconnect);
-          disconnect();
-        }),
-    );
-  });
+  },
+  Effect.scoped,
+  Effect.catchCause((cause) => reportFailure("desktop.connection", cause)),
+);
 
 export class Backend extends Context.Service<Backend>()("@stargeist/desktop/Backend", {
   make: Effect.gen(function* () {
     const { child, failure } = yield* startBackendProcess;
     const channel = new MessageChannelMain();
     const protocol = yield* clientProtocol(connectPort(channel.port1));
-    const client = yield* RpcClient.make(WorkspaceControlRpcs).pipe(
+    const client = yield* RpcClient.make(ControlRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, protocol),
     );
 
@@ -105,7 +39,8 @@ export class Backend extends Context.Service<Backend>()("@stargeist/desktop/Back
 
     return {
       failure,
-      connect: (contents: WebContents) => connectRenderer(child, client, contents),
+      connect: (contents: WebContents) =>
+        connectRenderer(child, contents, (port) => serveDialogs(port, contents, client)),
     };
   }),
 }) {}

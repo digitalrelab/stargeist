@@ -1,6 +1,5 @@
-import { Button } from "@stargeist/ui/button";
+import { Button, typography } from "@stargeist/ui";
 import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
 import * as stylex from "@stylexjs/stylex";
 import { useRouter } from "@tanstack/react-router";
 

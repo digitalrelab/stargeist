@@ -1,5 +1,4 @@
-import { colors } from "@stargeist/ui/colors.stylex";
-import { radii, space } from "@stargeist/ui/tokens.stylex";
+import { colors, radii, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 

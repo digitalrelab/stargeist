@@ -4,9 +4,8 @@ import { join } from "node:path";
 import { WorkspaceError } from "@stargeist/domain/workspaces";
 import { WorkspaceRepository } from "@stargeist/domain/workspaces/repository";
 import { Cause, Effect, Layer, Logger, References, Schema } from "effect";
-import { SqlClient } from "effect/unstable/sql";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { sqliteLayer } from "../index";
+import { Database, sqliteLayer } from "../index";
 import { repositoryLayer } from "./index";
 
 async function createFixture() {
@@ -16,49 +15,28 @@ async function createFixture() {
   const layer = repositoryLayer.pipe(
     Layer.provideMerge(sqliteLayer({ filename: join(root, "stargeist.sqlite") })),
   );
-  const folder = { rootPath: root, identity: "test-folder", name: "Project" };
+
+  const folder = { kind: "local-fs" as const, path: root };
 
   return { layer, folder };
 }
 
 describe("workspace persistence", () => {
-  it("remembers records after closing and reopening the database", async () => {
+  it("remembers workspace names after reopening the database", async () => {
     const { layer, folder } = await createFixture();
-    const created = await Effect.runPromise(
-      WorkspaceRepository.use((repository) => repository.register(folder, 1)).pipe(
+    const { workspace: saved } = await Effect.runPromise(
+      WorkspaceRepository.use((repository) => repository.create("Footage", folder, 1)).pipe(
         Effect.provide(layer),
       ),
     );
 
-    const saved = await Effect.runPromise(
-      WorkspaceRepository.use((repository) => repository.get(created.id)).pipe(
-        Effect.provide(layer),
-      ),
+    expect(saved).toMatchObject({ displayName: "Footage", createdAt: 1 });
+
+    const loaded = await Effect.runPromise(
+      WorkspaceRepository.use((repository) => repository.get(saved.id)).pipe(Effect.provide(layer)),
     );
 
-    expect(saved).toEqual(created);
-  });
-
-  it("updates a known folder without replacing its ID or creation time", async () => {
-    const { layer, folder } = await createFixture();
-    const relocated = { ...folder, rootPath: join(folder.rootPath, "renamed"), name: "Renamed" };
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const repository = yield* WorkspaceRepository;
-        const created = yield* repository.register(folder, 1);
-        const reopened = yield* repository.register(relocated, 2);
-
-        expect(reopened).toEqual({
-          id: created.id,
-          name: "Renamed",
-          rootPath: relocated.rootPath,
-          createdAt: 1,
-          openedAt: 2,
-        });
-        expect(yield* repository.list).toEqual([reopened]);
-      }).pipe(Effect.provide(layer)),
-    );
+    expect(loaded).toEqual(saved);
   });
 
   it("logs the original database failure and returns a safe public error", async () => {
@@ -70,10 +48,12 @@ describe("workspace persistence", () => {
 
     const error = await Effect.runPromise(
       Effect.gen(function* () {
-        const sql = yield* SqlClient.SqlClient;
-        yield* sql`DROP TABLE workspaces`;
+        const database = yield* Database;
+
+        yield* database.run("DROP TABLE workspaces");
 
         const repository = yield* WorkspaceRepository;
+
         return yield* repository.list.pipe(Effect.flip);
       }).pipe(Effect.provide(layer), Effect.provide(Logger.layer([logger]))),
     );
@@ -87,4 +67,33 @@ describe("workspace persistence", () => {
     expect(entries[0]?.operation).toBe("workspaces.list");
     expect(Cause.pretty(entries[0]!.cause)).toContain("no such table: workspaces");
   });
+});
+
+it("rolls back the workspace when its first library fails, then permits a clean retry", async () => {
+  const { layer, folder } = await createFixture();
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const database = yield* Database;
+      const repository = yield* WorkspaceRepository;
+
+      yield* database.run(
+        "CREATE TRIGGER fail_library BEFORE INSERT ON libraries BEGIN SELECT RAISE(ABORT, 'library write failed'); END",
+      );
+
+      expect(yield* repository.create("Footage", folder, 1).pipe(Effect.flip)).toMatchObject({
+        code: "StorageUnavailable",
+      });
+      expect(yield* repository.list).toEqual([]);
+      expect(yield* database.all("SELECT id FROM libraries")).toEqual([]);
+
+      yield* database.run("DROP TRIGGER fail_library");
+
+      const created = yield* repository.create("Footage", folder, 2);
+
+      expect(created.library.workspaceId).toBe(created.workspace.id);
+      expect(created.library.displayName).toBe(created.workspace.displayName);
+      expect(yield* repository.list).toEqual([created.workspace]);
+    }).pipe(Effect.provide(layer)),
+  );
 });

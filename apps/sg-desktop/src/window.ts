@@ -3,6 +3,7 @@ import { Module } from "@stargeist/application";
 import { BrowserWindow } from "electron";
 import { Context, Data, Effect, Layer } from "effect";
 import { Backend } from "./backend";
+import { applicationIcon } from "./icon";
 
 class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
   readonly cause: unknown;
@@ -18,6 +19,7 @@ const openWindow = Effect.gen(function* () {
         minWidth: 360,
         minHeight: 420,
         title: "Stargeist",
+        icon: applicationIcon(),
         backgroundColor: "#111113",
         show: false,
         autoHideMenuBar: true,

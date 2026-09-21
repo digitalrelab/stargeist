@@ -1,21 +1,19 @@
-import { Context, type Effect } from "effect";
+import { Context, type Effect, Schema } from "effect";
+import { Library, type LibrarySource } from "../libraries";
 import type { WorkspaceError } from "./errors";
-import type { Workspace, WorkspaceId } from "./workspace";
+import { Workspace, type WorkspaceId } from "./workspace";
 
-export interface SelectedFolder {
-  readonly rootPath: string;
-  readonly identity: string;
-  readonly name: string;
-}
+export const CreatedWorkspace = Schema.Struct({ workspace: Workspace, library: Library });
 
 export class WorkspaceRepository extends Context.Service<
   WorkspaceRepository,
   {
     readonly list: Effect.Effect<ReadonlyArray<Workspace>, WorkspaceError>;
     readonly get: (id: WorkspaceId) => Effect.Effect<Workspace, WorkspaceError>;
-    readonly register: (
-      folder: SelectedFolder,
+    readonly create: (
+      displayName: string,
+      source: typeof LibrarySource.Type,
       now: number,
-    ) => Effect.Effect<Workspace, WorkspaceError>;
+    ) => Effect.Effect<typeof CreatedWorkspace.Type, WorkspaceError>;
   }
 >()("@stargeist/domain/WorkspaceRepository") {}

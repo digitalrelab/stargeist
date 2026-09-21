@@ -1,7 +1,4 @@
-import { Button } from "@stargeist/ui/button";
-import { BackIcon } from "@stargeist/ui/icons";
-import * as Sidebar from "@stargeist/ui/sidebar";
-import { typography } from "@stargeist/ui/typography";
+import { Button, BackIcon, Sidebar, typography } from "@stargeist/ui";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { AppShell } from "#src/shell/index.ts";

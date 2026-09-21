@@ -2,6 +2,7 @@ import type { Application } from "@stargeist/application";
 import { reportFailure } from "@stargeist/std/errors";
 import { app, BrowserWindow } from "electron";
 import { Cause, Deferred, Effect, FiberSet } from "effect";
+import { applicationIcon } from "./icon";
 
 interface DesktopServices {
   readonly windows: { readonly open: Effect.Effect<void, unknown> };
@@ -12,12 +13,13 @@ export const runDesktop = (application: Application.Application<DesktopServices,
   Effect.gen(function* () {
     const shutdown = yield* Deferred.make<void>();
     const completion = yield* Deferred.make<void, unknown>();
-    const fail = (cause: Cause.Cause<unknown>) =>
-      Cause.hasInterruptsOnly(cause)
-        ? Effect.void
-        : Deferred.failCause(completion, cause).pipe(
-            Effect.andThen(Deferred.succeed(shutdown, undefined)),
-          );
+    const fail = (cause: Cause.Cause<unknown>) => {
+      if (Cause.hasInterruptsOnly(cause)) return Effect.void;
+
+      return Deferred.failCause(completion, cause).pipe(
+        Effect.andThen(Deferred.succeed(shutdown, undefined)),
+      );
+    };
 
     yield* Effect.gen(function* () {
       const quit = (event: Electron.Event) => {
@@ -37,6 +39,10 @@ export const runDesktop = (application: Application.Application<DesktopServices,
 
       const running = Effect.gen(function* () {
         yield* Effect.promise(() => app.whenReady());
+
+        if (process.platform === "darwin" && !app.isPackaged) {
+          yield* Effect.sync(() => app.dock?.setIcon(applicationIcon()));
+        }
 
         const desktop = yield* application.make;
         const runWindow = yield* FiberSet.makeRuntime();

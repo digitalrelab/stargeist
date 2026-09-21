@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Application, Module } from "@stargeist/application";
 import { app, type BrowserWindow } from "electron";
 import { Context, Deferred, Effect, Fiber, Layer, Queue } from "effect";
@@ -10,6 +11,7 @@ const native = vi.hoisted(() => ({
   exit: vi.fn<(code?: number) => void>(),
   getAllWindows: vi.fn<() => BrowserWindow[]>(),
   quitAccepted: vi.fn<() => void>(),
+  setIcon: vi.fn(),
 }));
 
 vi.mock("electron", async () => {
@@ -19,6 +21,9 @@ vi.mock("electron", async () => {
       whenReady: native.whenReady,
       quit: native.quit,
       exit: native.exit,
+      isPackaged: false,
+      getAppPath: () => "/stargeist",
+      dock: { setIcon: native.setIcon },
     }),
     BrowserWindow: { getAllWindows: native.getAllWindows },
   };
@@ -135,6 +140,7 @@ beforeEach(() => {
 });
 
 it("waits for Electron readiness before initializing services or opening a window", async () => {
+  vi.stubGlobal("process", { ...process, platform: "darwin" });
   const ready = Promise.withResolvers<void>();
   const requested = signal();
   native.whenReady.mockImplementation(() => {
@@ -144,10 +150,12 @@ it("waits for Electron readiness before initializing services or opening a windo
   const runtime = desktop();
   await wait(Deferred.await(requested));
   expect(runtime.events).toEqual([]);
+  expect(native.setIcon).not.toHaveBeenCalled();
 
   ready.resolve();
   await wait(Queue.take(runtime.opened));
   expect(runtime.events).toEqual(["backend acquired", "window opened"]);
+  expect(native.setIcon).toHaveBeenCalledExactlyOnceWith(join("/stargeist", "icons", "icon.png"));
 
   expect(requestQuit().preventDefault).toHaveBeenCalledOnce();
   await wait(Fiber.join(runtime.fiber));

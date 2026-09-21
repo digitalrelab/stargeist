@@ -1,23 +1,24 @@
 import type { DirectoryError, ListingId } from "@stargeist/domain/filesystem";
-import { WorkspaceError } from "@stargeist/domain/workspaces";
+import { LibraryError } from "@stargeist/domain/libraries";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import { openListing } from "../filesystem";
 import { AppDirectories } from "../storage";
 
-const workspaceError = (error: DirectoryError) =>
-  new WorkspaceError({ code: error.code, message: error.message });
+const libraryError = (error: DirectoryError) =>
+  new LibraryError({ code: error.code, message: error.message });
 
 const expired = () =>
-  new WorkspaceError({
+  new LibraryError({
     code: "ListingExpired",
     message: "This folder view has expired. Refresh to reopen it.",
   });
+
 type ActiveListing = {
   readonly scope: Scope.Closeable;
   readonly snapshot: Effect.Success<ReturnType<typeof openListing>>;
 };
 
-export const makeWorkspaceListing = Effect.gen(function* () {
+export const makeLibraryListing = Effect.gen(function* () {
   const parent = yield* Effect.scope;
   const appDirectories = yield* AppDirectories;
   const lock = yield* Semaphore.make(1);
@@ -33,30 +34,29 @@ export const makeWorkspaceListing = Effect.gen(function* () {
     return Scope.close(previous.scope, Exit.void);
   });
 
-  const open = (path: string) =>
-    Effect.gen(function* () {
-      yield* release;
+  const open = Effect.fnUntraced(function* (path: string) {
+    yield* release;
 
-      const scope = yield* Scope.fork(parent);
+    const scope = yield* Scope.fork(parent);
 
-      return yield* openListing(path).pipe(
-        Effect.mapError(workspaceError),
-        Scope.provide(scope),
-        Effect.provideService(AppDirectories, appDirectories),
-        Effect.map((snapshot) => {
-          active = { scope, snapshot };
+    return yield* openListing(path).pipe(
+      Effect.mapError(libraryError),
+      Scope.provide(scope),
+      Effect.provideService(AppDirectories, appDirectories),
+      Effect.map((snapshot) => {
+        active = { scope, snapshot };
 
-          return snapshot.firstPage;
-        }),
-        Effect.onError((cause) => Scope.close(scope, Exit.failCause(cause))),
-      );
-    });
+        return snapshot.firstPage;
+      }),
+      Effect.onError((cause) => Scope.close(scope, Exit.failCause(cause))),
+    );
+  });
 
   const read = (id: ListingId, offset: number) =>
     Effect.suspend(() => {
       if (active?.snapshot.listingId !== id) return Effect.fail(expired());
 
-      return active.snapshot.read(offset).pipe(Effect.mapError(workspaceError));
+      return active.snapshot.read(offset).pipe(Effect.mapError(libraryError));
     });
 
   const close = (id: ListingId) =>

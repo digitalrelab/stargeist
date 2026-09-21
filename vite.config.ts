@@ -9,7 +9,7 @@ const sourceImports = {
 const electronImports = ["electron", "electron/*", "@electron-forge/*"];
 const iconImports = {
   group: ["lucide-react", "lucide-react/*"],
-  message: "Import icons from @stargeist/ui/icons.",
+  message: "Import icons from @stargeist/ui.",
 };
 const platformImports = [
   "node:*",
