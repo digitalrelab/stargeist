@@ -36,20 +36,7 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
         }
       }}
     >
-      <span
-        {...stylex.props(styles.selection)}
-        role="gridcell"
-        id={`${id}-0`}
-        onClick={(event) => {
-          event.stopPropagation();
-
-          if (event.shiftKey) {
-            list.extend(index, 0);
-          } else {
-            list.toggle(index, entry);
-          }
-        }}
-      >
+      <span {...stylex.props(styles.selection)} role="gridcell" id={`${id}-0`}>
         <Checkbox.Root
           tabIndex={-1}
           checked={selected}
@@ -122,11 +109,9 @@ const styles = stylex.create({
     outlineStyle: { default: "none", "@media (forced-colors: active)": "solid" },
   },
   selection: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingInlineStart: space[2],
-    paddingInlineEnd: space[3],
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gridTemplateRows: "minmax(0, 1fr)",
     height: "100%",
     opacity: {
       default: 0,
