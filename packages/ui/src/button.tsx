@@ -1,7 +1,7 @@
 import { Button as AriakitButton, type ButtonProps as AriakitButtonProps } from "@ariakit/react";
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "./colors.stylex";
-import { controlHeight, focusRing, fonts, radii, space } from "./tokens.stylex";
+import { control, focusRing, fonts, space } from "./tokens.stylex";
 import { typography } from "./typography";
 
 export type ButtonProps = Omit<AriakitButtonProps, "className" | "style"> & {
@@ -60,6 +60,7 @@ const styles = stylex.create({
     alignItems: "center",
     appearance: "none",
     borderWidth: 0,
+    borderRadius: control.radius,
     display: "inline-flex",
     fontWeight: fonts.semibold,
     gap: space[2],
@@ -120,21 +121,18 @@ const appearances = stylex.create({
 
 const sizes = stylex.create({
   icon: {
-    borderRadius: radii.lg,
-    inlineSize: controlHeight.md,
-    blockSize: controlHeight.md,
+    inlineSize: control.heightMd,
+    blockSize: control.heightMd,
     flexShrink: 0,
     padding: 0,
   },
   sm: {
-    borderRadius: radii.md,
-    minHeight: controlHeight.sm,
+    minHeight: control.heightSm,
     paddingBlock: space[1],
     paddingInline: space[3],
   },
   md: {
-    borderRadius: radii.lg,
-    minHeight: controlHeight.md,
+    minHeight: control.heightMd,
     paddingBlock: space[2],
     paddingInline: space[4],
   },

@@ -31,6 +31,7 @@ export const colors = stylex.defineVars({
   control: slateDark.slate3,
   controlHovered: slateDark.slate4,
   controlPressed: slateDark.slate5,
+  controlSelected: slateDark.slate5,
   controlDisabled: slateDark.slate3,
   onControl: slateDark.slate12,
   onControlMuted: slateDark.slate11,

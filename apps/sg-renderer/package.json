@@ -11,6 +11,7 @@
     "./vite": "./vite.config.ts"
   },
   "scripts": {
+    "dev:ui": "vp dev --open /preview.html",
     "generate": "tsr generate",
     "build": "vp build"
   },

@@ -10,6 +10,7 @@
   "scripts": {
     "postinstall": "bun run --cwd apps/sg-renderer generate",
     "dev": "bun run --cwd apps/sg-desktop dev",
+    "dev:ui": "bun run --cwd apps/sg-renderer dev:ui",
     "build": "bun run package",
     "build:renderer": "bun run --cwd apps/sg-renderer build",
     "package": "bun run --cwd apps/sg-desktop package",

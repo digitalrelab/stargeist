@@ -2,7 +2,7 @@ import { Role, type RoleProps } from "@ariakit/react";
 import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps } from "react";
 import { colors } from "./colors.stylex";
-import { focusRing, radii, space } from "./tokens.stylex";
+import { control, focusRing, space } from "./tokens.stylex";
 import { typography } from "./typography";
 
 type Props<T extends "aside" | "div" | "nav"> = Omit<ComponentProps<T>, "className" | "style">;
@@ -54,9 +54,9 @@ const styles = stylex.create({
   link: {
     display: "block",
     flexShrink: 0,
-    minHeight: 40,
+    minHeight: control.heightMd,
     alignContent: "center",
-    borderRadius: radii.md,
+    borderRadius: control.radius,
     paddingInline: space[3],
     color: {
       default: colors.onControlMuted,
@@ -69,7 +69,8 @@ const styles = stylex.create({
     backgroundColor: {
       default: "oklch(0% 0 0 / 0)",
       ':hover:not(:active):not([aria-current="page"])': colors.controlHovered,
-      ':is(:active, [aria-current="page"])': colors.controlPressed,
+      ':active:not([aria-current="page"])': colors.controlPressed,
+      '[aria-current="page"]': colors.controlSelected,
     },
     outlineColor: colors.focusRing,
     outlineWidth: focusRing.width,
