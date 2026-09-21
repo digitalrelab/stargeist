@@ -34,61 +34,59 @@ function entryKind(entry: Dirent): FileSystemEntry["kind"] {
   return "other";
 }
 
-export const openListing = (rootPath: string) =>
-  Effect.gen(function* () {
-    const appDirectories = yield* AppDirectories;
-    const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
-    const filename = join(appDirectories.temporary, `directory-listing-${listingId}.sqlite`);
-    const cache = yield* openDirectoryCache(filename);
+export const openListing = Effect.fnUntraced(function* (rootPath: string) {
+  const appDirectories = yield* AppDirectories;
+  const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
+  const filename = join(appDirectories.temporary, `directory-listing-${listingId}.sqlite`);
+  const cache = yield* openDirectoryCache(filename);
 
-    const directory = yield* Effect.acquireRelease(
-      Effect.tryPromise(() => opendir(rootPath, { bufferSize: entryPageSize })).pipe(
-        Effect.onError((cause) => reportFailure("directories.open", cause)),
-        Effect.mapError(unavailable),
-      ),
-      (directory) => Effect.promise(() => directory.close()),
+  const directory = yield* Effect.acquireRelease(
+    Effect.tryPromise(() => opendir(rootPath, { bufferSize: entryPageSize })).pipe(
+      Effect.onError((cause) => reportFailure("directories.open", cause)),
+      Effect.mapError(unavailable),
+    ),
+    (directory) => Effect.promise(() => directory.close()),
+  );
+
+  let complete = false;
+
+  const readNext = Effect.gen(function* () {
+    const entry = yield* Effect.tryPromise(() => directory.read()).pipe(
+      Effect.onError((cause) => reportFailure("directories.read", cause)),
+      Effect.mapError(unavailable),
     );
 
-    let complete = false;
+    if (!entry) {
+      complete = true;
+      return;
+    }
 
-    const readNext = Effect.gen(function* () {
-      const entry = yield* Effect.tryPromise(() => directory.read()).pipe(
-        Effect.onError((cause) => reportFailure("directories.read", cause)),
-        Effect.mapError(unavailable),
-      );
+    cache.append({ name: entry.name, kind: entryKind(entry) });
+  }).pipe(Effect.uninterruptible);
 
-      if (!entry) {
-        complete = true;
-        return;
-      }
+  const read = Effect.fnUntraced(function* (offset: number) {
+    if (offset < 0 || offset > cache.committedCount || offset % entryPageSize !== 0) {
+      return yield* Effect.fail(expired());
+    }
 
-      cache.append({ name: entry.name, kind: entryKind(entry) });
-    }).pipe(Effect.uninterruptible);
+    const lookahead = offset + entryPageSize + 1;
 
-    const read = (offset: number) =>
-      Effect.gen(function* () {
-        if (offset < 0 || offset > cache.committedCount || offset % entryPageSize !== 0) {
-          return yield* Effect.fail(expired());
-        }
+    while (!complete && cache.totalCount < lookahead) {
+      yield* readNext;
+    }
 
-        const lookahead = offset + entryPageSize + 1;
+    const entries = yield* cache.read(offset);
 
-        while (!complete && cache.totalCount < lookahead) {
-          yield* readNext;
-        }
-
-        const entries = yield* cache.read(offset);
-
-        return {
-          listingId,
-          offset,
-          entries,
-          hasMore: !complete || cache.committedCount > offset + entries.length,
-        } satisfies DirectoryListingPage;
-      });
-
-    const lock = yield* Semaphore.make(1);
-    const firstPage = yield* read(0);
-
-    return { listingId, firstPage, read: (offset: number) => lock.withPermit(read(offset)) };
+    return {
+      listingId,
+      offset,
+      entries,
+      hasMore: !complete || cache.committedCount > offset + entries.length,
+    } satisfies DirectoryListingPage;
   });
+
+  const lock = yield* Semaphore.make(1);
+  const firstPage = yield* read(0);
+
+  return { listingId, firstPage, read: (offset: number) => lock.withPermit(read(offset)) };
+});

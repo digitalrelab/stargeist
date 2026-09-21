@@ -34,24 +34,23 @@ export const makeLibraryListing = Effect.gen(function* () {
     return Scope.close(previous.scope, Exit.void);
   });
 
-  const open = (path: string) =>
-    Effect.gen(function* () {
-      yield* release;
+  const open = Effect.fnUntraced(function* (path: string) {
+    yield* release;
 
-      const scope = yield* Scope.fork(parent);
+    const scope = yield* Scope.fork(parent);
 
-      return yield* openListing(path).pipe(
-        Effect.mapError(libraryError),
-        Scope.provide(scope),
-        Effect.provideService(AppDirectories, appDirectories),
-        Effect.map((snapshot) => {
-          active = { scope, snapshot };
+    return yield* openListing(path).pipe(
+      Effect.mapError(libraryError),
+      Scope.provide(scope),
+      Effect.provideService(AppDirectories, appDirectories),
+      Effect.map((snapshot) => {
+        active = { scope, snapshot };
 
-          return snapshot.firstPage;
-        }),
-        Effect.onError((cause) => Scope.close(scope, Exit.failCause(cause))),
-      );
-    });
+        return snapshot.firstPage;
+      }),
+      Effect.onError((cause) => Scope.close(scope, Exit.failCause(cause))),
+    );
+  });
 
   const read = (id: ListingId, offset: number) =>
     Effect.suspend(() => {

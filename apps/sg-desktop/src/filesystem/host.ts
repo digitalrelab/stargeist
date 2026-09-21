@@ -13,5 +13,7 @@ export const chooseFolder = (contents: WebContents, title: string) =>
       properties: ["openDirectory"],
     });
 
-    return result.canceled ? null : (result.filePaths[0] ?? null);
+    if (result.canceled) return null;
+
+    return result.filePaths[0] ?? null;
   });

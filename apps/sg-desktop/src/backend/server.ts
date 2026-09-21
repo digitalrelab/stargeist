@@ -26,29 +26,27 @@ export const backendHandlers = (backend: BackendServices) => {
 export const makeBackendServer = (backend: BackendServices) => {
   const handlers = backendHandlers(backend);
 
-  const control = (port: NativePort) =>
-    Effect.gen(function* () {
-      const connection = connectPort(port);
-      const protocol = yield* serverProtocol(connection);
+  const control = Effect.fnUntraced(function* (port: NativePort) {
+    const connection = connectPort(port);
+    const protocol = yield* serverProtocol(connection);
 
-      yield* RpcServer.make(ControlRpcs).pipe(
-        Effect.provide(handlers.control),
-        Effect.provideService(RpcServer.Protocol, protocol),
-        Effect.raceFirst(connection.closed),
-      );
-    }).pipe(Effect.scoped);
+    yield* RpcServer.make(ControlRpcs).pipe(
+      Effect.provide(handlers.control),
+      Effect.provideService(RpcServer.Protocol, protocol),
+      Effect.raceFirst(connection.closed),
+    );
+  }, Effect.scoped);
 
-  const renderer = (port: NativePort) =>
-    Effect.gen(function* () {
-      const connection = connectPort(port);
-      const protocol = yield* serverProtocol(connection);
+  const renderer = Effect.fnUntraced(function* (port: NativePort) {
+    const connection = connectPort(port);
+    const protocol = yield* serverProtocol(connection);
 
-      yield* RpcServer.make(RendererRpcs, { concurrency: 8 }).pipe(
-        Effect.provide(handlers.renderer),
-        Effect.provideService(RpcServer.Protocol, protocol),
-        Effect.raceFirst(connection.closed),
-      );
-    }).pipe(Effect.scoped);
+    yield* RpcServer.make(RendererRpcs, { concurrency: 8 }).pipe(
+      Effect.provide(handlers.renderer),
+      Effect.provideService(RpcServer.Protocol, protocol),
+      Effect.raceFirst(connection.closed),
+    );
+  }, Effect.scoped);
 
   return { control, renderer };
 };

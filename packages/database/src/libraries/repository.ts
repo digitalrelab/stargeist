@@ -22,134 +22,107 @@ const storageError = () =>
 const notFound = () =>
   new LibraryError({ code: "NotFound", message: "This library is no longer available." });
 
-const libraryRow = Schema.Struct({
-  id: Library.fields.id,
-  workspaceId: Library.fields.workspaceId,
-  displayName: Library.fields.displayName,
-  sourceKind: Schema.Literal("local-fs"),
-  sourcePath: Schema.String,
-  createdAt: Schema.Number,
-});
+const libraryColumns = {
+  id: libraries.id,
+  workspaceId: libraries.workspaceId,
+  displayName: libraries.displayName,
+  source: { kind: libraries.sourceKind, path: libraries.sourcePath },
+  createdAt: libraries.createdAt,
+};
 
-const decodeLibraries = (rows: unknown) =>
-  Schema.decodeUnknownEffect(Schema.Array(libraryRow))(rows).pipe(
-    Effect.map((rows) =>
-      rows.map(
-        (row) =>
-          new Library({
-            id: row.id,
-            workspaceId: row.workspaceId,
-            displayName: row.displayName,
-            source: { kind: row.sourceKind, path: row.sourcePath },
-            createdAt: row.createdAt,
-          }),
-      ),
-    ),
-  );
+const decodeLibraries = Schema.decodeUnknownEffect(Schema.Array(Library));
 
 export const repositoryLayer = Layer.effect(
   LibraryRepository,
   Effect.gen(function* () {
     const database = yield* Database;
 
-    const requireWorkspace = (id: WorkspaceId) =>
-      Effect.gen(function* () {
-        const rows = yield* database
-          .select({ id: workspaces.id })
-          .from(workspaces)
-          .where(eq(workspaces.id, id))
-          .all()
-          .pipe(
-            Effect.onError((cause) => reportFailure("libraries.workspace", cause)),
-            Effect.mapError(storageError),
-          );
+    const requireWorkspace = Effect.fnUntraced(function* (id: WorkspaceId) {
+      const rows = yield* database
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(eq(workspaces.id, id))
+        .all()
+        .pipe(
+          Effect.onError((cause) => reportFailure("libraries.workspace", cause)),
+          Effect.mapError(storageError),
+        );
 
-        if (rows.length === 0) {
-          return yield* Effect.fail(
-            new LibraryError({
-              code: "NotFound",
-              message: "This workspace is no longer available.",
-            }),
-          );
-        }
-      });
+      if (rows.length === 0) {
+        return yield* Effect.fail(
+          new LibraryError({
+            code: "NotFound",
+            message: "This workspace is no longer available.",
+          }),
+        );
+      }
+    });
 
-    const list = (workspaceId: WorkspaceId) =>
-      Effect.gen(function* () {
-        yield* requireWorkspace(workspaceId);
+    const list = Effect.fnUntraced(function* (workspaceId: WorkspaceId) {
+      yield* requireWorkspace(workspaceId);
 
-        return yield* database
-          .select()
-          .from(libraries)
-          .where(eq(libraries.workspaceId, workspaceId))
-          .orderBy(libraries.createdAt, libraries.id)
-          .all()
-          .pipe(
-            Effect.flatMap(decodeLibraries),
-            Effect.onError((cause) => reportFailure("libraries.list", cause)),
-            Effect.mapError(storageError),
-          );
-      });
+      return yield* database
+        .select(libraryColumns)
+        .from(libraries)
+        .where(eq(libraries.workspaceId, workspaceId))
+        .orderBy(libraries.createdAt, libraries.id)
+        .all()
+        .pipe(
+          Effect.flatMap(decodeLibraries),
+          Effect.onError((cause) => reportFailure("libraries.list", cause)),
+          Effect.mapError(storageError),
+        );
+    });
 
-    const get = ({ workspaceId, id }: LibrarySelection) =>
-      Effect.gen(function* () {
-        const rows = yield* database
-          .select()
-          .from(libraries)
-          .where(and(eq(libraries.id, id), eq(libraries.workspaceId, workspaceId)))
-          .all()
-          .pipe(
-            Effect.flatMap(decodeLibraries),
-            Effect.onError((cause) => reportFailure("libraries.get", cause)),
-            Effect.mapError(storageError),
-          );
+    const get = Effect.fnUntraced(function* ({ workspaceId, id }: LibrarySelection) {
+      const rows = yield* database
+        .select(libraryColumns)
+        .from(libraries)
+        .where(and(eq(libraries.id, id), eq(libraries.workspaceId, workspaceId)))
+        .all()
+        .pipe(
+          Effect.flatMap(decodeLibraries),
+          Effect.onError((cause) => reportFailure("libraries.get", cause)),
+          Effect.mapError(storageError),
+        );
 
-        const library = rows[0];
+      const library = rows[0];
 
-        if (!library) {
-          return yield* Effect.fail(notFound());
-        }
+      if (!library) {
+        return yield* Effect.fail(notFound());
+      }
 
-        return library;
-      });
+      return library;
+    });
 
-    const add = (
+    const add = Effect.fnUntraced(function* (
       workspaceId: WorkspaceId,
       source: typeof LibrarySource.Type,
       displayName: string,
       now: number,
-    ) =>
-      Effect.gen(function* () {
-        yield* requireWorkspace(workspaceId);
+    ) {
+      yield* requireWorkspace(workspaceId);
 
-        return yield* Effect.gen(function* () {
-          const id = yield* makeLibraryId;
+      const id = yield* makeLibraryId;
 
-          const rows = yield* database
-            .insert(libraries)
-            .values({
-              id,
-              workspaceId,
-              displayName,
-              sourceKind: source.kind,
-              sourcePath: source.path,
-              createdAt: now,
-            })
-            .returning()
-            .all();
-
-          const [library] = yield* decodeLibraries(rows);
-
-          if (!library) {
-            return yield* Effect.fail(storageError());
-          }
-
-          return library;
-        }).pipe(
+      yield* database
+        .insert(libraries)
+        .values({
+          id,
+          workspaceId,
+          displayName,
+          sourceKind: source.kind,
+          sourcePath: source.path,
+          createdAt: now,
+        })
+        .run()
+        .pipe(
           Effect.onError((cause) => reportFailure("libraries.add", cause)),
           Effect.mapError(storageError),
         );
-      });
+
+      return new Library({ id, workspaceId, displayName, source, createdAt: now });
+    });
 
     return { list, get, add } satisfies LibraryRepository["Service"];
   }),

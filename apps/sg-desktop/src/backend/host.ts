@@ -10,8 +10,8 @@ import { connectRenderer } from "./renderer";
 import { connectPort, type NativePort } from "./port";
 import { startBackendProcess } from "./process";
 
-const serveDialogs = (port: NativePort, contents: WebContents, client: ControlClient) =>
-  Effect.gen(function* () {
+const serveDialogs = Effect.fnUntraced(
+  function* (port: NativePort, contents: WebContents, client: ControlClient) {
     const connection = connectPort(port);
     const protocol = yield* serverProtocol(connection);
 
@@ -21,10 +21,10 @@ const serveDialogs = (port: NativePort, contents: WebContents, client: ControlCl
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.raceFirst(connection.closed),
     );
-  }).pipe(
-    Effect.scoped,
-    Effect.catchCause((cause) => reportFailure("desktop.connection", cause)),
-  );
+  },
+  Effect.scoped,
+  Effect.catchCause((cause) => reportFailure("desktop.connection", cause)),
+);
 
 export class Backend extends Context.Service<Backend>()("@stargeist/desktop/Backend", {
   make: Effect.gen(function* () {

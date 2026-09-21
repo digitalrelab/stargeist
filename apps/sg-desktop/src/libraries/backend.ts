@@ -5,9 +5,6 @@ import { LibraryControlRpcs } from "./control";
 import { selectedFolder } from "./selected-folder";
 import { makeLibraryListing } from "./listing";
 
-export { LibraryRpcs } from "@stargeist/domain/libraries/rpc";
-export { LibraryControlRpcs } from "./control";
-
 export const libraryControlHandlers = LibraryControlRpcs.toLayer(
   Effect.gen(function* () {
     const libraries = yield* Libraries;

@@ -4,9 +4,6 @@ import { Effect } from "effect";
 import { WorkspaceControlRpcs } from "./control";
 import { selectedFolder } from "../libraries";
 
-export { WorkspaceRpcs } from "@stargeist/domain/workspaces/rpc";
-export { WorkspaceControlRpcs } from "./control";
-
 export const workspaceControlHandlers = WorkspaceControlRpcs.toLayer(
   Effect.gen(function* () {
     const workspaces = yield* Workspaces;

@@ -49,7 +49,7 @@ const program = Effect.gen(function* () {
 
     if (!port) return;
 
-    const task = data.type === "control" ? server.control(port) : server.renderer(port);
+    const task = server[data.type](port);
     const fiber = run(
       task.pipe(
         Effect.catchCause((cause) => reportFailure("backend.connection", cause)),

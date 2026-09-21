@@ -40,30 +40,29 @@ export const repositoryLayer = Layer.effect(
         Effect.mapError(storageError),
       );
 
-    const get = (id: WorkspaceId) =>
-      Effect.gen(function* () {
-        const rows = yield* database
-          .select()
-          .from(workspaces)
-          .where(eq(workspaces.id, id))
-          .all()
-          .pipe(
-            Effect.flatMap(decodeWorkspaces),
-            Effect.onError((cause) => reportFailure("workspaces.get", cause)),
-            Effect.mapError(storageError),
-          );
+    const get = Effect.fnUntraced(function* (id: WorkspaceId) {
+      const rows = yield* database
+        .select()
+        .from(workspaces)
+        .where(eq(workspaces.id, id))
+        .all()
+        .pipe(
+          Effect.flatMap(decodeWorkspaces),
+          Effect.onError((cause) => reportFailure("workspaces.get", cause)),
+          Effect.mapError(storageError),
+        );
 
-        const workspace = rows[0];
+      const workspace = rows[0];
 
-        if (!workspace) {
-          return yield* Effect.fail(notFound());
-        }
+      if (!workspace) {
+        return yield* Effect.fail(notFound());
+      }
 
-        return workspace;
-      });
+      return workspace;
+    });
 
-    const create = (displayName: string, source: typeof LibrarySource.Type, now: number) =>
-      Effect.gen(function* () {
+    const create = Effect.fnUntraced(
+      function* (displayName: string, source: typeof LibrarySource.Type, now: number) {
         const workspaceId = yield* makeWorkspaceId;
         const libraryId = yield* makeLibraryId;
         const workspace = new Workspace({ id: workspaceId, displayName, createdAt: now });
@@ -94,10 +93,10 @@ export const repositoryLayer = Layer.effect(
         );
 
         return { workspace, library };
-      }).pipe(
-        Effect.onError((cause) => reportFailure("workspaces.create", cause)),
-        Effect.mapError(storageError),
-      );
+      },
+      Effect.onError((cause) => reportFailure("workspaces.create", cause)),
+      Effect.mapError(storageError),
+    );
 
     return { list, get, create } satisfies WorkspaceRepository["Service"];
   }),
