@@ -1,3 +1,5 @@
+import { Button } from "@stargeist/ui/button";
+import { BackIcon } from "@stargeist/ui/icons";
 import * as Sidebar from "@stargeist/ui/sidebar";
 import { typography } from "@stargeist/ui/typography";
 import * as stylex from "@stylexjs/stylex";
@@ -29,7 +31,15 @@ function SettingsSidebar() {
       </Sidebar.Content>
       <Sidebar.Footer>
         <Sidebar.Nav aria-label="Application">
-          <Sidebar.Link render={<Link to="/" />}>Back to workspaces</Sidebar.Link>
+          <Button
+            appearance="ghost"
+            size="icon"
+            render={<Link to="/" />}
+            aria-label="Back to workspaces"
+            title="Back to workspaces"
+          >
+            <BackIcon aria-hidden="true" />
+          </Button>
         </Sidebar.Nav>
       </Sidebar.Footer>
     </Sidebar.Root>

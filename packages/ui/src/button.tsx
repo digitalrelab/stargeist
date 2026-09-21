@@ -67,6 +67,7 @@ const styles = stylex.create({
     fontWeight: fonts.semibold,
     gap: space[2],
     justifyContent: "center",
+    textDecoration: "none",
     outlineColor: colors.focusRing,
     outlineOffset: focusRing.offset,
     outlineStyle: { default: "none", ":is(:focus-visible, [data-focus-visible])": "solid" },
@@ -106,6 +107,13 @@ const appearances = stylex.create({
 });
 
 const sizes = stylex.create({
+  icon: {
+    borderRadius: radii.lg,
+    inlineSize: controlHeight.md,
+    blockSize: controlHeight.md,
+    flexShrink: 0,
+    padding: 0,
+  },
   sm: {
     borderRadius: radii.md,
     minHeight: controlHeight.sm,

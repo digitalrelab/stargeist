@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     "./button": "./src/button.tsx",
+    "./icons": "./src/icons.ts",
     "./sidebar": "./src/sidebar.tsx",
     "./colors.stylex": "./src/colors.stylex.ts",
     "./tokens.stylex": "./src/tokens.stylex.ts",
@@ -13,7 +14,8 @@
   },
   "dependencies": {
     "@ariakit/react": "0.4.40",
-    "@stylexjs/stylex": "catalog:"
+    "@stylexjs/stylex": "catalog:",
+    "lucide-react": "1.47.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",

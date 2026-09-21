@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Button } from "@stargeist/ui/button";
+import { SettingsIcon } from "@stargeist/ui/icons";
 import * as Sidebar from "@stargeist/ui/sidebar";
 import { colors } from "@stargeist/ui/colors.stylex";
 import { space } from "@stargeist/ui/tokens.stylex";
@@ -25,7 +26,15 @@ export function WorkspaceSidebar() {
       </Sidebar.Content>
       <Sidebar.Footer>
         <Sidebar.Nav aria-label="Application">
-          <Sidebar.Link render={<Link to="/settings" />}>Settings</Sidebar.Link>
+          <Button
+            appearance="ghost"
+            size="icon"
+            render={<Link to="/settings" />}
+            aria-label="Settings"
+            title="Settings"
+          >
+            <SettingsIcon aria-hidden="true" />
+          </Button>
         </Sidebar.Nav>
       </Sidebar.Footer>
     </Sidebar.Root>
