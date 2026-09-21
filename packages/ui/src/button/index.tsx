@@ -1,8 +1,8 @@
 import { Button as AriakitButton, type ButtonProps as AriakitButtonProps } from "@ariakit/react";
 import * as stylex from "@stylexjs/stylex";
-import { colors } from "./colors.stylex";
-import { control, focusRing, fonts, space } from "./tokens.stylex";
-import { typography } from "./typography";
+import { colors } from "../colors.stylex";
+import { control, focusRing, fonts, space } from "../tokens.stylex";
+import { typography } from "../typography";
 
 export type ButtonProps = Omit<AriakitButtonProps, "className" | "style"> & {
   appearance?: keyof typeof appearances;

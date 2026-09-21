@@ -35,6 +35,7 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build:renderer
+      - run: bun run build:ui
       - run: bun run make
       - uses: actions/upload-artifact@v7.0.1
         with:

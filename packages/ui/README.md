@@ -1,6 +1,16 @@
 # UI conventions
 
-Run `bun run dev:ui` from the repository root for the interactive reference. It uses the renderer's styling pipeline and real UI components, without starting desktop services. Its HTML entry is separate from the production app entry.
+Run `bun run dev:ui` from the repository root, then open http://localhost:6006 for Storybook. Run `bun run build:ui` to produce a static catalog in `packages/ui/dist/storybook`.
+
+Storybook belongs to this package. It shares the StyleX Vite configuration and CSS reset with the renderer, without starting desktop services or loading application routes. Desktop cursor and text-selection behavior stays in the renderer.
+
+## Stories
+
+Group each component and its `*.stories.tsx` file in a capability folder such as `src/button/`. The folder's `index.tsx` owns its implementation and public entry point. Single-file foundations such as tokens and typography remain at `src/`. Package exports keep consumer imports stable.
+
+Use typed CSF stories (`Meta` and `StoryObj`). Document meaningful variants and compositions using the real components. Keep example state local to the story. Stories are interactive examples; this setup does not run DOM assertions or snapshot tests.
+
+The catalog includes button controls and state comparisons, semantic icons, and contextual sidebar compositions with overflow and long labels. Use the Surface toolbar to compare controls against the actual canvas, surface, and raised-surface tokens. The Docs tab describes intended usage.
 
 ## Geometry
 

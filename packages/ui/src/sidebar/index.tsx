@@ -1,9 +1,9 @@
 import { Role, type RoleProps } from "@ariakit/react";
 import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps } from "react";
-import { colors } from "./colors.stylex";
-import { control, focusRing, space } from "./tokens.stylex";
-import { typography } from "./typography";
+import { colors } from "../colors.stylex";
+import { control, focusRing, space } from "../tokens.stylex";
+import { typography } from "../typography";
 
 type Props<T extends "aside" | "div" | "nav"> = Omit<ComponentProps<T>, "className" | "style">;
 

@@ -11,7 +11,6 @@
     "./vite": "./vite.config.ts"
   },
   "scripts": {
-    "dev:ui": "vp dev --open /preview.html",
     "generate": "tsr generate",
     "build": "vp build"
   },
@@ -29,7 +28,6 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@stylexjs/unplugin": "0.19.1",
     "@tanstack/router-cli": "1.167.38",
     "@tanstack/router-plugin": "1.168.40",
     "@types/react": "catalog:",
