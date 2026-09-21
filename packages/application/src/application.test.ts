@@ -62,6 +62,38 @@ describe("application lifetime", () => {
     expect(lifecycle).toEqual({ acquired: 1, released: 1 });
   });
 
+  it("provides public services directly with shared dependencies, private internals, and scoped release", async () => {
+    const { layer, lifecycle } = trackedCounter();
+    const reader = Module.define({
+      exports: Reader,
+      layer: Layer.effect(
+        Reader,
+        Effect.map(Counter, (counter) => ({ read: counter.next })),
+      ),
+    });
+    const application = Application.define({ modules: { reader }, provide: layer });
+    const read = Effect.gen(function* () {
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          expect(lifecycle.acquired - lifecycle.released).toBe(1);
+        }),
+      );
+      const first = yield* Reader;
+      const second = yield* Reader;
+      expect(first).toBe(second);
+      expect(yield* first.read).toBe(1);
+      expect(yield* second.read).toBe(2);
+      expect(lifecycle.acquired - lifecycle.released).toBe(1);
+      const context = yield* Effect.context<Reader>();
+      expect(Context.getOption(context, Counter)._tag).toBe("None");
+    }).pipe(Effect.scoped, Effect.provide(application.layer));
+
+    expect(lifecycle).toEqual({ acquired: 0, released: 0 });
+    await Effect.runPromise(read);
+    await Effect.runPromise(read);
+    expect(lifecycle).toEqual({ acquired: 2, released: 2 });
+  });
+
   it("isolates owned state from ambient services and other application instances", async () => {
     const { layer, lifecycle } = trackedCounter();
     const counter = Module.define({ exports: Counter, layer });

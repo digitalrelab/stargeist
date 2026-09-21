@@ -1,15 +1,27 @@
-import type { LibraryRpcs, LibraryDialogRpcs } from "@stargeist/domain/libraries/rpc";
-import type { RpcClient, RpcClientError } from "effect/unstable/rpc";
+import type {
+  Library,
+  LibraryError,
+  LibrarySelection,
+  WorkspaceId,
+  DirectoryListingPage,
+  ListingId,
+} from "@stargeist/domain";
+import type { Effect } from "effect";
+import type { ClientUnavailableError } from "#src/client/index.ts";
 
-type ReadClient = RpcClient.FromGroup<typeof LibraryRpcs, RpcClientError.RpcClientError>;
-
-type DialogClient = RpcClient.FromGroup<typeof LibraryDialogRpcs, RpcClientError.RpcClientError>;
-
+type Failure = LibraryError | ClientUnavailableError;
 export interface LibrariesClient {
-  readonly list: ReadClient["libraries.list"];
-  readonly get: ReadClient["libraries.get"];
-  readonly add: DialogClient["libraries.add"];
-  readonly openDirectory: ReadClient["libraries.openDirectory"];
-  readonly readDirectory: ReadClient["libraries.readDirectory"];
-  readonly closeDirectory: ReadClient["libraries.closeDirectory"];
+  readonly list: (workspaceId: WorkspaceId) => Effect.Effect<ReadonlyArray<Library>, Failure>;
+  readonly get: (selection: LibrarySelection) => Effect.Effect<Library, Failure>;
+  readonly addFromFolder: (workspaceId: WorkspaceId) => Effect.Effect<Library | null, Failure>;
+  readonly openDirectory: (
+    selection: LibrarySelection,
+  ) => Effect.Effect<DirectoryListingPage, Failure>;
+  readonly readDirectory: (input: {
+    readonly listingId: ListingId;
+    readonly offset: number;
+  }) => Effect.Effect<DirectoryListingPage, Failure>;
+  readonly closeDirectory: (input: {
+    readonly listingId: ListingId;
+  }) => Effect.Effect<void, ClientUnavailableError>;
 }

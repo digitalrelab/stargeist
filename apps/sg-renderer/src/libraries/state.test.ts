@@ -1,9 +1,13 @@
-import { ListingId, type DirectoryListingPage } from "@stargeist/domain/filesystem";
-import { WorkspaceId } from "@stargeist/domain/workspaces";
-import { Library, LibraryId, LibraryError } from "@stargeist/domain/libraries";
-import { LibraryRpcs, LibraryDialogRpcs } from "@stargeist/domain/libraries/rpc";
-import { Deferred, Effect, Exit, Schema, Scope } from "effect";
-import { RpcTest } from "effect/unstable/rpc";
+import type { LibrariesClient } from "./client";
+import {
+  ListingId,
+  type DirectoryListingPage,
+  WorkspaceId,
+  Library,
+  LibraryId,
+  LibraryError,
+} from "@stargeist/domain";
+import { Deferred, Effect, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { createLibraryState } from "./state";
@@ -18,55 +22,32 @@ const library = new Library({
   createdAt: 1,
 });
 
-const memoryClient = (
+const createClient = (
   handlers: {
     getLibrary?: () => Effect.Effect<Library>;
     addLibrary?: () => Effect.Effect<Library | null>;
     openDirectory?: () => Effect.Effect<DirectoryListingPage, LibraryError>;
     closeDirectory?: (input: { listingId: ListingId }) => Effect.Effect<void>;
   } = {},
-) =>
-  Effect.gen(function* () {
-    let libraries: ReadonlyArray<Library> = [];
-    const contract = LibraryRpcs.merge(LibraryDialogRpcs);
-    const client = yield* RpcTest.makeClient(contract).pipe(
-      Effect.provide(
-        contract.toLayer({
-          "libraries.list": ({ workspaceId }) =>
-            Effect.sync(() => libraries.filter((item) => item.workspaceId === workspaceId)),
-          "libraries.get": handlers.getLibrary ?? (() => Effect.succeed(library)),
-          "libraries.add": () =>
-            (handlers.addLibrary ?? (() => Effect.succeed(library)))().pipe(
-              Effect.tap((created) =>
-                Effect.sync(() => {
-                  if (created) libraries = [...libraries, created];
-                }),
-              ),
-            ),
-          "libraries.openDirectory":
-            handlers.openDirectory ?? (() => Effect.die("Unexpected directory request")),
-          "libraries.readDirectory": () => Effect.die("Unexpected directory request"),
-          "libraries.closeDirectory": handlers.closeDirectory ?? (() => Effect.void),
-        }),
+): LibrariesClient => {
+  let libraries: ReadonlyArray<Library> = [];
+  return {
+    list: (workspaceId) =>
+      Effect.sync(() => libraries.filter((item) => item.workspaceId === workspaceId)),
+    get: handlers.getLibrary ?? (() => Effect.succeed(library)),
+    addFromFolder: () =>
+      (handlers.addLibrary ?? (() => Effect.succeed(library)))().pipe(
+        Effect.tap((created) =>
+          Effect.sync(() => {
+            if (created) libraries = [...libraries, created];
+          }),
+        ),
       ),
-    );
-
-    return {
-      list: client["libraries.list"],
-      get: client["libraries.get"],
-      add: client["libraries.add"],
-      openDirectory: client["libraries.openDirectory"],
-      readDirectory: client["libraries.readDirectory"],
-      closeDirectory: client["libraries.closeDirectory"],
-    };
-  });
-
-async function createClient(handlers: Parameters<typeof memoryClient>[0] = {}) {
-  const scope = Scope.makeUnsafe();
-  onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)));
-
-  return Effect.runPromise(memoryClient(handlers).pipe(Scope.provide(scope)));
-}
+    openDirectory: handlers.openDirectory ?? (() => Effect.die("Unexpected directory request")),
+    readDirectory: () => Effect.die("Unexpected directory request"),
+    closeDirectory: handlers.closeDirectory ?? (() => Effect.void),
+  };
+};
 
 function createRegistry() {
   const registry = AtomRegistry.make();
@@ -80,7 +61,7 @@ describe("Library state", () => {
     const registry = createRegistry();
     let selection: Library | null = null;
     const state = createLibraryState(
-      await createClient({ addLibrary: () => Effect.sync(() => selection) }),
+      createClient({ addLibrary: () => Effect.sync(() => selection) }),
     );
 
     const libraries = state.libraries(workspace.id);
@@ -125,7 +106,7 @@ describe("Library state", () => {
     let currentLibrary = library;
     let currentListing = first;
     const state = createLibraryState(
-      await createClient({
+      createClient({
         getLibrary: () => Effect.sync(() => currentLibrary),
         openDirectory: () => Effect.sync(() => currentListing),
         closeDirectory: ({ listingId }) => {
@@ -172,7 +153,7 @@ describe("Library state", () => {
     });
 
     const state = createLibraryState(
-      await createClient({
+      createClient({
         openDirectory: () => Effect.fail(failure),
       }),
     );
@@ -197,7 +178,7 @@ describe("Library state", () => {
     const started = Effect.runSync(Deferred.make<void>());
     const canceled = Effect.runSync(Deferred.make<void>());
     const state = createLibraryState(
-      await createClient({
+      createClient({
         openDirectory: () =>
           Deferred.succeed(started, undefined).pipe(
             Effect.andThen(Effect.never),

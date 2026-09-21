@@ -1,6 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import { basename, parse } from "node:path";
-import { LibraryError } from "@stargeist/domain/libraries";
+import { LibraryError } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect } from "effect";
 

@@ -1,9 +1,14 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
-import { DirectoryListingPage, ListingId, PageOffset } from "../filesystem";
-import { WorkspaceId } from "../workspaces";
-import { LibraryError } from "./errors";
-import { Library, LibraryId } from "./library";
+import {
+  DirectoryListingPage,
+  ListingId,
+  PageOffset,
+  WorkspaceId,
+  LibraryError,
+  Library,
+  LibraryId,
+} from "@stargeist/domain";
 
 const selection = { workspaceId: WorkspaceId, id: LibraryId };
 
@@ -28,7 +33,7 @@ export const LibraryRpcs = RpcGroup.make(
 ).prefix("libraries.");
 
 export const LibraryDialogRpcs = RpcGroup.make(
-  Rpc.make("add", {
+  Rpc.make("addFromFolder", {
     payload: { workspaceId: WorkspaceId },
     success: Schema.NullOr(Library),
     error: LibraryError,

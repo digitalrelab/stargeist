@@ -3,8 +3,8 @@ import { Button, SettingsIcon, Sidebar, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Link, useParams } from "@tanstack/react-router";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
-import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
+import type { WorkspaceId } from "@stargeist/domain";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { useLibraryState, AddLibrary } from "#src/libraries/index.ts";
 import { CreateWorkspace, useWorkspaceState } from "#src/workspaces/index.ts";
 

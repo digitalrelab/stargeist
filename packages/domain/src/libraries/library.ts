@@ -1,6 +1,6 @@
 import * as Id from "@stargeist/std/id";
 import { Schema } from "effect";
-import { WorkspaceId } from "../workspaces";
+import { WorkspaceId } from "../workspaces/workspace";
 
 export const { schema: LibraryId, generate: makeLibraryId } = Id.define("lib");
 

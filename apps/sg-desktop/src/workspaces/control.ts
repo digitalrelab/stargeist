@@ -1,4 +1,5 @@
-import { CreatedWorkspace, WorkspaceCreationError } from "@stargeist/domain/workspaces/rpc";
+import { CreatedWorkspace } from "@stargeist/domain";
+import { WorkspaceCreationError } from "@stargeist/protocol/workspaces";
 import { Schema } from "effect";
 import { Rpc, RpcGroup, type RpcClient, type RpcClientError } from "effect/unstable/rpc";
 

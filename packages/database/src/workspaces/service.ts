@@ -1,13 +1,15 @@
-import { Library, type LibrarySource, makeLibraryId } from "@stargeist/domain/libraries";
 import {
+  Library,
+  makeLibraryId,
+  Workspaces,
+  type CreateWorkspace,
   Workspace,
   WorkspaceError,
   type WorkspaceId,
   makeWorkspaceId,
-} from "@stargeist/domain/workspaces";
-import { WorkspaceRepository } from "@stargeist/domain/workspaces/repository";
+} from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
-import { Effect, Layer, Schema } from "effect";
+import { Clock, Effect, Layer, Schema } from "effect";
 import { desc, eq } from "drizzle-orm";
 import { Database } from "../sqlite";
 import { libraries } from "../libraries/schema";
@@ -24,8 +26,8 @@ const decodeWorkspaces = Schema.decodeUnknownEffect(Schema.Array(Workspace));
 const notFound = () =>
   new WorkspaceError({ code: "NotFound", message: "This workspace is no longer available." });
 
-export const repositoryLayer = Layer.effect(
-  WorkspaceRepository,
+export const workspacesLayer = Layer.effect(
+  Workspaces,
   Effect.gen(function* () {
     const database = yield* Database;
 
@@ -62,7 +64,8 @@ export const repositoryLayer = Layer.effect(
     });
 
     const create = Effect.fnUntraced(
-      function* (displayName: string, source: typeof LibrarySource.Type, now: number) {
+      function* ({ displayName, source }: CreateWorkspace) {
+        const now = yield* Clock.currentTimeMillis;
         const workspaceId = yield* makeWorkspaceId;
         const libraryId = yield* makeLibraryId;
         const workspace = new Workspace({ id: workspaceId, displayName, createdAt: now });
@@ -98,6 +101,6 @@ export const repositoryLayer = Layer.effect(
       Effect.mapError(storageError),
     );
 
-    return { list, get, create } satisfies WorkspaceRepository["Service"];
+    return { list, get, create } satisfies Workspaces["Service"];
   }),
 );

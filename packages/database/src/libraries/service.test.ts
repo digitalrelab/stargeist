@@ -1,28 +1,27 @@
+import { TestClock } from "effect/testing";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { WorkspaceId } from "@stargeist/domain/workspaces";
-import { WorkspaceRepository } from "@stargeist/domain/workspaces/repository";
+import { WorkspaceId, Workspaces, Libraries } from "@stargeist/domain";
 import { Effect, Layer, Schema } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { Database, sqliteLayer } from "../index";
 import { libraries } from "./schema";
 import { eq } from "drizzle-orm";
-import { repositoryLayer } from "./index";
-import { repositoryLayer as workspaceLayer } from "../workspaces";
-import { LibraryRepository } from "@stargeist/domain/libraries/repository";
+import { librariesLayer } from "./index";
+import { workspacesLayer } from "../workspaces";
 
 async function createFixture() {
   const root = await mkdtemp(join(tmpdir(), "stargeist-repository-test-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
-  const layer = Layer.merge(repositoryLayer, workspaceLayer).pipe(
+  const layer = Layer.merge(librariesLayer, workspacesLayer).pipe(
     Layer.provideMerge(sqliteLayer({ filename: join(root, "stargeist.sqlite") })),
   );
 
   const folder = { kind: "local-fs" as const, path: root };
 
-  return { layer, folder };
+  return { layer: layer.pipe(Layer.provideMerge(TestClock.layer())), folder };
 }
 
 describe("library persistence", () => {
@@ -30,28 +29,31 @@ describe("library persistence", () => {
     const { layer, folder } = await createFixture();
     const saved = await Effect.runPromise(
       Effect.gen(function* () {
-        const repository = yield* WorkspaceRepository;
+        const repository = yield* Workspaces;
 
-        const libraries = yield* LibraryRepository;
-        const { workspace, library: first } = yield* repository.create("Documentary", folder, 1);
+        const libraries = yield* Libraries;
+        const { workspace, library: first } = yield* repository.create({
+          displayName: "Documentary",
+          source: folder,
+        });
         expect(workspace).toEqual({
           id: expect.any(String),
           displayName: "Documentary",
-          createdAt: 1,
+          createdAt: 0,
         });
         expect(yield* libraries.list(workspace.id)).toEqual([first]);
-        const second = yield* libraries.add(
-          workspace.id,
-          { ...folder, path: join(folder.path, "archive") },
-          "Archive",
-          3,
-        );
+        yield* TestClock.adjust(1);
+        const second = yield* libraries.add({
+          workspaceId: workspace.id,
+          source: { ...folder, path: join(folder.path, "archive") },
+          displayName: "Archive",
+        });
         expect(first).toEqual({
           id: expect.any(String),
           workspaceId: workspace.id,
           displayName: "Documentary",
           source: { kind: "local-fs", path: folder.path },
-          createdAt: 1,
+          createdAt: 0,
         });
         expect(second.id).not.toBe(first.id);
 
@@ -60,9 +62,9 @@ describe("library persistence", () => {
     );
     await Effect.runPromise(
       Effect.gen(function* () {
-        const repository = yield* WorkspaceRepository;
+        const repository = yield* Workspaces;
 
-        const libraries = yield* LibraryRepository;
+        const libraries = yield* Libraries;
         expect(yield* repository.get(saved.workspace.id)).toEqual(saved.workspace);
         expect(yield* libraries.list(saved.workspace.id)).toEqual(saved.libraries);
       }).pipe(Effect.provide(layer)),
@@ -73,18 +75,29 @@ describe("library persistence", () => {
     const { layer, folder } = await createFixture();
     await Effect.runPromise(
       Effect.gen(function* () {
-        const repository = yield* WorkspaceRepository;
+        const repository = yield* Workspaces;
 
-        const libraries = yield* LibraryRepository;
-        const { workspace: a, library: first } = yield* repository.create("A", folder, 1);
-        const { workspace: b, library: shared } = yield* repository.create("B", folder, 2);
-        const repeated = yield* libraries.add(a.id, folder, "Another view", 4);
-        const nested = yield* libraries.add(
-          b.id,
-          { ...folder, path: join(folder.path, "nested") },
-          "Nested",
-          6,
-        );
+        const libraries = yield* Libraries;
+        const { workspace: a, library: first } = yield* repository.create({
+          displayName: "A",
+          source: folder,
+        });
+        const { workspace: b, library: shared } = yield* repository.create({
+          displayName: "B",
+          source: folder,
+        });
+        yield* TestClock.adjust(1);
+        const repeated = yield* libraries.add({
+          workspaceId: a.id,
+          source: folder,
+          displayName: "Another view",
+        });
+        yield* TestClock.adjust(1);
+        const nested = yield* libraries.add({
+          workspaceId: b.id,
+          source: { ...folder, path: join(folder.path, "nested") },
+          displayName: "Nested",
+        });
         expect(new Set([first.id, repeated.id, shared.id, nested.id]).size).toBe(4);
         expect(shared.source).toEqual(first.source);
         expect(yield* libraries.list(a.id)).toEqual([first, repeated]);
@@ -102,9 +115,12 @@ describe("library persistence", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const database = yield* Database;
-        const workspaces = yield* WorkspaceRepository;
-        const repository = yield* LibraryRepository;
-        const { workspace, library } = yield* workspaces.create("Footage", folder, 1);
+        const workspaces = yield* Workspaces;
+        const repository = yield* Libraries;
+        const { workspace, library } = yield* workspaces.create({
+          displayName: "Footage",
+          source: folder,
+        });
 
         yield* database.insert(libraries).values({
           id: "invalid-library-id",
@@ -132,10 +148,14 @@ describe("library persistence", () => {
     const missing = Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001");
     await Effect.runPromise(
       Effect.gen(function* () {
-        const repository = yield* WorkspaceRepository;
+        const repository = yield* Workspaces;
 
-        const libraries = yield* LibraryRepository;
-        expect(yield* libraries.add(missing, folder, "Orphan", 1).pipe(Effect.flip)).toMatchObject({
+        const libraries = yield* Libraries;
+        expect(
+          yield* libraries
+            .add({ workspaceId: missing, source: folder, displayName: "Orphan" })
+            .pipe(Effect.flip),
+        ).toMatchObject({
           code: "NotFound",
         });
         expect(yield* libraries.list(missing).pipe(Effect.flip)).toMatchObject({

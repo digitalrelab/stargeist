@@ -21,9 +21,9 @@ it("creates a workspace and first library from a folder and browses the selected
 
   await Effect.runPromise(
     Effect.gen(function* () {
-      const application = yield* BackendApplication.make;
-      const layers = backendHandlers(application);
-      const handlers = yield* Layer.build(Layer.merge(layers.control, layers.renderer));
+      const handlers = yield* Layer.build(
+        Layer.merge(backendHandlers.control, backendHandlers.renderer),
+      );
 
       const client = yield* RpcTest.makeClient(RendererRpcs).pipe(Effect.provide(handlers));
 
@@ -82,6 +82,7 @@ it("creates a workspace and first library from a folder and browses the selected
       ]);
     }).pipe(
       Effect.scoped,
+      Effect.provide(BackendApplication.layer),
       Effect.provide(
         temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(join(root, "profile")))),
       ),

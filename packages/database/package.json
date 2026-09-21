@@ -8,9 +8,7 @@
     ".": "./src/index.ts",
     "./workspaces": "./src/workspaces/index.ts",
     "./libraries": "./src/libraries/index.ts",
-    "./filesystem": "./src/filesystem/index.ts",
-    "./workspaces/*": "./src/workspaces/*.ts",
-    "./libraries/*": "./src/libraries/*.ts"
+    "./filesystem": "./src/filesystem/index.ts"
   },
   "scripts": {
     "schema:generate": "bun generate-schema.ts"

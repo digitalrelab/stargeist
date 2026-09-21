@@ -1,39 +1,39 @@
+import { TestClock } from "effect/testing";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { WorkspaceError } from "@stargeist/domain/workspaces";
-import { WorkspaceRepository } from "@stargeist/domain/workspaces/repository";
+import { Workspaces, WorkspaceError } from "@stargeist/domain";
 import { Cause, Effect, Layer, Logger, References, Schema } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { Database, sqliteLayer } from "../index";
-import { repositoryLayer } from "./index";
+import { workspacesLayer } from "./index";
 
 async function createFixture() {
   const root = await mkdtemp(join(tmpdir(), "stargeist-repository-test-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
-  const layer = repositoryLayer.pipe(
+  const layer = workspacesLayer.pipe(
     Layer.provideMerge(sqliteLayer({ filename: join(root, "stargeist.sqlite") })),
   );
 
   const folder = { kind: "local-fs" as const, path: root };
 
-  return { layer, folder };
+  return { layer: layer.pipe(Layer.provideMerge(TestClock.layer())), folder };
 }
 
 describe("workspace persistence", () => {
   it("remembers workspace names after reopening the database", async () => {
     const { layer, folder } = await createFixture();
     const { workspace: saved } = await Effect.runPromise(
-      WorkspaceRepository.use((repository) => repository.create("Footage", folder, 1)).pipe(
-        Effect.provide(layer),
-      ),
+      Workspaces.use((repository) =>
+        repository.create({ displayName: "Footage", source: folder }),
+      ).pipe(Effect.provide(layer)),
     );
 
-    expect(saved).toMatchObject({ displayName: "Footage", createdAt: 1 });
+    expect(saved).toMatchObject({ displayName: "Footage", createdAt: 0 });
 
     const loaded = await Effect.runPromise(
-      WorkspaceRepository.use((repository) => repository.get(saved.id)).pipe(Effect.provide(layer)),
+      Workspaces.use((repository) => repository.get(saved.id)).pipe(Effect.provide(layer)),
     );
 
     expect(loaded).toEqual(saved);
@@ -52,7 +52,7 @@ describe("workspace persistence", () => {
 
         yield* database.run("DROP TABLE workspaces");
 
-        const repository = yield* WorkspaceRepository;
+        const repository = yield* Workspaces;
 
         return yield* repository.list.pipe(Effect.flip);
       }).pipe(Effect.provide(layer), Effect.provide(Logger.layer([logger]))),
@@ -75,13 +75,15 @@ it("rolls back the workspace when its first library fails, then permits a clean 
   await Effect.runPromise(
     Effect.gen(function* () {
       const database = yield* Database;
-      const repository = yield* WorkspaceRepository;
+      const repository = yield* Workspaces;
 
       yield* database.run(
         "CREATE TRIGGER fail_library BEFORE INSERT ON libraries BEGIN SELECT RAISE(ABORT, 'library write failed'); END",
       );
 
-      expect(yield* repository.create("Footage", folder, 1).pipe(Effect.flip)).toMatchObject({
+      expect(
+        yield* repository.create({ displayName: "Footage", source: folder }).pipe(Effect.flip),
+      ).toMatchObject({
         code: "StorageUnavailable",
       });
       expect(yield* repository.list).toEqual([]);
@@ -89,7 +91,7 @@ it("rolls back the workspace when its first library fails, then permits a clean 
 
       yield* database.run("DROP TRIGGER fail_library");
 
-      const created = yield* repository.create("Footage", folder, 2);
+      const created = yield* repository.create({ displayName: "Footage", source: folder });
 
       expect(created.library.workspaceId).toBe(created.workspace.id);
       expect(created.library.displayName).toBe(created.workspace.displayName);

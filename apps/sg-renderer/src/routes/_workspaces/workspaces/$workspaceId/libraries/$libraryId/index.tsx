@@ -1,14 +1,12 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { DirectoryListingPage } from "@stargeist/domain/filesystem";
-import { WorkspaceId } from "@stargeist/domain/workspaces";
-import { LibraryId } from "@stargeist/domain/libraries";
+import { type DirectoryListingPage, WorkspaceId, LibraryId } from "@stargeist/domain";
 import { Button, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
-import { failureMessage } from "#src/rpc/index.ts";
+import { failureMessage } from "#src/client/index.ts";
 import { useLibraryState } from "#src/libraries/index.ts";
 import { EntryList } from "./-entry-list";
 

@@ -14,7 +14,8 @@ type Api<M extends Modules> = {
   readonly [K in keyof M]: M[K]["exports"]["Service"];
 };
 
-export interface Application<A, E = never, R = never> {
+export interface Application<A, E = never, R = never, I = never> {
+  readonly layer: Layer.Layer<I, E, R>;
   readonly make: Effect.Effect<A, E, R | Scope.Scope>;
 }
 
@@ -24,7 +25,8 @@ export function define<M extends Modules, P = never, PE = never, PR = never>(opt
 }): Application<
   Api<M>,
   Layer.Error<M[keyof M]["layer"]> | PE,
-  Exclude<Layer.Services<M[keyof M]["layer"]>, P> | PR
+  Exclude<Layer.Services<M[keyof M]["layer"]>, P> | PR,
+  M[keyof M]["exports"]["Identifier"]
 > {
   const entries = Object.entries(options.modules);
   const exports = new Map<
@@ -51,6 +53,7 @@ export function define<M extends Modules, P = never, PE = never, PR = never>(opt
   const layer = Layer.provide(modules, options.provide ?? Layer.empty).pipe(Layer.fresh);
 
   return Object.freeze({
+    layer,
     make: Layer.build(layer).pipe(
       Effect.map(
         (context) =>

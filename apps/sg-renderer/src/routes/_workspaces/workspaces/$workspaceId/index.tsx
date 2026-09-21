@@ -1,11 +1,11 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { WorkspaceId } from "@stargeist/domain/workspaces";
+import { WorkspaceId } from "@stargeist/domain";
 import { Button, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { useWorkspaceState } from "#src/workspaces/index.ts";
 
 export const Route = createFileRoute("/_workspaces/workspaces/$workspaceId/")({

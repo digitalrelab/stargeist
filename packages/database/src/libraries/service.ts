@@ -1,13 +1,14 @@
 import {
+  Libraries,
   Library,
-  type LibrarySource,
   LibraryError,
   makeLibraryId,
-} from "@stargeist/domain/libraries";
-import { LibraryRepository, type LibrarySelection } from "@stargeist/domain/libraries/repository";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
+  type LibrarySelection,
+  type AddLibrary,
+  type WorkspaceId,
+} from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
-import { Effect, Layer, Schema } from "effect";
+import { Clock, Effect, Layer, Schema } from "effect";
 import { and, eq } from "drizzle-orm";
 import { Database } from "../sqlite";
 import { libraries } from "./schema";
@@ -32,8 +33,8 @@ const libraryColumns = {
 
 const decodeLibraries = Schema.decodeUnknownEffect(Schema.Array(Library));
 
-export const repositoryLayer = Layer.effect(
-  LibraryRepository,
+export const librariesLayer = Layer.effect(
+  Libraries,
   Effect.gen(function* () {
     const database = yield* Database;
 
@@ -95,12 +96,8 @@ export const repositoryLayer = Layer.effect(
       return library;
     });
 
-    const add = Effect.fnUntraced(function* (
-      workspaceId: WorkspaceId,
-      source: typeof LibrarySource.Type,
-      displayName: string,
-      now: number,
-    ) {
+    const add = Effect.fnUntraced(function* ({ workspaceId, source, displayName }: AddLibrary) {
+      const now = yield* Clock.currentTimeMillis;
       yield* requireWorkspace(workspaceId);
 
       const id = yield* makeLibraryId;
@@ -124,6 +121,6 @@ export const repositoryLayer = Layer.effect(
       return new Library({ id, workspaceId, displayName, source, createdAt: now });
     });
 
-    return { list, get, add } satisfies LibraryRepository["Service"];
+    return { list, get, add } satisfies Libraries["Service"];
   }),
 );

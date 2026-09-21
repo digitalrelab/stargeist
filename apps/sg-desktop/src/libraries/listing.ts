@@ -1,5 +1,4 @@
-import type { DirectoryError, ListingId } from "@stargeist/domain/filesystem";
-import { LibraryError } from "@stargeist/domain/libraries";
+import { type DirectoryError, type ListingId, LibraryError } from "@stargeist/domain";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import { openListing } from "../filesystem";
 import { TemporaryStorage } from "../storage";

@@ -1,5 +1,5 @@
-import { LibraryDialogRpcs, LibraryRpcs } from "@stargeist/domain/libraries/rpc";
-import { WorkspaceRpcs, WorkspaceDialogRpcs } from "@stargeist/domain/workspaces/rpc";
+import { LibraryDialogRpcs, LibraryRpcs } from "@stargeist/protocol/libraries";
+import { WorkspaceRpcs, WorkspaceDialogRpcs } from "@stargeist/protocol/workspaces";
 import type { RpcClient, RpcClientError } from "effect/unstable/rpc";
 import { LibraryControlRpcs } from "../libraries/control";
 import { WorkspaceControlRpcs } from "../workspaces/control";

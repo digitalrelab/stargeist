@@ -1,11 +1,10 @@
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import { Application } from "@stargeist/application";
+import { Application, Module } from "@stargeist/application";
 import { sqliteLayer } from "@stargeist/database";
-import { repositoryLayer as libraryRepositoryLayer } from "@stargeist/database/libraries";
-import { LibrariesModule } from "@stargeist/domain/libraries/service";
-import { repositoryLayer } from "@stargeist/database/workspaces";
-import { WorkspacesModule } from "@stargeist/domain/workspaces/service";
+import { librariesLayer } from "@stargeist/database/libraries";
+import { workspacesLayer } from "@stargeist/database/workspaces";
+import { Libraries, Workspaces } from "@stargeist/domain";
 import { Effect, Layer } from "effect";
 import { StoragePaths } from "../storage";
 
@@ -19,10 +18,8 @@ const database = Layer.unwrap(
 
 export const BackendApplication = Application.define({
   modules: {
-    workspaces: WorkspacesModule,
-    libraries: LibrariesModule,
+    workspaces: Module.define({ exports: Workspaces, layer: workspacesLayer }),
+    libraries: Module.define({ exports: Libraries, layer: librariesLayer }),
   },
-  provide: Layer.merge(repositoryLayer, libraryRepositoryLayer).pipe(Layer.provide(database)),
+  provide: database,
 });
-
-export type BackendServices = Effect.Success<typeof BackendApplication.make>;

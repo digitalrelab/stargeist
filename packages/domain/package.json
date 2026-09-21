@@ -4,15 +4,15 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
+  "sideEffects": false,
   "exports": {
+    ".": "./src/index.ts",
     "./filesystem": "./src/filesystem/index.ts",
     "./workspaces": "./src/workspaces/index.ts",
-    "./workspaces/*": "./src/workspaces/*.ts",
     "./libraries": "./src/libraries/index.ts",
-    "./libraries/*": "./src/libraries/*.ts"
+    "./user-preferences": "./src/user-preferences/index.ts"
   },
   "dependencies": {
-    "@stargeist/application": "workspace:*",
     "@stargeist/std": "workspace:*",
     "effect": "catalog:"
   }

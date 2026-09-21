@@ -1,12 +1,20 @@
-import type { WorkspaceRpcs, WorkspaceDialogRpcs } from "@stargeist/domain/workspaces/rpc";
-import type { RpcClient, RpcClientError } from "effect/unstable/rpc";
-
-type ReadClient = RpcClient.FromGroup<typeof WorkspaceRpcs, RpcClientError.RpcClientError>;
-
-type DialogClient = RpcClient.FromGroup<typeof WorkspaceDialogRpcs, RpcClientError.RpcClientError>;
+import type {
+  CreatedWorkspace,
+  Workspace,
+  WorkspaceError,
+  WorkspaceId,
+  LibraryError,
+} from "@stargeist/domain";
+import type { Effect } from "effect";
+import type { ClientUnavailableError } from "#src/client/index.ts";
 
 export interface WorkspacesClient {
-  readonly list: ReadClient["workspaces.list"];
-  readonly get: ReadClient["workspaces.get"];
-  readonly create: DialogClient["workspaces.create"];
+  readonly list: Effect.Effect<ReadonlyArray<Workspace>, WorkspaceError | ClientUnavailableError>;
+  readonly get: (
+    id: WorkspaceId,
+  ) => Effect.Effect<Workspace, WorkspaceError | ClientUnavailableError>;
+  readonly createFromFolder: () => Effect.Effect<
+    typeof CreatedWorkspace.Type | null,
+    WorkspaceError | LibraryError | ClientUnavailableError
+  >;
 }

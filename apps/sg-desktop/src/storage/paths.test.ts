@@ -15,6 +15,7 @@ it("resolves product paths without creating storage or acquiring a temporary ses
   expect(paths).toEqual({
     profile,
     database: join(profile, "data", "stargeist.sqlite"),
+    userPreferences: join(profile, "data", "user-preferences.json"),
     temporary: join(profile, "temporary"),
   });
   expect(await readdir(root)).toEqual([]);

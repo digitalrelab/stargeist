@@ -1,0 +1,15 @@
+{
+  "name": "@stargeist/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./workspaces": "./src/workspaces.ts",
+    "./libraries": "./src/libraries.ts"
+  },
+  "dependencies": {
+    "@stargeist/domain": "workspace:*",
+    "effect": "catalog:"
+  }
+}

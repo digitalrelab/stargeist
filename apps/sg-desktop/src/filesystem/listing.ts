@@ -8,7 +8,7 @@ import {
   ListingId,
   DirectoryError,
   entryPageSize,
-} from "@stargeist/domain/filesystem";
+} from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema, Semaphore } from "effect";
 import { TemporaryStorage } from "../storage";

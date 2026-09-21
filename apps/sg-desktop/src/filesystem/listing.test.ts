@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { entryPageSize } from "@stargeist/domain/filesystem";
+import { entryPageSize } from "@stargeist/domain";
 import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";

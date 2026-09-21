@@ -1,7 +1,7 @@
 import { clientProtocol, type Connection } from "@stargeist/std/rpc";
 import { Effect, Layer } from "effect";
 import { DesktopConnection } from "./index";
-import { ClientUnavailableError } from "#src/rpc/index.ts";
+import { ClientUnavailableError } from "#src/client/index.ts";
 
 const connect = Effect.callback<readonly [MessagePort, MessagePort]>((resume) => {
   const nonce = crypto.randomUUID();

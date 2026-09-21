@@ -1,5 +1,4 @@
-import { Library, LibraryError } from "@stargeist/domain/libraries";
-import { WorkspaceId } from "@stargeist/domain/workspaces";
+import { Library, LibraryError, WorkspaceId } from "@stargeist/domain";
 import { Schema } from "effect";
 import { Rpc, RpcGroup, type RpcClient, type RpcClientError } from "effect/unstable/rpc";
 
