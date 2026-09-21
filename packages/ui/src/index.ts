@@ -3,6 +3,7 @@ export * as Select from "./select";
 export {
   BackIcon,
   SettingsIcon,
+  AppearanceIcon,
   FileIcon,
   FolderIcon,
   LinkIcon,

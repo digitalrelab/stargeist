@@ -14,7 +14,7 @@ export function AppShell({
 }) {
   return (
     <div {...props} {...stylex.props(styles.frame)}>
-      {primarySidebar}
+      <div {...stylex.props(styles.primarySidebar)}>{primarySidebar}</div>
       <div {...stylex.props(styles.content, !!secondarySidebar && styles.withSecondarySidebar)}>
         <WorkArea.Root>{children}</WorkArea.Root>
         {secondarySidebar}
@@ -42,6 +42,15 @@ const styles = stylex.create({
     },
     backgroundColor: colors.canvas,
     overflow: "hidden",
+  },
+  primarySidebar: {
+    display: { default: "grid", "@media (max-width: 480px)": "block" },
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gridTemplateRows: "minmax(0, 1fr)",
+    minWidth: 0,
+    minHeight: 0,
+    maxHeight: { default: "none", "@media (max-width: 480px)": "30dvh" },
+    overflow: { default: "hidden", "@media (max-width: 480px)": "auto" },
   },
   content: {
     display: "grid",

@@ -8,8 +8,18 @@
     "./workspaces": "./src/workspaces.ts",
     "./libraries": "./src/libraries.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@stargeist/domain": "workspace:*",
     "effect": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ]
   }
 }

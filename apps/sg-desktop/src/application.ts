@@ -9,12 +9,13 @@ import { UserPreferences } from "@stargeist/domain";
 
 const paths = Layer.unwrap(Effect.sync(() => pathsLayer(app.getPath("userData"))));
 const backend = backendLayer.pipe(Layer.provide(paths));
+const preferences = userPreferencesLayer.pipe(Layer.provide(paths));
 
 export const DesktopApplication = Application.define({
   modules: {
     windows: WindowsModule,
     backend: Module.define({ exports: Backend, layer: backend }),
-    userPreferences: Module.define({ exports: UserPreferences, layer: userPreferencesLayer }),
+    userPreferences: Module.define({ exports: UserPreferences, layer: preferences }),
   },
-  provide: Layer.merge(backend, paths),
+  provide: Layer.merge(backend, preferences),
 });

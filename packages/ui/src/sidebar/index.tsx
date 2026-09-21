@@ -1,9 +1,7 @@
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
 import * as stylex from "@stylexjs/stylex";
-import type { ComponentProps } from "react";
-import { colors, control, focusRing, space } from "../tokens.stylex";
-import { typography } from "../typography";
+import type { ComponentProps, ReactNode } from "react";
+import { Button, type ButtonLinkProps } from "../button";
+import { control, space } from "../tokens.stylex";
 
 type Props<T extends "aside" | "div" | "nav"> = Omit<ComponentProps<T>, "className" | "style">;
 
@@ -28,16 +26,20 @@ export function Footer(props: Props<"div">) {
 }
 
 export function Link({
-  render,
-  ref,
+  icon,
+  children,
   ...props
-}: Omit<useRender.ComponentProps<"a">, "className" | "style">) {
-  return useRender({
-    defaultTagName: "a",
-    render,
-    ref,
-    props: mergeProps<"a">(props, stylex.props(styles.link, typography.label)),
-  });
+}: Omit<ButtonLinkProps, "appearance" | "size" | "styles"> & { icon?: ReactNode }) {
+  return (
+    <Button.Link {...props} appearance="ghost" styles={styles.link}>
+      {icon && (
+        <span {...stylex.props(styles.icon)} aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      <span {...stylex.props(styles.label)}>{children}</span>
+    </Button.Link>
+  );
 }
 
 const styles = stylex.create({
@@ -60,30 +62,21 @@ const styles = stylex.create({
   },
   navigation: { display: "flex", flexDirection: "column", gap: space[1] },
   footer: { display: "flex", flexDirection: "column", gap: space[1], flexShrink: 0 },
-  link: {
-    display: "block",
+  icon: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
-    minHeight: control.heightMd,
-    alignContent: "center",
-    borderRadius: control.radius,
-    paddingInline: space[3],
-    color: {
-      default: colors.onControlMuted,
-      ':is(:hover, :active, [aria-current="page"])': colors.onControl,
-    },
-    textDecoration: "none",
-    whiteSpace: "nowrap",
+    width: control.iconSize,
+    height: control.iconSize,
+  },
+  label: {
+    flexGrow: 1,
+    minWidth: 0,
+    textAlign: "start",
     overflow: "hidden",
     textOverflow: "ellipsis",
-    backgroundColor: {
-      default: "oklch(0% 0 0 / 0)",
-      ':hover:not(:active):not([aria-current="page"])': colors.controlHovered,
-      ':active:not([aria-current="page"])': colors.controlPressed,
-      '[aria-current="page"]': colors.controlSelected,
-    },
-    outlineColor: colors.focusRing,
-    outlineWidth: focusRing.width,
-    outlineStyle: { default: "none", ":focus-visible": "solid" },
-    outlineOffset: `calc(-1 * ${focusRing.width})`,
+    whiteSpace: "nowrap",
   },
+  link: { flexShrink: 0 },
 });

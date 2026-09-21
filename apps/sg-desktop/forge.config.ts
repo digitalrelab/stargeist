@@ -1,12 +1,17 @@
+import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
+import { productName } from "./package.json";
 
-const executableName = "Stargeist";
+const executableName = productName;
 const icon = fileURLToPath(new URL("./icons/icon", import.meta.url));
 
 const linuxPackageOptions = {
@@ -17,6 +22,22 @@ const linuxPackageOptions = {
 };
 
 export default {
+  hooks: {
+    preStart: async () => {
+      if (process.platform !== "darwin") return;
+
+      const require = createRequire(import.meta.url);
+      const electron = require.resolve("electron/package.json");
+      const plist = join(dirname(electron), "dist", "Electron.app", "Contents", "Info.plist");
+      await promisify(execFile)("/usr/libexec/PlistBuddy", [
+        "-c",
+        `Set :CFBundleName ${productName}`,
+        "-c",
+        `Set :CFBundleDisplayName ${productName}`,
+        plist,
+      ]);
+    },
+  },
   packagerConfig: {
     asar: true,
     name: executableName,

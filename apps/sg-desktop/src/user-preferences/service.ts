@@ -1,7 +1,7 @@
 import { basename, dirname } from "node:path";
 import { UserPreferences, UserPreferencesError, UserPreferenceValues } from "@stargeist/domain";
 import Store from "electron-store";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Queue, Schema, Stream } from "effect";
 import { StoragePaths } from "../storage";
 
 const decode = Schema.decodeUnknownSync(UserPreferenceValues, { onExcessProperty: "error" });
@@ -43,6 +43,24 @@ export const userPreferencesLayer = Layer.effect(
         catch: failure("write"),
       });
 
-    return { get, set } satisfies UserPreferences["Service"];
+    const watch = <K extends keyof UserPreferenceValues>(key: K) =>
+      Stream.callback<UserPreferenceValues[K], UserPreferencesError>(
+        Effect.fnUntraced(function* (queue) {
+          yield* Effect.acquireRelease(
+            Effect.try({
+              try: () =>
+                store.onDidChange(key, (value) => {
+                  Queue.offerUnsafe(queue, value ?? defaults[key]);
+                }),
+              catch: failure("read"),
+            }),
+            (unsubscribe) => Effect.sync(unsubscribe),
+          );
+          yield* Queue.offer(queue, yield* get(key));
+        }),
+        { bufferSize: 1, strategy: "sliding" },
+      );
+
+    return { get, set, watch } satisfies UserPreferences["Service"];
   }),
 );

@@ -6,6 +6,7 @@
   "include": [
     "*.config.ts",
     "apps/*/*.config.ts",
+    "apps/*/src/**/*.d.ts",
     "packages/**/*.test.ts",
     "apps/*/src/**/*.test.ts",
     "tooling/*/src/**/*.test.ts"

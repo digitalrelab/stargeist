@@ -7,6 +7,10 @@
   "exports": {
     "./*": "./src/*/index.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test run --root ../.. packages/std/src --maxWorkers 2"
+  },
   "dependencies": {
     "effect": "catalog:",
     "typeid-js": "1.2.0"
@@ -25,5 +29,12 @@
     "@effect/atom-react": {
       "optional": true
     }
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ]
   }
 }
