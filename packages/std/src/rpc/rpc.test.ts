@@ -2,7 +2,7 @@ import { MessageChannel, type MessagePort } from "node:worker_threads";
 import { Deferred, Effect, Exit, Fiber, Schema } from "effect";
 import { Rpc, RpcClient, RpcGroup, RpcServer } from "effect/unstable/rpc";
 import { describe, expect, it } from "vite-plus/test";
-import { clientProtocol, serverProtocol, type Connection } from "./rpc";
+import { clientProtocol, serverProtocol, type Connection } from "./index";
 
 const connect = (port: MessagePort): Connection => ({
   send: (message) => port.postMessage(message),

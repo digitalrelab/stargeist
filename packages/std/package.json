@@ -5,10 +5,25 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    "./*": "./src/*.ts"
+    "./*": "./src/*/index.ts"
   },
   "dependencies": {
     "effect": "catalog:",
     "typeid-js": "1.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
+  },
+  "peerDependencies": {
+    "@effect/atom-react": "4.0.0-rc.116",
+    "react": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "@effect/atom-react": {
+      "optional": true
+    }
   }
 }

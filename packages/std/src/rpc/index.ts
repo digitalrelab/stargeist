@@ -6,7 +6,7 @@ import {
   RpcSerialization,
   RpcServer,
 } from "effect/unstable/rpc";
-import { reportFailure } from "./errors";
+import { reportFailure } from "../errors";
 
 export interface Connection {
   readonly closed: Effect.Effect<void>;

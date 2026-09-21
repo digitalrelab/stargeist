@@ -1,6 +1,6 @@
 import { Cause, Effect, Logger, References } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { reportFailure } from "./errors";
+import { reportFailure } from "./index";
 
 describe("failure reporting", () => {
   it("does not report cancellation as an error", () => {

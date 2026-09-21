@@ -1,7 +1,7 @@
 import { Deferred, Effect } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import * as Pagination from "./pagination";
+import * as Pagination from "./index";
 
 const first = { items: ["a", "b"], next: 2 };
 const last = { items: ["c"], next: null };
