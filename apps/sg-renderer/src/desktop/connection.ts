@@ -71,10 +71,13 @@ const connection = (port: MessagePort): Connection => ({
 export const desktopConnectionLayer = Layer.effect(
   DesktopConnection,
   Effect.gen(function* () {
-    const ports = yield* Effect.acquireRelease(connect, (ports) =>
-      Effect.sync(() => {
-        for (const port of ports) port.close();
-      }),
+    const ports = yield* Effect.acquireRelease(
+      connect,
+      (ports) =>
+        Effect.sync(() => {
+          for (const port of ports) port.close();
+        }),
+      { interruptible: true },
     );
 
     const backend = yield* clientProtocol(connection(ports[0]));
