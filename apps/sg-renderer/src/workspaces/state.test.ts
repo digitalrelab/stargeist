@@ -1,11 +1,10 @@
 import { ListingId, type DirectoryListingPage } from "@stargeist/domain/filesystem";
 import { Workspace, WorkspaceError, WorkspaceId } from "@stargeist/domain/workspaces";
 import { WorkspaceDialogRpcs, WorkspaceRpcs } from "@stargeist/domain/workspaces/rpc";
-import { Deferred, Effect, Layer, Schema } from "effect";
+import { Deferred, Effect, Exit, Schema, Scope } from "effect";
 import { RpcTest } from "effect/unstable/rpc";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { WorkspacesClient } from "./client";
 import { createWorkspaceState } from "./state";
 
 const workspace = new Workspace({
@@ -46,6 +45,12 @@ const memoryClient = (
     );
   });
 
+async function createClient(handlers: Parameters<typeof memoryClient>[0] = {}) {
+  const scope = Scope.makeUnsafe();
+  onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)));
+  return Effect.runPromise(memoryClient(handlers).pipe(Scope.provide(scope)));
+}
+
 function createRegistry() {
   const registry = AtomRegistry.make();
   onTestFinished(() => registry.dispose());
@@ -55,10 +60,8 @@ function createRegistry() {
 describe("Workspace state", () => {
   it("refreshes the injected client's list without affecting another state in the same registry", async () => {
     const registry = createRegistry();
-    const first = createWorkspaceState(Layer.effect(WorkspacesClient, memoryClient()));
-    const second = createWorkspaceState(Layer.effect(WorkspacesClient, memoryClient()));
-    registry.mount(first.runtime);
-    registry.mount(second.runtime);
+    const first = createWorkspaceState(await createClient());
+    const second = createWorkspaceState(await createClient());
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -80,21 +83,27 @@ describe("Workspace state", () => {
     );
   });
 
-  it("releases the adapter on registry disposal even when the workspace list is cached", async () => {
+  it("leaves the application client alive when feature state is disposed", async () => {
     const registry = createRegistry();
-    const released = Effect.runSync(Deferred.make<void>());
-    const layer = Layer.effect(
-      WorkspacesClient,
-      Effect.acquireRelease(memoryClient(), () => Deferred.succeed(released, undefined)),
+    const scope = Scope.makeUnsafe();
+    onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)));
+    let released = false;
+    const client = await Effect.runPromise(
+      Effect.acquireRelease(memoryClient(), () =>
+        Effect.sync(() => {
+          released = true;
+        }),
+      ).pipe(Scope.provide(scope)),
     );
-    const state = createWorkspaceState(layer);
-    registry.mount(state.runtime);
+    const state = createWorkspaceState(client);
 
-    await Effect.runPromise(AtomRegistry.getResult(registry, state.runtime));
     await Effect.runPromise(AtomRegistry.getResult(registry, state.workspaces));
     registry.dispose();
+    expect(released).toBe(false);
+    expect(await Effect.runPromise(client.list())).toEqual([]);
 
-    await Effect.runPromise(Deferred.await(released).pipe(Effect.timeout("3 seconds")));
+    await Effect.runPromise(Scope.close(scope, Exit.void));
+    expect(released).toBe(true);
   });
 
   it("refreshes the whole detail and closes each listing on refresh and unsubscribe", async () => {
@@ -118,20 +127,16 @@ describe("Workspace state", () => {
     let currentWorkspace = workspace;
     let currentListing = first;
     const state = createWorkspaceState(
-      Layer.effect(
-        WorkspacesClient,
-        memoryClient({
-          get: () => Effect.sync(() => currentWorkspace),
-          openDirectory: () => Effect.sync(() => currentListing),
-          closeDirectory: ({ listingId }) =>
-            Deferred.succeed(
-              listingId === first.listingId ? firstClosed : secondClosed,
-              undefined,
-            ).pipe(Effect.asVoid),
-        }),
-      ),
+      await createClient({
+        get: () => Effect.sync(() => currentWorkspace),
+        openDirectory: () => Effect.sync(() => currentListing),
+        closeDirectory: ({ listingId }) =>
+          Deferred.succeed(
+            listingId === first.listingId ? firstClosed : secondClosed,
+            undefined,
+          ).pipe(Effect.asVoid),
+      }),
     );
-    registry.mount(state.runtime);
     const detail = state.detail(workspace.id);
     const listing = Atom.map(detail, (value) => value.listing);
     const unsubscribe = registry.mount(detail);
@@ -165,14 +170,10 @@ describe("Workspace state", () => {
       message: "The folder is unavailable.",
     });
     const state = createWorkspaceState(
-      Layer.effect(
-        WorkspacesClient,
-        memoryClient({
-          openDirectory: () => Effect.fail(failure),
-        }),
-      ),
+      await createClient({
+        openDirectory: () => Effect.fail(failure),
+      }),
     );
-    registry.mount(state.runtime);
     const detail = state.detail(workspace.id);
     registry.mount(detail);
 

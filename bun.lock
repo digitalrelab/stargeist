@@ -25,8 +25,8 @@
         "@stargeist/application": "workspace:*",
         "@stargeist/database": "workspace:*",
         "@stargeist/domain": "workspace:*",
+        "@stargeist/renderer": "workspace:*",
         "@stargeist/std": "workspace:*",
-        "@stargeist/web": "workspace:*",
         "@types/electron-squirrel-startup": "1.0.2",
         "effect": "catalog:",
         "electron": "44.4.3",
@@ -34,11 +34,12 @@
         "vite-plus": "catalog:",
       },
     },
-    "apps/sg-web": {
-      "name": "@stargeist/web",
+    "apps/sg-renderer": {
+      "name": "@stargeist/renderer",
       "version": "0.0.0",
       "dependencies": {
         "@effect/atom-react": "4.0.0-rc.116",
+        "@stargeist/application": "workspace:*",
         "@stargeist/domain": "workspace:*",
         "@stargeist/std": "workspace:*",
         "@stargeist/ui": "workspace:*",
@@ -56,7 +57,6 @@
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@vitejs/plugin-react": "6.1.1",
-        "portless": "0.15.6",
         "vite-plus": "catalog:",
       },
     },
@@ -422,11 +422,11 @@
 
     "@stargeist/domain": ["@stargeist/domain@workspace:packages/domain"],
 
+    "@stargeist/renderer": ["@stargeist/renderer@workspace:apps/sg-renderer"],
+
     "@stargeist/std": ["@stargeist/std@workspace:packages/std"],
 
     "@stargeist/ui": ["@stargeist/ui@workspace:packages/ui"],
-
-    "@stargeist/web": ["@stargeist/web@workspace:apps/sg-web"],
 
     "@stylexjs/babel-plugin": ["@stylexjs/babel-plugin@0.19.1", "", { "dependencies": { "@babel/core": "^7.26.8", "@babel/helper-module-imports": "^7.25.9", "@babel/traverse": "^7.26.8", "@babel/types": "^7.26.8", "@dual-bundle/import-meta-resolve": "^4.1.0", "@stylexjs/shared": "0.19.1", "@stylexjs/stylex": "0.19.1", "postcss-value-parser": "^4.1.0" } }, "sha512-Ig3crX6MuGWDEAx+f89aLxTQUWVeEc2Aco2moIdcObyvo7hZJgU26rxJN3k7geFjhi+5dfna6TNR8iTRK0PQGA=="],
 
@@ -1203,8 +1203,6 @@
     "plist": ["plist@3.1.1", "", { "dependencies": { "@xmldom/xmldom": "^0.9.10", "base64-js": "^1.5.1", "xmlbuilder": "^15.1.1" } }, "sha512-ZIfcLJC+7E7FBFnDxm9MPmt7D+DidyQ26lewieO75AdhA2ayMtsJSES0iWzqJQbcVRSrTufQoy0DR94xHue0oA=="],
 
     "pngjs": ["pngjs@7.0.0", "", {}, "sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow=="],
-
-    "portless": ["portless@0.15.6", "", { "os": [ "linux", "win32", "darwin", ], "bin": { "portless": "dist/cli.js" } }, "sha512-uOAwWLF32rmyEGFASzSO0VOaqb/AQxFCCzyZbPGd82UNNOfIEvc09zy92nroNibE5HNfzV4oVB0ObKbPXgkM9A=="],
 
     "postcss": ["postcss@8.5.28", "", { "dependencies": { "nanoid": "^3.3.18", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A=="],
 

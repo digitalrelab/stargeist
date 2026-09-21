@@ -15,8 +15,16 @@ export function Header(props: Props<"div">) {
   return <div {...props} {...stylex.props(styles.header)} />;
 }
 
+export function Content(props: Props<"div">) {
+  return <div {...props} {...stylex.props(styles.content)} />;
+}
+
 export function Nav(props: Props<"nav">) {
   return <nav {...props} {...stylex.props(styles.navigation)} />;
+}
+
+export function Footer(props: Props<"div">) {
+  return <div {...props} {...stylex.props(styles.footer)} />;
 }
 
 export function Link(props: Omit<RoleProps<"a">, "className" | "style">) {
@@ -32,14 +40,17 @@ const styles = stylex.create({
     gap: space[4],
     padding: space[4],
   },
-  header: { display: "flex", flexDirection: "column", gap: space[4] },
-  navigation: {
+  header: { display: "flex", flexDirection: "column", gap: space[4], flexShrink: 0 },
+  content: {
     display: "flex",
     flexDirection: "column",
-    gap: space[1],
+    flexGrow: 1,
+    gap: space[4],
     overflowY: "auto",
     minHeight: 0,
   },
+  navigation: { display: "flex", flexDirection: "column", gap: space[1] },
+  footer: { display: "flex", flexDirection: "column", gap: space[1], flexShrink: 0 },
   link: {
     display: "block",
     flexShrink: 0,

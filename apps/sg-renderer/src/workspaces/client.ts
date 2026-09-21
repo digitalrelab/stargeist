@@ -6,4 +6,4 @@ export class WorkspacesClient extends Context.Service<
   WorkspacesClient,
   RpcClient.FromGroup<typeof WorkspaceRpcs, RpcClientError.RpcClientError> &
     RpcClient.FromGroup<typeof WorkspaceDialogRpcs, RpcClientError.RpcClientError>
->()("@stargeist/web/WorkspacesClient") {}
+>()("@stargeist/renderer/WorkspacesClient") {}

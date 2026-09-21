@@ -1,5 +1,6 @@
 import { clientProtocol, type Connection } from "@stargeist/std/rpc";
-import { Context, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
+import { DesktopConnection } from "./index";
 import { ClientUnavailableError } from "#src/rpc/index.ts";
 
 const connect = Effect.callback<readonly [MessagePort, MessagePort]>((resume) => {
@@ -33,7 +34,7 @@ const connect = Effect.callback<readonly [MessagePort, MessagePort]>((resume) =>
   Effect.mapError(
     (cause) =>
       new ClientUnavailableError({
-        message: "The connection could not start. Reopen Stargeist to reconnect.",
+        message: "The desktop connection could not start. Please try again.",
         cause,
       }),
   ),
@@ -67,22 +68,17 @@ const connection = (port: MessagePort): Connection => ({
   },
 });
 
-export class DesktopConnection extends Context.Service<DesktopConnection>()(
-  "@stargeist/web/DesktopConnection",
-  {
-    make: Effect.gen(function* () {
-      const ports = yield* Effect.acquireRelease(connect, (ports) =>
-        Effect.sync(() => {
-          for (const port of ports) port.close();
-        }),
-      );
+export const desktopConnectionLayer = Layer.effect(
+  DesktopConnection,
+  Effect.gen(function* () {
+    const ports = yield* Effect.acquireRelease(connect, (ports) =>
+      Effect.sync(() => {
+        for (const port of ports) port.close();
+      }),
+    );
 
-      const backendProtocol = yield* clientProtocol(connection(ports[0]));
-      const hostProtocol = yield* clientProtocol(connection(ports[1]));
-
-      return { backend: backendProtocol, host: hostProtocol };
-    }),
-  },
-) {}
-
-export const desktopConnectionLayer = Layer.effect(DesktopConnection, DesktopConnection.make);
+    const backend = yield* clientProtocol(connection(ports[0]));
+    const host = yield* clientProtocol(connection(ports[1]));
+    return { backend, host };
+  }),
+);

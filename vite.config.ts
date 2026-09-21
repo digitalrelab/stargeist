@@ -15,8 +15,8 @@ const platformImports = [
   "@effect/sql-*",
 ];
 const appImports = [
-  "@stargeist/web",
-  "@stargeist/web/*",
+  "@stargeist/renderer",
+  "@stargeist/renderer/*",
   "@stargeist/desktop",
   "@stargeist/desktop/*",
 ];
@@ -29,7 +29,7 @@ const featureImports = [
 
 const boundaries = [
   {
-    files: ["apps/sg-web/src/**"],
+    files: ["apps/sg-renderer/src/**"],
     portable: true,
     patterns: appImports,
   },

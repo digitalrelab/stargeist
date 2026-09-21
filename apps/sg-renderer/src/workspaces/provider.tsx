@@ -1,17 +1,18 @@
 import { RegistryProvider } from "@effect/atom-react";
 import { createContext, use, useMemo, type ReactNode } from "react";
-import { createWorkspaceState, type WorkspaceClientLayer, type WorkspaceState } from "./state";
+import type { WorkspacesClient } from "./client";
+import { createWorkspaceState, type WorkspaceState } from "./state";
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null);
 
 export function WorkspaceProvider({
-  layer,
+  client,
   children,
 }: {
-  layer: WorkspaceClientLayer;
+  client: WorkspacesClient["Service"];
   children: ReactNode;
 }) {
-  const state = useMemo(() => createWorkspaceState(layer), [layer]);
+  const state = useMemo(() => createWorkspaceState(client), [client]);
   return (
     <RegistryProvider>
       <WorkspaceContext value={state}>{children}</WorkspaceContext>

@@ -1,7 +1,7 @@
 {
   "files": [],
   "references": [
-    { "path": "./apps/sg-web" },
+    { "path": "./apps/sg-renderer" },
     { "path": "./apps/sg-desktop" },
     { "path": "./apps/sg-desktop/tsconfig.preload.json" },
     { "path": "./packages/ui" },

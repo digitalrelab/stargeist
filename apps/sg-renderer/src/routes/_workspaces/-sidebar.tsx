@@ -10,30 +10,24 @@ import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
 import { useWorkspaceState } from "#src/workspaces/index.ts";
 
 export function WorkspaceSidebar() {
-  const { runtime } = useWorkspaceState();
-  const startup = useAtomValue(runtime);
-
   return (
     <Sidebar.Root aria-label="Workspaces">
       <Sidebar.Header>
         <Link to="/" {...stylex.props(styles.brand, typography.label)}>
           Stargeist
         </Link>
-        {startup._tag === "Success" ? (
-          <CreateWorkspace />
-        ) : (
-          <Button disabled>Create workspace</Button>
-        )}
+        <CreateWorkspace />
       </Sidebar.Header>
-      <Sidebar.Nav aria-label="Remembered workspaces">
-        {startup._tag === "Success" ? (
+      <Sidebar.Content>
+        <Sidebar.Nav aria-label="Remembered workspaces">
           <WorkspaceNavigation />
-        ) : (
-          <p {...stylex.props(styles.message, typography.label)}>
-            {startup._tag === "Failure" ? "Workspaces unavailable." : "Opening workspaces…"}
-          </p>
-        )}
-      </Sidebar.Nav>
+        </Sidebar.Nav>
+      </Sidebar.Content>
+      <Sidebar.Footer>
+        <Sidebar.Nav aria-label="Application">
+          <Sidebar.Link render={<Link to="/settings" />}>Settings</Sidebar.Link>
+        </Sidebar.Nav>
+      </Sidebar.Footer>
     </Sidebar.Root>
   );
 }
