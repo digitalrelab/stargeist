@@ -1,5 +1,5 @@
-import { Libraries } from "@stargeist/domain/libraries/service";
-import { LibraryRpcs } from "@stargeist/domain/libraries/rpc";
+import { Libraries } from "@stargeist/domain";
+import { LibraryRpcs } from "@stargeist/protocol/libraries";
 import { Effect } from "effect";
 import { LibraryControlRpcs } from "./control";
 import { selectedFolder } from "./selected-folder";
@@ -12,7 +12,7 @@ export const libraryControlHandlers = LibraryControlRpcs.toLayer(
     return {
       "libraries.add": ({ workspaceId, path }) =>
         selectedFolder(path).pipe(
-          Effect.flatMap((folder) => libraries.add(workspaceId, folder.source, folder.displayName)),
+          Effect.flatMap((folder) => libraries.add({ workspaceId, ...folder })),
         ),
     };
   }),

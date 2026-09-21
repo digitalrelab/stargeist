@@ -4,7 +4,7 @@ import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { RouterProvider } from "@tanstack/react-router";
 import type { AsyncResult, Atom } from "effect/unstable/reactivity";
-import { failureMessage, type ClientUnavailableError } from "#src/rpc/index.ts";
+import { failureMessage, type ClientUnavailableError } from "#src/client/index.ts";
 import type { createAppRouter } from "./router";
 
 export function ApplicationRoot({

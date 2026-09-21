@@ -1,5 +1,4 @@
 import { Cause, Data } from "effect";
-import { RpcClientError } from "effect/unstable/rpc";
 
 export class ClientUnavailableError extends Data.TaggedError("ClientUnavailableError")<{
   readonly message: string;
@@ -8,19 +7,12 @@ export class ClientUnavailableError extends Data.TaggedError("ClientUnavailableE
 
 export const canRetryFailure = (cause: Cause.Cause<unknown>) => {
   const error = Cause.squash(cause);
-  return !(
-    error instanceof ClientUnavailableError || error instanceof RpcClientError.RpcClientError
-  );
+  return !(error instanceof ClientUnavailableError);
 };
 
 export const failureMessage = (cause: Cause.Cause<unknown>) => {
   const error = Cause.squash(cause);
 
-  if (error instanceof RpcClientError.RpcClientError) {
-    return "The connection is unavailable. Reopen Stargeist to reconnect.";
-  }
-
   if (error instanceof Error) return error.message;
-
   return "Something went wrong. Please try again.";
 };

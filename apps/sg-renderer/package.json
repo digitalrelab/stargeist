@@ -18,6 +18,7 @@
     "@effect/atom-react": "4.0.0-rc.116",
     "@stargeist/application": "workspace:*",
     "@stargeist/domain": "workspace:*",
+    "@stargeist/protocol": "workspace:*",
     "@stargeist/std": "workspace:*",
     "@stargeist/ui": "workspace:*",
     "@stylexjs/stylex": "catalog:",

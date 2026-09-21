@@ -1,24 +1,20 @@
-import type { LibrarySource } from "../libraries";
-import { Module } from "@stargeist/application";
-import { Clock, Context, Effect, Layer } from "effect";
-import { WorkspaceRepository } from "./repository";
+import { Context, type Effect, Schema } from "effect";
+import { Library, type LibrarySource } from "../libraries/library";
+import type { WorkspaceError } from "./errors";
+import { Workspace, type WorkspaceId } from "./workspace";
 
-export class Workspaces extends Context.Service<Workspaces>()("@stargeist/domain/Workspaces", {
-  make: Effect.gen(function* () {
-    const repository = yield* WorkspaceRepository;
-
-    return {
-      list: repository.list,
-      get: repository.get,
-      create: (displayName: string, source: typeof LibrarySource.Type) =>
-        Clock.currentTimeMillis.pipe(
-          Effect.flatMap((now) => repository.create(displayName, source, now)),
-        ),
-    };
-  }),
-}) {}
-
-export const WorkspacesModule = Module.define({
-  exports: Workspaces,
-  layer: Layer.effect(Workspaces, Workspaces.make),
-});
+export const CreatedWorkspace = Schema.Struct({ workspace: Workspace, library: Library });
+export interface CreateWorkspace {
+  readonly displayName: string;
+  readonly source: typeof LibrarySource.Type;
+}
+export class Workspaces extends Context.Service<
+  Workspaces,
+  {
+    readonly list: Effect.Effect<ReadonlyArray<Workspace>, WorkspaceError>;
+    readonly get: (id: WorkspaceId) => Effect.Effect<Workspace, WorkspaceError>;
+    readonly create: (
+      input: CreateWorkspace,
+    ) => Effect.Effect<typeof CreatedWorkspace.Type, WorkspaceError>;
+  }
+>()("@stargeist/domain/Workspaces") {}

@@ -1,20 +1,18 @@
-import type { DirectoryListingPage } from "@stargeist/domain/filesystem";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
-import type { LibraryId } from "@stargeist/domain/libraries";
+import type { DirectoryListingPage, WorkspaceId, LibraryId } from "@stargeist/domain";
 import { Effect } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
-import { canRetryFailure } from "#src/rpc/index.ts";
+import { canRetryFailure } from "#src/client/index.ts";
 import type { LibrariesClient } from "./client";
 
 export const createLibraryState = (client: LibrariesClient) => {
   const libraries = Atom.family((workspaceId: WorkspaceId) =>
-    Atom.make(Effect.suspend(() => client.list({ workspaceId }))),
+    Atom.make(Effect.suspend(() => client.list(workspaceId))),
   );
 
   const addLibrary = Atom.family((workspaceId: WorkspaceId) =>
     Atom.fn((_arg: void, get) =>
       Effect.gen(function* () {
-        const library = yield* client.add({ workspaceId });
+        const library = yield* client.addFromFolder(workspaceId);
 
         if (library) get.refresh(libraries(workspaceId));
 

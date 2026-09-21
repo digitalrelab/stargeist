@@ -27,12 +27,16 @@ describe("module boundaries", () => {
       ),
     });
     const unresolved = Application.define({ modules: { api: module } });
+    expectTypeOf<Layer.Services<typeof unresolved.layer>>().toEqualTypeOf<Config>();
+    expectTypeOf<Layer.Error<typeof unresolved.layer>>().toEqualTypeOf<"invalid-start">();
+    expectTypeOf<Layer.Success<typeof unresolved.layer>>().toEqualTypeOf<Api>();
     expectTypeOf<Effect.Services<typeof unresolved.make>>().toEqualTypeOf<Config | Scope.Scope>();
     expectTypeOf<Effect.Error<typeof unresolved.make>>().toEqualTypeOf<"invalid-start">();
     const application = Application.define({
       modules: { api: module },
       provide: Layer.succeed(Config, { start: 7 }),
     });
+    expectTypeOf<Layer.Services<typeof application.layer>>().toEqualTypeOf<never>();
     expectTypeOf<Effect.Services<typeof application.make>>().toEqualTypeOf<Scope.Scope>();
     expectTypeOf<Effect.Success<typeof application.make>>().toEqualTypeOf<{
       readonly api: { readonly read: Effect.Effect<number, "read-failed", Config> };

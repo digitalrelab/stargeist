@@ -1,9 +1,9 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
+import type { WorkspaceId } from "@stargeist/domain";
 import { Button, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
-import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { useWorkspaceState } from "./use-state";
 
 export function WorkspacePage({ workspaceId }: { workspaceId: WorkspaceId }) {

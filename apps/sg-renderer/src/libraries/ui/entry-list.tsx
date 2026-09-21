@@ -1,15 +1,11 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import {
-  type FileSystemEntry,
-  type DirectoryListingPage,
-  entryPageSize,
-} from "@stargeist/domain/filesystem";
+import { type FileSystemEntry, type DirectoryListingPage, entryPageSize } from "@stargeist/domain";
 import { Button, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
-import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import type { DirectoryView } from "../state";
 import { useLibraryState } from "./use-state";
 

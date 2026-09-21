@@ -5,7 +5,7 @@ import { Context, Data, Effect, Layer } from "effect";
 import { Backend } from "./backend";
 import { applicationIcon } from "./icon";
 
-export class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
+class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
   readonly cause: unknown;
 }> {}
 

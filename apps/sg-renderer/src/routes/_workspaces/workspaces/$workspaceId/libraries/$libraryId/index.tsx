@@ -1,5 +1,4 @@
-import { WorkspaceId } from "@stargeist/domain/workspaces";
-import { LibraryId } from "@stargeist/domain/libraries";
+import { WorkspaceId, LibraryId } from "@stargeist/domain";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { LibraryPage } from "#src/libraries/pages.ts";

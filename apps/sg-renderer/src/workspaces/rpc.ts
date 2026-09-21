@@ -1,4 +1,5 @@
-import { WorkspaceRpcs, WorkspaceDialogRpcs } from "@stargeist/domain/workspaces/rpc";
+import { connectionFailure } from "#src/desktop/errors.ts";
+import { WorkspaceRpcs, WorkspaceDialogRpcs } from "@stargeist/protocol/workspaces";
 import { Effect } from "effect";
 import { RpcClient } from "effect/unstable/rpc";
 import type { WorkspacesClient } from "./client";
@@ -15,9 +16,16 @@ export const makeRpcWorkspacesClient = Effect.fnUntraced(function* (protocols: {
     Effect.provideService(RpcClient.Protocol, protocols.host),
   );
 
-  return {
-    list: backend["workspaces.list"],
-    get: backend["workspaces.get"],
-    create: host["workspaces.create"],
-  } satisfies WorkspacesClient;
+  const client: WorkspacesClient = {
+    list: Effect.suspend(() => backend["workspaces.list"]()).pipe(
+      Effect.catchTag("RpcClientError", connectionFailure),
+    ),
+    get: (id) =>
+      backend["workspaces.get"]({ id }).pipe(Effect.catchTag("RpcClientError", connectionFailure)),
+    createFromFolder: () =>
+      host["workspaces.createFromFolder"]().pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+  };
+  return client;
 });

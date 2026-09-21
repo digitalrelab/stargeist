@@ -1,5 +1,5 @@
-import { Workspaces } from "@stargeist/domain/workspaces/service";
-import { WorkspaceRpcs } from "@stargeist/domain/workspaces/rpc";
+import { Workspaces } from "@stargeist/domain";
+import { WorkspaceRpcs } from "@stargeist/protocol/workspaces";
 import { Effect } from "effect";
 import { WorkspaceControlRpcs } from "./control";
 import { selectedFolder } from "../libraries";
@@ -10,9 +10,7 @@ export const workspaceControlHandlers = WorkspaceControlRpcs.toLayer(
 
     return {
       "workspaces.create": ({ path }) =>
-        selectedFolder(path).pipe(
-          Effect.flatMap((folder) => workspaces.create(folder.displayName, folder.source)),
-        ),
+        selectedFolder(path).pipe(Effect.flatMap((folder) => workspaces.create(folder))),
     };
   }),
 );

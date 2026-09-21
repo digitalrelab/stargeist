@@ -1,5 +1,5 @@
-import { LibraryError } from "@stargeist/domain/libraries";
-import { LibraryDialogRpcs } from "@stargeist/domain/libraries/rpc";
+import { LibraryError } from "@stargeist/domain";
+import { LibraryDialogRpcs } from "@stargeist/protocol/libraries";
 import { reportFailure } from "@stargeist/std/errors";
 import type { WebContents } from "electron";
 import { Cause, Effect } from "effect";
@@ -8,7 +8,7 @@ import { chooseFolder } from "../filesystem/host";
 
 export const libraryDialogHandlers = (contents: WebContents, client: LibraryControlClient) =>
   LibraryDialogRpcs.toLayer({
-    "libraries.add": ({ workspaceId }) =>
+    "libraries.addFromFolder": ({ workspaceId }) =>
       Effect.gen(function* () {
         const path = yield* chooseFolder(contents, "Add library").pipe(
           Effect.onError((cause) => reportFailure("libraries.dialog.open", cause)),

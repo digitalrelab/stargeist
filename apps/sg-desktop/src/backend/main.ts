@@ -1,8 +1,8 @@
 import { reportFailure } from "@stargeist/std/errors";
-import { Deferred, Effect, Fiber, FiberSet } from "effect";
-import { AppDirectories, directoriesLayer } from "../storage";
+import { Deferred, Effect, Fiber, FiberSet, Layer } from "effect";
+import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { BackendApplication } from "./application";
-import { makeBackendServer } from "./server";
+import { backendServer } from "./server";
 
 const profile = process.argv[2];
 
@@ -13,13 +13,12 @@ if (!profile || !process.parentPort) {
 const parent = process.parentPort;
 
 const program = Effect.gen(function* () {
-  const backend = yield* BackendApplication.make;
   const stop = yield* Deferred.make<void>();
-  const run = yield* FiberSet.makeRuntime<AppDirectories>();
+  const run = yield* FiberSet.makeRuntime<
+    TemporaryStorage | Layer.Success<typeof BackendApplication.layer>
+  >();
 
   const sessions = new Map<string, Fiber.Fiber<unknown, unknown>>();
-
-  const server = makeBackendServer(backend);
 
   const receive = (event: Electron.MessageEvent) => {
     const data: unknown = event.data;
@@ -49,7 +48,7 @@ const program = Effect.gen(function* () {
 
     if (!port) return;
 
-    const task = server[data.type](port);
+    const task = backendServer[data.type](port);
     const fiber = run(
       task.pipe(
         Effect.catchCause((cause) => reportFailure("backend.connection", cause)),
@@ -74,7 +73,11 @@ const program = Effect.gen(function* () {
 
   parent.postMessage({ type: "ready" });
   yield* Deferred.await(stop);
-}).pipe(Effect.scoped, Effect.provide(directoriesLayer(profile)));
+}).pipe(
+  Effect.scoped,
+  Effect.provide(BackendApplication.layer),
+  Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+);
 
 Effect.runFork(
   program.pipe(

@@ -1,1 +1,1 @@
-export { repositoryLayer } from "./repository";
+export { librariesLayer } from "./service";

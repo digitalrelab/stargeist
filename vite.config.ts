@@ -6,7 +6,7 @@ const sourceImports = {
   message: "Import workspace packages through their declared exports.",
 };
 
-const electronImports = ["electron", "electron/*", "@electron-forge/*"];
+const electronImports = ["electron", "electron/*", "electron-store", "@electron-forge/*"];
 const iconImports = {
   group: ["lucide-react", "lucide-react/*"],
   message: "Import icons from @stargeist/ui.",
@@ -17,6 +17,10 @@ const platformImports = [
   "@stargeist/database",
   "@stargeist/database/*",
   "@effect/sql-*",
+  "effect/unstable/sql",
+  "effect/unstable/sql/*",
+  "drizzle-orm",
+  "drizzle-orm/*",
 ];
 const appImports = [
   "@stargeist/renderer",
@@ -26,13 +30,23 @@ const appImports = [
   "@stargeist/dev-tools",
   "@stargeist/dev-tools/*",
 ];
+const protocolImports = [
+  "@stargeist/protocol",
+  "@stargeist/protocol/*",
+  "effect/unstable/rpc",
+  "effect/unstable/rpc/*",
+  "@stargeist/std/rpc",
+];
 const featureImports = [
+  "@stargeist/protocol",
+  "@stargeist/protocol/*",
   "@stargeist/domain",
   "@stargeist/domain/*",
   "@stargeist/ui",
   "@stargeist/ui/*",
 ];
 const uiImports = [
+  ...protocolImports,
   ...appImports,
   "@stargeist/domain",
   "@stargeist/domain/*",
@@ -70,7 +84,7 @@ const boundaries = [
   {
     files: ["packages/application/src/**"],
     portable: true,
-    patterns: [...appImports, ...featureImports, iconImports],
+    patterns: [...appImports, ...featureImports, ...protocolImports, iconImports],
   },
   {
     files: ["packages/ui/src/**"],
@@ -85,7 +99,37 @@ const boundaries = [
   {
     files: ["packages/domain/src/**"],
     portable: true,
-    patterns: [...appImports, "@stargeist/ui", "@stargeist/ui/*", iconImports],
+    patterns: [
+      ...appImports,
+      ...protocolImports,
+      "@stargeist/application",
+      "@stargeist/ui",
+      "@stargeist/ui/*",
+      iconImports,
+    ],
+  },
+  {
+    files: ["packages/protocol/src/**"],
+    portable: true,
+    patterns: [
+      ...appImports,
+      "@stargeist/application",
+      "@stargeist/ui",
+      "@stargeist/ui/*",
+      iconImports,
+    ],
+  },
+  {
+    files: [
+      "apps/sg-renderer/src/**/state.ts",
+      "apps/sg-renderer/src/**/state.test.ts",
+      "apps/sg-renderer/src/**/client.ts",
+      "apps/sg-renderer/src/client/**",
+      "apps/sg-renderer/src/routes/**",
+      "apps/sg-renderer/src/**/*.tsx",
+    ],
+    portable: true,
+    patterns: [...appImports, ...protocolImports, iconImports],
   },
   {
     files: ["packages/database/src/**"],
@@ -93,6 +137,7 @@ const boundaries = [
     patterns: [
       ...appImports,
       ...electronImports,
+      ...protocolImports,
       iconImports,
       "@stargeist/ui",
       "@stargeist/ui/*",
@@ -110,28 +155,38 @@ export default defineConfig({
   lint: {
     options: { typeAware: true, typeCheck: true },
     ignorePatterns: ["**/dist/**", "**/out/**", "**/.vite/**", "**/.generated/**", ".agents/**"],
-    overrides: boundaries.flatMap(({ files, portable, patterns }) => [
-      {
-        files,
-        rules: {
-          "no-restricted-imports": ["error", { patterns: [sourceImports, ...patterns] }],
-          curly: files[0]?.startsWith("tooling/") ? "error" : "off",
+    overrides: boundaries.flatMap(({ files, portable, patterns }) => {
+      let curly: "off" | "error" = "off";
+      let paths: string[] = [];
+      let restricted = [sourceImports, ...patterns];
+      if (files[0]?.startsWith("tooling/")) curly = "error";
+      if (portable) {
+        paths = [...builtinModules];
+        restricted = [...restricted, ...platformImports];
+      }
+      return [
+        {
+          files,
+          rules: {
+            "no-restricted-imports": ["error", { patterns: [sourceImports, ...patterns] }],
+            curly,
+          },
         },
-      },
-      {
-        files,
-        excludeFiles: ["**/*.test.ts", "**/*.test.tsx"],
-        rules: {
-          "no-restricted-imports": [
-            "error",
-            {
-              paths: portable ? [...builtinModules] : [],
-              patterns: [sourceImports, ...patterns, ...(portable ? platformImports : [])],
-            },
-          ],
+        {
+          files,
+          excludeFiles: ["**/*.test.ts", "**/*.test.tsx"],
+          rules: {
+            "no-restricted-imports": [
+              "error",
+              {
+                paths,
+                patterns: restricted,
+              },
+            ],
+          },
         },
-      },
-    ]),
+      ];
+    }),
   },
   fmt: {
     ignorePatterns: [

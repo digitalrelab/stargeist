@@ -3,7 +3,7 @@ import { Deferred, Effect, Layer } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { DesktopConnection } from "#src/desktop/index.ts";
-import { ClientUnavailableError } from "#src/rpc/index.ts";
+import { ClientUnavailableError } from "#src/client/index.ts";
 import { createRendererApplication } from "./application";
 
 it("keeps one connection alive across subscribers and closes it with the application registry", async () => {

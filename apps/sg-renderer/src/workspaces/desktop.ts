@@ -1,17 +1,17 @@
 import { Module } from "@stargeist/application";
 import { Context, Effect, Layer } from "effect";
 import { DesktopConnection } from "#src/desktop/index.ts";
-import { createWorkspaceState, type WorkspaceState } from "./state";
+import { createWorkspaceState, type WorkspaceState as State } from "./state";
 import { makeRpcWorkspacesClient } from "./rpc";
 
-export class Workspaces extends Context.Service<Workspaces, WorkspaceState>()(
-  "@stargeist/renderer/Workspaces",
+export class WorkspaceState extends Context.Service<WorkspaceState, State>()(
+  "@stargeist/renderer/WorkspaceState",
 ) {}
 
-export const WorkspacesModule = Module.define({
-  exports: Workspaces,
+export const WorkspaceStateModule = Module.define({
+  exports: WorkspaceState,
   layer: Layer.effect(
-    Workspaces,
+    WorkspaceState,
     Effect.flatMap(DesktopConnection, makeRpcWorkspacesClient).pipe(
       Effect.map(createWorkspaceState),
     ),

@@ -23,12 +23,14 @@
     "@stargeist/database": "workspace:*",
     "@stargeist/dev-tools": "workspace:*",
     "@stargeist/domain": "workspace:*",
+    "@stargeist/protocol": "workspace:*",
     "@stargeist/renderer": "workspace:*",
     "@stargeist/std": "workspace:*",
     "@types/electron-squirrel-startup": "1.0.2",
     "effect": "catalog:",
     "electron": "44.4.3",
     "electron-squirrel-startup": "1.0.1",
+    "electron-store": "11.0.2",
     "vite-plus": "catalog:"
   },
   "productName": "Stargeist"

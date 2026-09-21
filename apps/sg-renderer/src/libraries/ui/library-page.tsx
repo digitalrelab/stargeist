@@ -1,12 +1,10 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { DirectoryListingPage } from "@stargeist/domain/filesystem";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
-import type { LibraryId } from "@stargeist/domain/libraries";
+import type { DirectoryListingPage, WorkspaceId, LibraryId } from "@stargeist/domain";
 import { Button, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import type { AsyncResult } from "effect/unstable/reactivity";
-import { failureMessage } from "#src/rpc/index.ts";
+import { failureMessage } from "#src/client/index.ts";
 import { useLibraryState } from "./use-state";
 import { EntryList } from "./entry-list";
 

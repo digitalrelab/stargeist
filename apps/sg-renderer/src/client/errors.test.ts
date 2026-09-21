@@ -1,23 +1,20 @@
-import { WorkspaceError } from "@stargeist/domain/workspaces";
+import { WorkspaceError } from "@stargeist/domain";
 import { Cause } from "effect";
-import { RpcClientError } from "effect/unstable/rpc";
 import { describe, expect, it } from "vite-plus/test";
 import { ClientUnavailableError, canRetryFailure, failureMessage } from "./index";
 
 describe("client failure messages", () => {
-  it("presents RPC failures without exposing protocol diagnostics", () => {
+  it("presents connection failures without exposing protocol diagnostics", () => {
     const cause = new Error("Private protocol diagnostic");
-    const error = new RpcClientError.RpcClientError({
-      reason: new RpcClientError.RpcClientDefect({
-        message: "Malformed response from the backend",
-        cause,
-      }),
+    const error = new ClientUnavailableError({
+      message: "The connection is unavailable. Reopen Stargeist to reconnect.",
+      cause,
     });
 
     expect(failureMessage(Cause.fail(error))).toBe(
       "The connection is unavailable. Reopen Stargeist to reconnect.",
     );
-    expect(error.reason.cause).toBe(cause);
+    expect(error.cause).toBe(cause);
     expect(canRetryFailure(Cause.fail(error))).toBe(false);
   });
 

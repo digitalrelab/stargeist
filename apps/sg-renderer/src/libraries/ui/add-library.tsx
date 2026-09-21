@@ -1,8 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Button } from "@stargeist/ui";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
+import type { WorkspaceId } from "@stargeist/domain";
 import { useNavigate } from "@tanstack/react-router";
-import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { useLibraryState } from "./use-state";
 
 export function AddLibrary({ workspaceId }: { workspaceId: WorkspaceId }) {

@@ -1,5 +1,5 @@
-import { WorkspaceError } from "@stargeist/domain/workspaces";
-import { WorkspaceDialogRpcs } from "@stargeist/domain/workspaces/rpc";
+import { WorkspaceError } from "@stargeist/domain";
+import { WorkspaceDialogRpcs } from "@stargeist/protocol/workspaces";
 import { reportFailure } from "@stargeist/std/errors";
 import type { WebContents } from "electron";
 import { Cause, Effect } from "effect";
@@ -8,7 +8,7 @@ import { chooseFolder } from "../filesystem/host";
 
 export const workspaceDialogHandlers = (contents: WebContents, client: WorkspaceControlClient) =>
   WorkspaceDialogRpcs.toLayer({
-    "workspaces.create": () =>
+    "workspaces.createFromFolder": () =>
       Effect.gen(function* () {
         const path = yield* chooseFolder(contents, "Create workspace").pipe(
           Effect.onError((cause) => reportFailure("workspaces.dialog.open", cause)),

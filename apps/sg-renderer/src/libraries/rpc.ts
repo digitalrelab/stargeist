@@ -1,4 +1,5 @@
-import { LibraryRpcs, LibraryDialogRpcs } from "@stargeist/domain/libraries/rpc";
+import { connectionFailure } from "#src/desktop/errors.ts";
+import { LibraryRpcs, LibraryDialogRpcs } from "@stargeist/protocol/libraries";
 import { Effect } from "effect";
 import { RpcClient } from "effect/unstable/rpc";
 import type { LibrariesClient } from "./client";
@@ -15,12 +16,31 @@ export const makeRpcLibrariesClient = Effect.fnUntraced(function* (protocols: {
     Effect.provideService(RpcClient.Protocol, protocols.host),
   );
 
-  return {
-    list: backend["libraries.list"],
-    get: backend["libraries.get"],
-    add: host["libraries.add"],
-    openDirectory: backend["libraries.openDirectory"],
-    readDirectory: backend["libraries.readDirectory"],
-    closeDirectory: backend["libraries.closeDirectory"],
-  } satisfies LibrariesClient;
+  const client: LibrariesClient = {
+    list: (workspaceId) =>
+      backend["libraries.list"]({ workspaceId }).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    get: (selection) =>
+      backend["libraries.get"](selection).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    addFromFolder: (workspaceId) =>
+      host["libraries.addFromFolder"]({ workspaceId }).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    openDirectory: (selection) =>
+      backend["libraries.openDirectory"](selection).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    readDirectory: (input) =>
+      backend["libraries.readDirectory"](input).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    closeDirectory: (input) =>
+      backend["libraries.closeDirectory"](input).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+  };
+  return client;
 });

@@ -1,37 +1,48 @@
 import { join } from "node:path";
-import { app, utilityProcess } from "electron";
+import { utilityProcess } from "electron";
 import { Data, Deferred, Effect } from "effect";
+import { StoragePaths } from "../storage";
 
 class BackendError extends Data.TaggedError("BackendError")<{ readonly message: string }> {}
 
 export const startBackendProcess = Effect.gen(function* () {
+  const { profile } = yield* StoragePaths;
   const exited = yield* Deferred.make<number>();
+  const onExit = (code: number) => Effect.runSync(Deferred.succeed(exited, code));
 
   const child = yield* Effect.acquireRelease(
     Effect.sync(() => {
-      const child = utilityProcess.fork(join(__dirname, "backend.js"), [app.getPath("userData")], {
+      const child = utilityProcess.fork(join(__dirname, "backend.js"), [profile], {
         serviceName: "Stargeist backend",
       });
 
-      child.once("exit", (code) => Effect.runSync(Deferred.succeed(exited, code)));
+      child.once("exit", onExit);
 
       return child;
     }),
     (child) =>
       Effect.gen(function* () {
-        if (child.pid === undefined) return;
+        if (yield* Deferred.isDone(exited)) return;
 
         yield* Effect.sync(() => child.postMessage({ type: "stop" }));
 
         yield* Deferred.await(exited).pipe(
           Effect.timeout("5 seconds"),
-          Effect.catch(() =>
-            Effect.sync(() => {
-              child.kill();
-            }),
+          Effect.catchTag("TimeoutError", () =>
+            Effect.sync(() => child.kill()).pipe(
+              Effect.andThen(Deferred.await(exited)),
+              Effect.timeout("5 seconds"),
+              Effect.orDie,
+            ),
           ),
         );
-      }),
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            child.removeListener("exit", onExit);
+          }),
+        ),
+      ),
   );
 
   yield* Effect.callback<void, BackendError>((resume) => {

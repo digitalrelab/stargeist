@@ -1,10 +1,10 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { WorkspaceId } from "@stargeist/domain/workspaces";
+import type { WorkspaceId } from "@stargeist/domain";
 import { Button, Sidebar, typography } from "@stargeist/ui";
 import { colors } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
-import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { AddLibrary } from "./add-library";
 import { useLibraryState } from "./use-state";
 

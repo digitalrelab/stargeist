@@ -1,17 +1,20 @@
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LibraryError } from "@stargeist/domain/libraries";
-import { Effect, Exit, Scope } from "effect";
+import { LibraryError } from "@stargeist/domain";
+import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { AppDirectories, directoriesLayer } from "../storage";
+import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { makeLibraryListing } from "./listing";
 
 async function createFixture() {
   const root = await mkdtemp(join(tmpdir(), "stargeist-workspace-listing-test-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
-  return { root, layer: directoriesLayer(join(root, "profile")) };
+  return {
+    root,
+    layer: temporaryStorageLayer.pipe(Layer.provide(pathsLayer(join(root, "profile")))),
+  };
 }
 
 describe("active library listing", () => {
@@ -20,13 +23,13 @@ describe("active library listing", () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        const paths = yield* AppDirectories;
+        const paths = yield* TemporaryStorage;
         const listing = yield* makeLibraryListing;
         const error = yield* listing.open(join(root, "missing")).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(LibraryError);
         expect(error.code).toBe("FolderUnavailable");
-        expect(yield* Effect.promise(() => readdir(paths.temporary))).toEqual([]);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
   });
@@ -36,14 +39,14 @@ describe("active library listing", () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        const paths = yield* AppDirectories;
+        const paths = yield* TemporaryStorage;
         const scope = yield* Scope.fork(yield* Effect.scope);
         const listing = yield* makeLibraryListing.pipe(Scope.provide(scope));
         const first = yield* listing.open(root);
         const second = yield* listing.open(root);
 
         expect(second.listingId).not.toBe(first.listingId);
-        expect(yield* Effect.promise(() => readdir(paths.temporary))).toHaveLength(1);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(1);
         expect((yield* listing.read(first.listingId, 0).pipe(Effect.flip)).code).toBe(
           "ListingExpired",
         );
@@ -52,7 +55,7 @@ describe("active library listing", () => {
         expect(yield* listing.read(second.listingId, 0)).toEqual(second);
 
         yield* Scope.close(scope, Exit.void);
-        expect(yield* Effect.promise(() => readdir(paths.temporary))).toEqual([]);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
   });
@@ -62,7 +65,7 @@ describe("active library listing", () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        const paths = yield* AppDirectories;
+        const paths = yield* TemporaryStorage;
         const listing = yield* makeLibraryListing;
         const page = yield* listing.open(root);
 
@@ -71,7 +74,7 @@ describe("active library listing", () => {
         expect((yield* listing.read(page.listingId, 0).pipe(Effect.flip)).code).toBe(
           "ListingExpired",
         );
-        expect(yield* Effect.promise(() => readdir(paths.temporary))).toEqual([]);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
   });

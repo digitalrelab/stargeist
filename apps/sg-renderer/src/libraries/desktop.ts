@@ -1,17 +1,17 @@
 import { Module } from "@stargeist/application";
 import { Context, Effect, Layer } from "effect";
 import { DesktopConnection } from "#src/desktop/index.ts";
-import { createLibraryState, type LibraryState } from "./state";
+import { createLibraryState, type LibraryState as State } from "./state";
 import { makeRpcLibrariesClient } from "./rpc";
 
-export class Libraries extends Context.Service<Libraries, LibraryState>()(
-  "@stargeist/renderer/Libraries",
+export class LibraryState extends Context.Service<LibraryState, State>()(
+  "@stargeist/renderer/LibraryState",
 ) {}
 
-export const LibrariesModule = Module.define({
-  exports: Libraries,
+export const LibraryStateModule = Module.define({
+  exports: LibraryState,
   layer: Layer.effect(
-    Libraries,
+    LibraryState,
     Effect.flatMap(DesktopConnection, makeRpcLibrariesClient).pipe(Effect.map(createLibraryState)),
   ),
 });

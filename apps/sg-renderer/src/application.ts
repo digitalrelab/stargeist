@@ -1,15 +1,15 @@
 import { Application } from "@stargeist/application";
 import type { Effect, Layer } from "effect";
 import type { DesktopConnection } from "#src/desktop/index.ts";
-import type { ClientUnavailableError } from "#src/rpc/index.ts";
-import { LibrariesModule } from "#src/libraries/desktop.ts";
-import { WorkspacesModule } from "#src/workspaces/desktop.ts";
+import type { ClientUnavailableError } from "#src/client/index.ts";
+import { LibraryStateModule } from "#src/libraries/desktop.ts";
+import { WorkspaceStateModule } from "#src/workspaces/desktop.ts";
 
 export const createRendererApplication = (
   connection: Layer.Layer<DesktopConnection, ClientUnavailableError>,
 ) =>
   Application.define({
-    modules: { workspaces: WorkspacesModule, libraries: LibrariesModule },
+    modules: { workspaces: WorkspaceStateModule, libraries: LibraryStateModule },
     provide: connection,
   });
 

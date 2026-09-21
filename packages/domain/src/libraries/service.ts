@@ -1,25 +1,24 @@
-import { Module } from "@stargeist/application";
-import { Clock, Context, Effect, Layer } from "effect";
-import type { WorkspaceId } from "../workspaces";
-import type { LibrarySource } from "./library";
-import { LibraryRepository } from "./repository";
+import { Context, type Effect } from "effect";
+import type { WorkspaceId } from "../workspaces/workspace";
+import type { Library, LibraryId, LibrarySource } from "./library";
+import type { LibraryError } from "./errors";
 
-export class Libraries extends Context.Service<Libraries>()("@stargeist/domain/Libraries", {
-  make: Effect.gen(function* () {
-    const repository = yield* LibraryRepository;
-
-    return {
-      list: repository.list,
-      get: repository.get,
-      add: (workspaceId: WorkspaceId, source: typeof LibrarySource.Type, displayName: string) =>
-        Clock.currentTimeMillis.pipe(
-          Effect.flatMap((now) => repository.add(workspaceId, source, displayName, now)),
-        ),
-    };
-  }),
-}) {}
-
-export const LibrariesModule = Module.define({
-  exports: Libraries,
-  layer: Layer.effect(Libraries, Libraries.make),
-});
+export interface LibrarySelection {
+  readonly workspaceId: WorkspaceId;
+  readonly id: LibraryId;
+}
+export interface AddLibrary {
+  readonly workspaceId: WorkspaceId;
+  readonly source: typeof LibrarySource.Type;
+  readonly displayName: string;
+}
+export class Libraries extends Context.Service<
+  Libraries,
+  {
+    readonly list: (
+      workspaceId: WorkspaceId,
+    ) => Effect.Effect<ReadonlyArray<Library>, LibraryError>;
+    readonly get: (selection: LibrarySelection) => Effect.Effect<Library, LibraryError>;
+    readonly add: (input: AddLibrary) => Effect.Effect<Library, LibraryError>;
+  }
+>()("@stargeist/domain/Libraries") {}

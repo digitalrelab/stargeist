@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Button } from "@stargeist/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { useWorkspaceState } from "./use-state";
 
 export function CreateWorkspace() {

@@ -8,10 +8,10 @@ import {
   ListingId,
   DirectoryError,
   entryPageSize,
-} from "@stargeist/domain/filesystem";
+} from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema, Semaphore } from "effect";
-import { AppDirectories } from "../storage";
+import { TemporaryStorage } from "../storage";
 import { openDirectoryCache } from "@stargeist/database/filesystem";
 
 const expired = () =>
@@ -35,9 +35,9 @@ function entryKind(entry: Dirent): FileSystemEntry["kind"] {
 }
 
 export const openListing = Effect.fnUntraced(function* (rootPath: string) {
-  const appDirectories = yield* AppDirectories;
+  const temporaryStorage = yield* TemporaryStorage;
   const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
-  const filename = join(appDirectories.temporary, `directory-listing-${listingId}.sqlite`);
+  const filename = join(temporaryStorage.directory, `directory-listing-${listingId}.sqlite`);
   const cache = yield* openDirectoryCache(filename);
 
   const directory = yield* Effect.acquireRelease(

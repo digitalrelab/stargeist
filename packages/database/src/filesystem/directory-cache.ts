@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
 import * as Drizzle from "drizzle-orm/effect-sqlite-node";
 import { gte, sql } from "drizzle-orm";
-import { FileSystemEntry, DirectoryError, entryPageSize } from "@stargeist/domain/filesystem";
+import { FileSystemEntry, DirectoryError, entryPageSize } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema } from "effect";
 import { Reactivity } from "effect/unstable/reactivity";
