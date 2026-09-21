@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { WorkspaceId } from "@stargeist/domain/workspaces";
 import { Button, Sidebar, typography } from "@stargeist/ui";
-import { colors, space } from "@stargeist/ui/tokens.stylex";
+import { colors } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
@@ -10,10 +10,12 @@ import { useLibraryState } from "./use-state";
 
 export function LibraryNavigation({ workspaceId }: { workspaceId: WorkspaceId }) {
   return (
-    <div {...stylex.props(styles.libraries)}>
-      <LibraryLinks workspaceId={workspaceId} />
+    <>
+      <Sidebar.Nav aria-label="Libraries">
+        <LibraryLinks workspaceId={workspaceId} />
+      </Sidebar.Nav>
       <AddLibrary workspaceId={workspaceId} />
-    </div>
+    </>
   );
 }
 
@@ -65,11 +67,5 @@ function LibraryLinks({ workspaceId }: { workspaceId: WorkspaceId }) {
 }
 
 const styles = stylex.create({
-  libraries: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space[1],
-    paddingInlineStart: space[3],
-  },
   message: { color: colors.textMuted, overflowWrap: "anywhere" },
 });
