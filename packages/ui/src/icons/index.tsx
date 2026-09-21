@@ -6,9 +6,29 @@ import {
   ChevronsUpDown,
   Settings2,
   Palette,
+  File,
+  FileQuestionMark,
+  Folder,
+  Link,
   type LucideProps,
 } from "lucide-react";
 import { control } from "../tokens.stylex";
+
+export function FileIcon(props: LucideProps) {
+  return <File size={control.iconSize} {...props} />;
+}
+
+export function FolderIcon(props: LucideProps) {
+  return <Folder size={control.iconSize} {...props} />;
+}
+
+export function LinkIcon(props: LucideProps) {
+  return <Link size={control.iconSize} {...props} />;
+}
+
+export function UnknownFileIcon(props: LucideProps) {
+  return <FileQuestionMark size={control.iconSize} {...props} />;
+}
 
 export function BackIcon(props: LucideProps) {
   return <ArrowLeft size={control.iconSize} {...props} />;

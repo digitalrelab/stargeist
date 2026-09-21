@@ -6,6 +6,7 @@ import {
   Library,
   LibraryId,
   LibraryError,
+  entryPageSize,
 } from "@stargeist/domain";
 import { Deferred, Effect, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
@@ -27,6 +28,7 @@ const createClient = (
     getLibrary?: () => Effect.Effect<Library>;
     addLibrary?: () => Effect.Effect<Library | null>;
     openDirectory?: () => Effect.Effect<DirectoryListingPage, LibraryError>;
+    readDirectory?: LibrariesClient["readDirectory"];
     closeDirectory?: (input: { listingId: ListingId }) => Effect.Effect<void>;
   } = {},
 ): LibrariesClient => {
@@ -44,7 +46,7 @@ const createClient = (
         ),
       ),
     openDirectory: handlers.openDirectory ?? (() => Effect.die("Unexpected directory request")),
-    readDirectory: () => Effect.die("Unexpected directory request"),
+    readDirectory: handlers.readDirectory ?? (() => Effect.die("Unexpected directory request")),
     closeDirectory: handlers.closeDirectory ?? (() => Effect.void),
   };
 };
@@ -89,8 +91,11 @@ describe("Library state", () => {
     const first: DirectoryListingPage = {
       listingId: Schema.decodeUnknownSync(ListingId)("first"),
       offset: 0,
-      entries: [],
-      hasMore: false,
+      entries: Array.from({ length: entryPageSize }, (_, index) => ({
+        name: `file-${index}`,
+        kind: "file" as const,
+      })),
+      hasMore: true,
     };
     const second = { ...first, listingId: Schema.decodeUnknownSync(ListingId)("second") };
     const renamed = new Library({
@@ -105,10 +110,16 @@ describe("Library state", () => {
     const secondClosed = Effect.runSync(Deferred.make<void>());
     let currentLibrary = library;
     let currentListing = first;
+    const reads: ListingId[] = [];
     const state = createLibraryState(
       createClient({
         getLibrary: () => Effect.sync(() => currentLibrary),
         openDirectory: () => Effect.sync(() => currentListing),
+        readDirectory: ({ listingId, offset }) =>
+          Effect.sync(() => {
+            reads.push(listingId);
+            return { listingId, offset, entries: [], hasMore: false };
+          }),
         closeDirectory: ({ listingId }) => {
           if (listingId === first.listingId) {
             return Deferred.succeed(firstClosed, undefined).pipe(Effect.asVoid);
@@ -125,7 +136,14 @@ describe("Library state", () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        expect(yield* AtomRegistry.getResult(registry, listing)).toEqual(first);
+        const opened = yield* AtomRegistry.getResult(registry, listing);
+        expect(opened.id).toBe(first.listingId);
+        registry.mount(opened.files.extent);
+        expect(yield* AtomRegistry.getResult(registry, opened.files.pages(0))).toEqual({
+          items: first.entries,
+          next: entryPageSize,
+        });
+        yield* AtomRegistry.getResult(registry, opened.files.pages(entryPageSize));
         expect(registry.get(detail).library).toEqual(library);
         expect(registry.get(detail).canRefresh).toBe(true);
 
@@ -133,9 +151,14 @@ describe("Library state", () => {
         currentListing = second;
         registry.refresh(detail);
 
-        expect(
-          yield* AtomRegistry.getResult(registry, listing, { suspendOnWaiting: true }),
-        ).toEqual(second);
+        const reopened = yield* AtomRegistry.getResult(registry, listing, {
+          suspendOnWaiting: true,
+        });
+        expect(reopened.id).toBe(second.listingId);
+        expect(reopened.files).not.toBe(opened.files);
+        registry.mount(reopened.files.extent);
+        yield* AtomRegistry.getResult(registry, reopened.files.pages(entryPageSize));
+        expect(reads).toEqual([first.listingId, second.listingId]);
         expect(registry.get(detail).library).toEqual(renamed);
         yield* Deferred.await(firstClosed);
 

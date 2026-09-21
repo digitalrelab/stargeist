@@ -12,7 +12,9 @@
   },
   "scripts": {
     "generate": "tsr generate",
-    "build": "vp build"
+    "build": "vp build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test run --root ../.. apps/sg-renderer/src --maxWorkers 2"
   },
   "dependencies": {
     "@effect/atom-react": "4.0.0-rc.116",
@@ -36,5 +38,19 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "6.1.1",
     "vite-plus": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ],
+    "targets": {
+      "typecheck": {
+        "dependsOn": [
+          "generate"
+        ]
+      }
+    }
   }
 }
