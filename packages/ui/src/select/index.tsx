@@ -5,31 +5,40 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ChevronsUpDownIcon } from ".
 import { colors, control, radii, shadows, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
+const popupBorderWidth = "1px";
+
 export const Root = BaseSelect.Root;
 
-export function Trigger({
-  children,
-  ...props
-}: Omit<BaseSelect.Trigger.Props, "className" | "style" | "render" | "nativeButton">) {
+export function Trigger(
+  props: Omit<BaseSelect.Trigger.Props, "className" | "style" | "render" | "nativeButton">,
+) {
   return (
-    <BaseSelect.Trigger {...props} render={<Button appearance="soft" styles={styles.trigger} />}>
-      {children}
-      <BaseSelect.Icon {...stylex.props(styles.indicator)}>
-        <ChevronsUpDownIcon />
-      </BaseSelect.Icon>
-    </BaseSelect.Trigger>
+    <BaseSelect.Trigger {...props} render={<Button appearance="soft" styles={styles.trigger} />} />
   );
 }
 
-export function Value(props: Omit<BaseSelect.Value.Props, "className" | "style">) {
-  return <BaseSelect.Value {...props} {...stylex.props(styles.label)} />;
+export function Value(props: Omit<BaseSelect.Value.Props, "className" | "style" | "render">) {
+  return (
+    <BaseSelect.Value
+      {...props}
+      {...stylex.props(styles.value)}
+      render={({ children, ...valueProps }) => (
+        <span {...valueProps}>
+          <span {...stylex.props(styles.label)}>{children}</span>
+          <BaseSelect.Icon {...stylex.props(styles.indicator, styles.triggerIndicator)}>
+            <ChevronsUpDownIcon />
+          </BaseSelect.Icon>
+        </span>
+      )}
+    />
+  );
 }
 
 export function Popup({ children, ...props }: Omit<BaseSelect.Popup.Props, "className" | "style">) {
   return (
     <BaseSelect.Portal>
       <BaseSelect.Positioner
-        alignItemWithTrigger={false}
+        alignItemWithTrigger
         align="start"
         sideOffset={4}
         {...stylex.props(styles.positioner)}
@@ -51,11 +60,11 @@ export function Popup({ children, ...props }: Omit<BaseSelect.Popup.Props, "clas
 export function Item({ children, ...props }: Omit<BaseSelect.Item.Props, "className" | "style">) {
   return (
     <BaseSelect.Item {...props} {...stylex.props(styles.item)}>
-      <BaseSelect.ItemIndicator {...stylex.props(styles.indicator, styles.itemIndicator)}>
-        <CheckIcon />
-      </BaseSelect.ItemIndicator>
-      <BaseSelect.ItemText {...stylex.props(styles.label, styles.itemLabel)}>
-        {children}
+      <BaseSelect.ItemText {...stylex.props(styles.itemContent)}>
+        <BaseSelect.ItemIndicator {...stylex.props(styles.indicator, styles.itemIndicator)}>
+          <CheckIcon />
+        </BaseSelect.ItemIndicator>
+        <span {...stylex.props(styles.label, styles.itemLabel)}>{children}</span>
       </BaseSelect.ItemText>
     </BaseSelect.Item>
   );
@@ -65,6 +74,13 @@ const styles = stylex.create({
   trigger: {
     minInlineSize: 0,
     inlineSize: "100%",
+  },
+  value: {
+    display: "flex",
+    alignItems: "center",
+    gap: space[2],
+    flexGrow: 1,
+    minWidth: 0,
   },
   label: {
     flexGrow: 1,
@@ -84,6 +100,7 @@ const styles = stylex.create({
   },
   itemIndicator: { gridColumn: 1, gridRow: 1 },
   itemLabel: { gridColumn: 2, gridRow: 1 },
+  triggerIndicator: { opacity: 0.65 },
   positioner: {
     zIndex: 1,
   },
@@ -93,7 +110,7 @@ const styles = stylex.create({
     maxWidth: "var(--available-width)",
     maxHeight: "var(--available-height)",
     overflow: "hidden",
-    borderWidth: 1,
+    borderWidth: popupBorderWidth,
     borderStyle: "solid",
     borderColor: colors.border,
     borderRadius: control.radius,
@@ -120,14 +137,20 @@ const styles = stylex.create({
   },
   scrollUp: { top: 0 },
   scrollDown: { bottom: 0 },
-  item: {
+  itemContent: {
     display: "grid",
     gridTemplateColumns: `${control.iconSize} minmax(0, 1fr)`,
     alignItems: "center",
     gap: space[2],
+    flexGrow: 1,
+    minWidth: 0,
+  },
+  item: {
+    display: "flex",
+    alignItems: "center",
     minHeight: control.heightSm,
     paddingBlock: space[1],
-    paddingInline: space[2],
+    paddingInline: `calc(${control.paddingInlineMd} - ${space[1]} - ${popupBorderWidth})`,
     borderRadius: radii.sm,
     cursor: "default",
     outlineStyle: "none",

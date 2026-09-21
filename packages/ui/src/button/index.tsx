@@ -98,12 +98,12 @@ const styles = stylex.create({
 });
 
 const states = {
-  hovered: ':hover:not(:active):not(:disabled):not([aria-disabled="true"])',
-  pressed: ':active:not(:disabled):not([aria-disabled="true"])',
-  interacting: ':is(:hover, :active):not(:disabled):not([aria-disabled="true"])',
+  hovered: ':hover:not(:active):not([data-popup-open]):not(:disabled):not([aria-disabled="true"])',
+  pressed: ':is(:active, [data-popup-open]):not(:disabled):not([aria-disabled="true"])',
+  interacting: ':is(:hover, :active, [data-popup-open]):not(:disabled):not([aria-disabled="true"])',
   disabled: ':is(:disabled, [aria-disabled="true"])',
   current:
-    '[aria-current="page"]:not(:hover):not(:active):not(:disabled):not([aria-disabled="true"])',
+    '[aria-current="page"]:not(:hover):not(:active):not([data-popup-open]):not(:disabled):not([aria-disabled="true"])',
 };
 
 const appearances = stylex.create({
@@ -162,6 +162,6 @@ const sizes = stylex.create({
   md: {
     minHeight: control.heightMd,
     paddingBlock: space[2],
-    paddingInline: space[4],
+    paddingInline: control.paddingInlineMd,
   },
 });

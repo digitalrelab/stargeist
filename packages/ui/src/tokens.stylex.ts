@@ -37,6 +37,7 @@ export const fonts = stylex.defineVars({
 export const control = stylex.defineVars({
   heightSm: "32px",
   heightMd: "40px",
+  paddingInlineMd: space[4],
   radius: radii.md,
   iconSize: "16px",
 });
