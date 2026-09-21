@@ -62,6 +62,7 @@ function createRegistry() {
 
   return registry;
 }
+
 describe("Workspace state", () => {
   it("refreshes the injected client's list without affecting another state in the same registry", async () => {
     const registry = createRegistry();

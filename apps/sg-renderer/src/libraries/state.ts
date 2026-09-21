@@ -6,7 +6,7 @@ import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { canRetryFailure } from "#src/rpc/index.ts";
 import type { LibrariesClient } from "./client";
 
-export const createLibraryState = (client: LibrariesClient["Service"]) => {
+export const createLibraryState = (client: LibrariesClient) => {
   const libraries = Atom.family((workspaceId: WorkspaceId) =>
     Atom.make(Effect.suspend(() => client.list({ workspaceId }))),
   );
@@ -39,17 +39,20 @@ export const createLibraryState = (client: LibrariesClient["Service"]) => {
           const details = get(metadata);
           const entries = get(listing);
 
+          let library;
+          let result = entries;
+
+          if (details._tag === "Success") {
+            library = details.value;
+          }
+
+          if (details._tag === "Failure") {
+            result = AsyncResult.failure(details.cause, { waiting: details.waiting });
+          }
+
           return {
-            library: details._tag === "Success" ? details.value : undefined,
-            listing:
-              details._tag === "Failure"
-                ? AsyncResult.failure<
-                    DirectoryListingPage,
-                    AsyncResult.AsyncResult.Failure<typeof details>
-                  >(details.cause, {
-                    waiting: details.waiting,
-                  })
-                : entries,
+            library,
+            listing: result,
             canRefresh:
               !details.waiting &&
               !entries.waiting &&

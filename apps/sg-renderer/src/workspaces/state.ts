@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 import type { WorkspacesClient } from "./client";
 
-export const createWorkspaceState = (client: WorkspacesClient["Service"]) => {
+export const createWorkspaceState = (client: WorkspacesClient) => {
   const workspaces = Atom.make(Effect.suspend(() => client.list())).pipe(Atom.keepAlive);
   const createWorkspace = Atom.fn((_arg: void, get) =>
     Effect.gen(function* () {

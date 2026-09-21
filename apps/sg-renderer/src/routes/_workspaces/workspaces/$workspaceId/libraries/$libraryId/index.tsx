@@ -28,6 +28,10 @@ function LibraryDetailPage() {
   const { library, listing, canRefresh } = useAtomValue(detail);
   const refresh = useAtomRefresh(detail);
 
+  let retry;
+
+  if (canRefresh) retry = refresh;
+
   return (
     <main {...stylex.props(styles.page)}>
       <header {...stylex.props(styles.header)}>
@@ -45,7 +49,7 @@ function LibraryDetailPage() {
           Refresh
         </Button>
       </header>
-      <LibraryEntries entries={listing} retry={canRefresh ? refresh : undefined} />
+      <LibraryEntries entries={listing} retry={retry} />
     </main>
   );
 }

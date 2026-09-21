@@ -23,27 +23,31 @@ function WorkspacePage() {
   const workspace = useAtomValue(state.workspace(workspaceId));
   const refresh = useAtomRefresh(state.workspace(workspaceId));
 
+  let title = "Workspace";
+  let content = <p role="status">Loading workspace…</p>;
+
+  if (workspace._tag === "Success") {
+    title = workspace.value.displayName;
+    content = <p {...stylex.props(styles.description)}>Choose a library in the sidebar.</p>;
+  }
+
+  if (workspace._tag === "Failure") {
+    content = (
+      <>
+        <p role="alert">{failureMessage(workspace.cause)}</p>
+        {canRetryFailure(workspace.cause) && (
+          <Button onClick={refresh} disabled={workspace.waiting}>
+            Retry
+          </Button>
+        )}
+      </>
+    );
+  }
+
   return (
     <main {...stylex.props(styles.page)}>
-      <h1 {...stylex.props(typography.heading)}>
-        {workspace._tag === "Success" ? workspace.value.displayName : "Workspace"}
-      </h1>
-      {workspace._tag === "Failure" ? (
-        <>
-          <p role="alert">{failureMessage(workspace.cause)}</p>
-          {canRetryFailure(workspace.cause) && (
-            <Button onClick={refresh} disabled={workspace.waiting}>
-              Retry
-            </Button>
-          )}
-        </>
-      ) : workspace._tag !== "Success" ? (
-        <p role="status">Loading workspace…</p>
-      ) : (
-        <p {...stylex.props(styles.description)}>
-          Choose a library in the sidebar or add another folder.
-        </p>
-      )}
+      <h1 {...stylex.props(typography.heading)}>{title}</h1>
+      {content}
     </main>
   );
 }

@@ -90,47 +90,59 @@ function WorkspaceNavigation() {
 }
 
 function LibraryNavigation({ workspaceId }: { workspaceId: WorkspaceId }) {
+  return (
+    <div {...stylex.props(styles.libraries)}>
+      <LibraryLinks workspaceId={workspaceId} />
+      <AddLibrary workspaceId={workspaceId} />
+    </div>
+  );
+}
+
+function LibraryLinks({ workspaceId }: { workspaceId: WorkspaceId }) {
   const { libraries } = useLibraryState();
   const list = useAtomValue(libraries(workspaceId));
   const refresh = useAtomRefresh(libraries(workspaceId));
 
-  return (
-    <div {...stylex.props(styles.libraries)}>
-      {list._tag === "Failure" ? (
-        <>
-          <p role="alert" {...stylex.props(styles.message, typography.label)}>
-            {failureMessage(list.cause)}
-          </p>
-          {canRetryFailure(list.cause) && (
-            <Button appearance="ghost" size="sm" onClick={refresh} disabled={list.waiting}>
-              Retry
-            </Button>
-          )}
-        </>
-      ) : list._tag !== "Success" ? (
-        <p role="status" {...stylex.props(styles.message, typography.label)}>
-          Loading libraries…
+  if (list._tag === "Failure") {
+    return (
+      <>
+        <p role="alert" {...stylex.props(styles.message, typography.label)}>
+          {failureMessage(list.cause)}
         </p>
-      ) : list.value.length === 0 ? (
-        <p {...stylex.props(styles.message, typography.label)}>No libraries yet.</p>
-      ) : (
-        list.value.map((library) => (
-          <Sidebar.Link
-            key={library.id}
-            render={
-              <Link
-                to="/workspaces/$workspaceId/libraries/$libraryId"
-                params={{ workspaceId, libraryId: library.id }}
-              />
-            }
-          >
-            {library.displayName}
-          </Sidebar.Link>
-        ))
-      )}
-      <AddLibrary workspaceId={workspaceId} />
-    </div>
-  );
+        {canRetryFailure(list.cause) && (
+          <Button appearance="ghost" size="sm" onClick={refresh} disabled={list.waiting}>
+            Retry
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  if (list._tag !== "Success") {
+    return (
+      <p role="status" {...stylex.props(styles.message, typography.label)}>
+        Loading libraries…
+      </p>
+    );
+  }
+
+  if (list.value.length === 0) {
+    return <p {...stylex.props(styles.message, typography.label)}>No libraries yet.</p>;
+  }
+
+  return list.value.map((library) => (
+    <Sidebar.Link
+      key={library.id}
+      render={
+        <Link
+          to="/workspaces/$workspaceId/libraries/$libraryId"
+          params={{ workspaceId, libraryId: library.id }}
+        />
+      }
+    >
+      {library.displayName}
+    </Sidebar.Link>
+  ));
 }
 
 const styles = stylex.create({

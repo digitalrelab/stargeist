@@ -19,17 +19,21 @@ export function ApplicationRoot({
 
   if (result._tag === "Success") return <RouterProvider router={result.value} />;
 
+  let content = <p role="status">Starting Stargeist…</p>;
+
+  if (result._tag === "Failure" && !result.waiting) {
+    content = (
+      <>
+        <p role="alert">{failureMessage(result.cause)}</p>
+        <Button onClick={retry}>Try again</Button>
+      </>
+    );
+  }
+
   return (
     <main {...stylex.props(styles.startup)}>
       <h1 {...stylex.props(typography.heading)}>Stargeist</h1>
-      {result._tag === "Failure" && !result.waiting ? (
-        <>
-          <p role="alert">{failureMessage(result.cause)}</p>
-          <Button onClick={retry}>Try again</Button>
-        </>
-      ) : (
-        <p role="status">Starting Stargeist…</p>
-      )}
+      {content}
     </main>
   );
 }

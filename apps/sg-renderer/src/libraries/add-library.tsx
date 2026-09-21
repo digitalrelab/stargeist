@@ -30,8 +30,14 @@ export function AddLibrary({ workspaceId }: { workspaceId: WorkspaceId }) {
 
   return (
     <>
-      <Button onClick={() => void chooseFolder()} disabled={disabled}>
-        {creation.waiting ? "Choosing folder…" : "Add library"}
+      <Button
+        appearance="ghost"
+        size="sm"
+        onClick={() => void chooseFolder()}
+        disabled={disabled}
+        aria-busy={creation.waiting}
+      >
+        Add library
       </Button>
       {creation._tag === "Failure" && <p role="alert">{failureMessage(creation.cause)}</p>}
     </>

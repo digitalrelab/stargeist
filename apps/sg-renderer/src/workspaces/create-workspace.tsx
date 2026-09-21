@@ -29,8 +29,8 @@ export function CreateWorkspace() {
 
   return (
     <>
-      <Button onClick={() => void chooseFolder()} disabled={disabled}>
-        {creation.waiting ? "Choosing folder…" : "Create workspace"}
+      <Button onClick={() => void chooseFolder()} disabled={disabled} aria-busy={creation.waiting}>
+        Create workspace
       </Button>
       {creation._tag === "Failure" && <p role="alert">{failureMessage(creation.cause)}</p>}
     </>

@@ -36,7 +36,7 @@ const memoryClient = (
             Effect.sync(() => libraries.filter((item) => item.workspaceId === workspaceId)),
           "libraries.get": handlers.getLibrary ?? (() => Effect.succeed(library)),
           "libraries.add": () =>
-            (handlers.addLibrary ? handlers.addLibrary() : Effect.succeed(library)).pipe(
+            (handlers.addLibrary ?? (() => Effect.succeed(library)))().pipe(
               Effect.tap((created) =>
                 Effect.sync(() => {
                   if (created) libraries = [...libraries, created];
@@ -74,6 +74,7 @@ function createRegistry() {
 
   return registry;
 }
+
 describe("Library state", () => {
   it("leaves a canceled folder choice unchanged and refreshes libraries after a successful choice", async () => {
     const registry = createRegistry();
@@ -127,11 +128,13 @@ describe("Library state", () => {
       await createClient({
         getLibrary: () => Effect.sync(() => currentLibrary),
         openDirectory: () => Effect.sync(() => currentListing),
-        closeDirectory: ({ listingId }) =>
-          Deferred.succeed(
-            listingId === first.listingId ? firstClosed : secondClosed,
-            undefined,
-          ).pipe(Effect.asVoid),
+        closeDirectory: ({ listingId }) => {
+          if (listingId === first.listingId) {
+            return Deferred.succeed(firstClosed, undefined).pipe(Effect.asVoid);
+          }
+
+          return Deferred.succeed(secondClosed, undefined).pipe(Effect.asVoid);
+        },
       }),
     );
 
