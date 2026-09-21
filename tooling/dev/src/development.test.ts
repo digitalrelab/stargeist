@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { Effect, Fiber } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { toolingContext } from "./context";
-import { launchDevelopment, type DevelopmentTarget } from "./development";
+import { launchDevelopment } from "./development";
 
-function fixture(source: string, target: DevelopmentTarget = "desktop") {
+function fixture(source: string) {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), "stargeist launch ")));
-  const name = target === "desktop" ? "@electron-forge/cli" : "storybook";
+  const name = "@electron-forge/cli";
   const tool = join(directory, "node_modules", name);
 
   mkdirSync(tool, { recursive: true });
@@ -18,7 +18,7 @@ function fixture(source: string, target: DevelopmentTarget = "desktop") {
     join(tool, "package.json"),
     JSON.stringify({
       name,
-      bin: target === "desktop" ? { "electron-forge": "launcher.cjs" } : "launcher.cjs",
+      bin: { "electron-forge": "launcher.cjs" },
     }),
   );
   writeFileSync(join(tool, "launcher.cjs"), source);
@@ -26,37 +26,28 @@ function fixture(source: string, target: DevelopmentTarget = "desktop") {
   onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
 
   const context = toolingContext();
-  context.targets[target].directory = directory;
+  context.desktop.directory = directory;
 
   return {
     directory,
-    run: launchDevelopment(context, target).pipe(Effect.provide(NodeServices.layer)),
+    run: launchDevelopment(context).pipe(Effect.provide(NodeServices.layer)),
   };
 }
 
-it.each([
-  { target: "desktop" as const, args: ["start"] },
-  { target: "ui" as const, args: ["dev", "--host", "localhost", "--port", "6006", "--no-open"] },
-])(
-  "launches $target in its directory and preserves a failing exit code",
-  async ({ target, args }) => {
-    const { directory, run } = fixture(
-      `
+it("launches desktop in its directory and preserves a failing exit code", async () => {
+  const { directory, run } = fixture(`
     require("node:fs").writeFileSync("launched.json", JSON.stringify({
       directory: process.cwd(), args: process.argv.slice(2),
     }));
     process.exitCode = 17;
-  `,
-      target,
-    );
+  `);
 
-    expect(await Effect.runPromise(run)).toBe(17);
-    expect(JSON.parse(readFileSync(join(directory, "launched.json"), "utf8"))).toEqual({
-      directory,
-      args,
-    });
-  },
-);
+  expect(await Effect.runPromise(run)).toBe(17);
+  expect(JSON.parse(readFileSync(join(directory, "launched.json"), "utf8"))).toEqual({
+    directory,
+    args: ["start"],
+  });
+});
 
 it("terminates the launched process and its descendant when the session is interrupted", async () => {
   const { directory, run } = fixture(`

@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { inspectProfile, inspectProfileAccess } from "./desktop/index";
 import { satisfies } from "semver";
 import type { ToolingContext } from "./context";
-import { developmentTool, type DevelopmentTarget } from "./development";
+import { developmentTool } from "./development";
 
 type Check = { name: string; status: "ok" | "warning" | "error"; message: string };
 
-export function diagnose(context: ToolingContext, target: DevelopmentTarget = "desktop") {
+export function diagnose(context: ToolingContext) {
   const checks: Check[] = [];
-  const profile = target === "desktop" ? context.desktopProfile() : undefined;
+  const profile = context.desktopProfile();
   const nodeRequirement = context.manifest.engines.node;
 
   checks.push({
@@ -34,7 +34,7 @@ export function diagnose(context: ToolingContext, target: DevelopmentTarget = "d
   });
 
   try {
-    const tool = developmentTool(context, target);
+    const tool = developmentTool(context);
 
     checks.push({ name: tool.name, status: "ok", message: "Installed" });
   } catch (error) {
@@ -45,11 +45,9 @@ export function diagnose(context: ToolingContext, target: DevelopmentTarget = "d
     });
   }
 
-  const packages = target === "desktop" ? ["electron", "vite-plus"] : ["vite-plus"];
-
-  for (const name of packages) {
+  for (const name of ["electron", "vite-plus"]) {
     try {
-      const require = createRequire(join(context.targets[target].directory, "package.json"));
+      const require = createRequire(join(context.desktop.directory, "package.json"));
       require.resolve(name);
 
       checks.push({ name, status: "ok", message: "Installed" });
@@ -62,35 +60,33 @@ export function diagnose(context: ToolingContext, target: DevelopmentTarget = "d
     }
   }
 
-  if (profile) {
-    try {
-      const ownership = inspectProfile(profile);
+  try {
+    const ownership = inspectProfile(profile);
 
-      checks.push({
-        name: "profile",
-        status: ownership === "unmanaged" ? "warning" : "ok",
-        message:
-          ownership === "ready"
-            ? "Owned by this checkout"
-            : ownership === "missing"
-              ? "Not initialized yet"
-              : "Close old instances and start the updated desktop to establish ownership.",
-      });
+    checks.push({
+      name: "profile",
+      status: ownership === "unmanaged" ? "warning" : "ok",
+      message:
+        ownership === "ready"
+          ? "Owned by this checkout"
+          : ownership === "missing"
+            ? "Not initialized yet"
+            : "Close old instances and start the updated desktop to establish ownership.",
+    });
 
-      const access = inspectProfileAccess(profile);
+    const access = inspectProfileAccess(profile);
 
-      checks.push({
-        name: "coordination",
-        status: access === "not-initialized" && ownership === "ready" ? "error" : "ok",
-        message: access === "busy" ? "Profile is in use; reset will refuse." : access,
-      });
-    } catch (error) {
-      checks.push({
-        name: "profile",
-        status: "error",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+    checks.push({
+      name: "coordination",
+      status: access === "not-initialized" && ownership === "ready" ? "error" : "ok",
+      message: access === "busy" ? "Profile is in use; reset will refuse." : access,
+    });
+  } catch (error) {
+    checks.push({
+      name: "profile",
+      status: "error",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   return {
@@ -99,9 +95,9 @@ export function diagnose(context: ToolingContext, target: DevelopmentTarget = "d
       ? ("failed" as const)
       : ("ok" as const),
     checkout: context.checkout,
-    target,
-    directory: context.targets[target].directory,
-    ...(profile ? { profile: profile.root } : {}),
+    target: "desktop" as const,
+    directory: context.desktop.directory,
+    profile: profile.root,
     checks,
   };
 }

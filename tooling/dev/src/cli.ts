@@ -4,7 +4,6 @@ import { parseArgs } from "node:util";
 import { ProfileError } from "./desktop/index";
 import { Cause, Console, Effect } from "effect";
 import {
-  Argument,
   CliConfig,
   CliError,
   Command,
@@ -60,11 +59,7 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
       }),
     );
 
-    const target = Argument.Literals("target", ["desktop", "ui"]).pipe(
-      Argument.withDefault("desktop"),
-    );
-
-    const dev = Command.make("dev", { target }, ({ target }) =>
+    const dev = Command.make("dev", {}, () =>
       Effect.gen(function* () {
         const { json } = yield* root;
 
@@ -75,7 +70,7 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
         }
 
         const context = yield* Effect.try(createContext);
-        const report = yield* Effect.try(() => diagnose(context, target));
+        const report = yield* Effect.try(() => diagnose(context));
         const failures = report.checks.filter((check) => check.status === "error");
 
         if (failures.length > 0) {
@@ -84,15 +79,15 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
           );
         }
 
-        process.stdout.write(`Starting ${target} in ${report.directory}\n`);
-        process.exitCode = yield* launchDevelopment(context, target);
+        process.stdout.write(`Starting desktop in ${report.directory}\n`);
+        process.exitCode = yield* launchDevelopment(context);
       }),
-    ).pipe(Command.withDescription("Start this checkout's desktop or UI development session."));
+    ).pipe(Command.withDescription("Start this checkout's desktop development session."));
 
-    const doctor = Command.make("doctor", { target }, ({ target }) =>
+    const doctor = Command.make("doctor", {}, () =>
       Effect.gen(function* () {
         const { json } = yield* root;
-        const report = yield* Effect.try(() => diagnose(createContext(), target));
+        const report = yield* Effect.try(() => diagnose(createContext()));
 
         output(
           report,
@@ -101,7 +96,7 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
             `Checkout: ${report.checkout}`,
             `Target: ${report.target}`,
             `Directory: ${report.directory}`,
-            ...("profile" in report ? [`Profile: ${report.profile}`] : []),
+            `Profile: ${report.profile}`,
             ...report.checks.map(
               (check) => `${check.status.toUpperCase()} ${check.name}: ${check.message}`,
             ),

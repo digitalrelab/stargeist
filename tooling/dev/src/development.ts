@@ -6,12 +6,10 @@ import { Effect } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 import type { ToolingContext } from "./context";
 
-export type DevelopmentTarget = "desktop" | "ui";
-
-export function developmentTool(context: ToolingContext, target: DevelopmentTarget) {
-  const directory = context.targets[target].directory;
-  const name = target === "desktop" ? "@electron-forge/cli" : "storybook";
-  const binary = target === "desktop" ? "electron-forge" : "storybook";
+export function developmentTool(context: ToolingContext) {
+  const directory = context.desktop.directory;
+  const name = "@electron-forge/cli";
+  const binary = "electron-forge";
   const from = pathToFileURL(join(directory, "package.json"));
 
   try {
@@ -36,16 +34,11 @@ export function developmentTool(context: ToolingContext, target: DevelopmentTarg
   }
 }
 
-export function launchDevelopment(context: ToolingContext, target: DevelopmentTarget) {
+export function launchDevelopment(context: ToolingContext) {
   return Effect.gen(function* () {
-    const tool = yield* Effect.try(() => developmentTool(context, target));
-    const args =
-      target === "desktop"
-        ? ["start"]
-        : ["dev", "--host", "localhost", "--port", "6006", "--no-open"];
-
-    const child = yield* ChildProcess.make(process.execPath, [tool.entry, ...args], {
-      cwd: context.targets[target].directory,
+    const tool = yield* Effect.try(() => developmentTool(context));
+    const child = yield* ChildProcess.make(process.execPath, [tool.entry, "start"], {
+      cwd: context.desktop.directory,
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",

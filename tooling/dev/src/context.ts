@@ -17,10 +17,7 @@ export function toolingContext() {
     checkout,
     manifest,
     desktopProfile: () => developmentProfile(desktop),
-    targets: {
-      desktop: { directory: desktop },
-      ui: { directory: join(checkout, "packages", "ui") },
-    },
+    desktop: { directory: desktop },
   };
 }
 

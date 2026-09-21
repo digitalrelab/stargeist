@@ -7,7 +7,6 @@ bun run dev
 
 | Command             | Purpose                                           |
 | ------------------- | ------------------------------------------------- |
-| `bun run dev:ui`    | Start the UI component workshop (Storybook).      |
 | `bun run sg doctor` | Diagnose setup issues.                            |
 | `bun run sg reset`  | Delete development app data. Close the app first. |
 | `bun run sg --help` | Dev tool options.                                 |

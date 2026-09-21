@@ -11,12 +11,7 @@
     "./colors.stylex": "./src/colors.stylex.ts",
     "./tokens.stylex": "./src/tokens.stylex.ts",
     "./typography": "./src/typography.ts",
-    "./reset.css": "./src/reset.css",
-    "./vite": "./vite.config.ts"
-  },
-  "scripts": {
-    "storybook": "sg dev ui",
-    "build-storybook": "storybook build --output-dir dist/storybook"
+    "./reset.css": "./src/reset.css"
   },
   "dependencies": {
     "@ariakit/react": "0.4.40",
@@ -24,14 +19,8 @@
     "lucide-react": "1.47.0"
   },
   "devDependencies": {
-    "@stargeist/dev-tools": "workspace:*",
-    "@storybook/addon-docs": "10.6.0",
-    "@storybook/react-vite": "10.6.0",
-    "@stylexjs/unplugin": "0.19.1",
     "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "storybook": "10.6.0",
-    "vite-plus": "catalog:"
+    "@types/react-dom": "catalog:"
   },
   "peerDependencies": {
     "react": "catalog:",
