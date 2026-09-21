@@ -5,14 +5,23 @@ import { RouteError } from "#src/shell/index.ts";
 import { routeTree } from "../.generated/route-tree";
 import type { RendererServices } from "./application";
 
-export const createAppRouter = (application: RendererServices) =>
-  createRouter({
+export const createAppRouter = (application: RendererServices) => {
+  let history;
+
+  if (window.location.protocol === "file:") {
+    history = createHashHistory();
+  } else {
+    history = createBrowserHistory();
+  }
+
+  return createRouter({
     routeTree,
     context: { application },
-    history: window.location.protocol === "file:" ? createHashHistory() : createBrowserHistory(),
+    history,
     defaultErrorComponent: RouteError,
     defaultOnCatch: (error) => Effect.runSync(reportFailure("renderer.route", Cause.die(error))),
   });
+};
 
 declare module "@tanstack/react-router" {
   interface Register {
