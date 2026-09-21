@@ -1,84 +1,11 @@
-import { Application, Module } from "@stargeist/application";
-import { reportFailure } from "@stargeist/std/errors";
-import { app, BrowserWindow } from "electron";
+import { app } from "electron";
 import squirrelStartup from "electron-squirrel-startup";
-import { Deferred, Effect, FiberSet } from "effect";
-import { Backend, backendLayer } from "./backend";
-import { WindowsModule, type WindowLoadError } from "./window";
-
-const Desktop = Application.define({
-  modules: {
-    windows: WindowsModule,
-    backend: Module.define({ exports: Backend, layer: backendLayer }),
-  },
-  provide: backendLayer,
-});
-
-const program = Effect.gen(function* () {
-  yield* Effect.promise(() => app.whenReady());
-
-  const shutdown = yield* Deferred.make<void, WindowLoadError>();
-
-  const quit = (event: Electron.Event) => {
-    event.preventDefault();
-    Effect.runSync(Deferred.succeed(shutdown, undefined));
-  };
-
-  yield* Effect.acquireRelease(
-    Effect.sync(() => {
-      app.on("before-quit", quit);
-    }),
-    () =>
-      Effect.sync(() => {
-        app.removeListener("before-quit", quit);
-      }),
-  );
-
-  const desktop = yield* Desktop.make;
-  const runWindow = yield* FiberSet.makeRuntime();
-
-  const launchWindow = () => {
-    runWindow(
-      desktop.windows.open.pipe(Effect.catchCause((cause) => Deferred.failCause(shutdown, cause))),
-    );
-  };
-
-  const activate = () => {
-    if (BrowserWindow.getAllWindows().length === 0) launchWindow();
-  };
-
-  const close = () => {
-    if (process.platform !== "darwin") app.quit();
-  };
-
-  yield* Effect.acquireRelease(
-    Effect.sync(() => {
-      app.on("activate", activate);
-      app.on("window-all-closed", close);
-    }),
-    () =>
-      Effect.sync(() => {
-        app.removeListener("activate", activate);
-        app.removeListener("window-all-closed", close);
-      }),
-  );
-
-  launchWindow();
-
-  yield* Deferred.await(shutdown).pipe(Effect.raceFirst(desktop.backend.failure));
-}).pipe(
-  Effect.scoped,
-  Effect.matchCauseEffect({
-    onFailure: (cause) =>
-      reportFailure("desktop.application", cause).pipe(
-        Effect.andThen(Effect.sync(() => app.exit(1))),
-      ),
-    onSuccess: () => Effect.sync(() => app.quit()),
-  }),
-);
+import { Effect } from "effect";
+import { DesktopApplication } from "./application";
+import { runDesktop } from "./lifecycle";
 
 if (squirrelStartup) {
   app.quit();
 } else {
-  Effect.runFork(program);
+  Effect.runFork(runDesktop(DesktopApplication));
 }
