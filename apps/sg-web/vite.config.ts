@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import stylex from "@stylexjs/unplugin";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
@@ -20,6 +21,16 @@ export default defineConfig({
       },
     }),
     react(),
+    {
+      name: "stargeist-license",
+      async generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "LICENSE",
+          source: await readFile(new URL("../../LICENSE", import.meta.url), "utf8"),
+        });
+      },
+    },
     {
       name: "stargeist-content-security-policy",
       transformIndexHtml: (_html, context) => [
