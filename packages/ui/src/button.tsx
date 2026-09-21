@@ -41,9 +41,6 @@ export function Button({
   styles: customStyles,
   ...props
 }: ButtonProps) {
-  const disabled =
-    props.disabled || props["aria-disabled"] === true || props["aria-disabled"] === "true";
-
   return (
     <AriakitButton
       {...props}
@@ -51,7 +48,7 @@ export function Button({
         typography.label,
         styles.button,
         sizes[size],
-        disabled ? styles.disabled : appearances[appearance],
+        appearances[appearance],
         customStyles,
       )}
     />
@@ -73,36 +70,51 @@ const styles = stylex.create({
     outlineStyle: { default: "none", ":is(:focus-visible, [data-focus-visible])": "solid" },
     outlineWidth: focusRing.width,
   },
-  disabled: {
-    backgroundColor: colors.controlDisabled,
-    color: colors.textDisabled,
-  },
 });
+
+const states = {
+  hovered: ':hover:not(:active):not([data-active]):not(:disabled):not([aria-disabled="true"])',
+  pressed: ':is(:active, [data-active]):not(:disabled):not([aria-disabled="true"])',
+  interacting: ':is(:hover, :active, [data-active]):not(:disabled):not([aria-disabled="true"])',
+  disabled: ':is(:disabled, [aria-disabled="true"])',
+};
 
 const appearances = stylex.create({
   solid: {
     backgroundColor: {
       default: colors.action,
-      ":hover:not(:active):not([data-active])": colors.actionHovered,
-      ":is(:active, [data-active])": colors.actionPressed,
+      [states.hovered]: colors.actionHovered,
+      [states.pressed]: colors.actionPressed,
+      [states.disabled]: colors.controlDisabled,
     },
-    color: colors.onAction,
+    color: {
+      default: colors.onAction,
+      [states.disabled]: colors.onControlDisabled,
+    },
   },
   soft: {
     backgroundColor: {
       default: colors.control,
-      ":hover:not(:active):not([data-active])": colors.controlHovered,
-      ":is(:active, [data-active])": colors.controlPressed,
+      [states.hovered]: colors.controlHovered,
+      [states.pressed]: colors.controlPressed,
+      [states.disabled]: colors.controlDisabled,
     },
-    color: colors.text,
+    color: {
+      default: colors.onControl,
+      [states.disabled]: colors.onControlDisabled,
+    },
   },
   ghost: {
     backgroundColor: {
       default: "oklch(0% 0 0 / 0)",
-      ":hover:not(:active):not([data-active])": colors.controlHovered,
-      ":is(:active, [data-active])": colors.controlPressed,
+      [states.hovered]: colors.controlHovered,
+      [states.pressed]: colors.controlPressed,
     },
-    color: colors.text,
+    color: {
+      default: colors.onControlMuted,
+      [states.disabled]: colors.onControlDisabled,
+      [states.interacting]: colors.onControl,
+    },
   },
 });
 

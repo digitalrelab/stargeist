@@ -21,7 +21,6 @@ export const colors = stylex.defineVars({
   surfaceRaised: slateDark.slate3,
   text: slateDark.slate12,
   textMuted: slateDark.slate11,
-  textDisabled: slateDark.slate10,
   borderSubtle: slateDark.slate3,
   border: slateDark.slate6,
   borderStrong: slateDark.slate8,
@@ -33,5 +32,8 @@ export const colors = stylex.defineVars({
   controlHovered: slateDark.slate4,
   controlPressed: slateDark.slate5,
   controlDisabled: slateDark.slate3,
+  onControl: slateDark.slate12,
+  onControlMuted: slateDark.slate11,
+  onControlDisabled: slateDark.slate10,
   focusRing: "oklch(77.429% 0.12152 287.46)",
 });
