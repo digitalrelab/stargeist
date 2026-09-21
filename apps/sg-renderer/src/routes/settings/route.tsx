@@ -28,14 +28,14 @@ function SettingsSidebar() {
       </Sidebar.Content>
       <Sidebar.Footer>
         <Sidebar.Nav aria-label="Application">
-          <Button
+          <Button.Link
             appearance="ghost"
             size="icon"
             render={<Link to="/" />}
             aria-label="Back to workspaces"
           >
             <BackIcon aria-hidden="true" />
-          </Button>
+          </Button.Link>
         </Sidebar.Nav>
       </Sidebar.Footer>
     </Sidebar.Root>

@@ -24,14 +24,14 @@ export function WorkspaceSidebar() {
       </Sidebar.Content>
       <Sidebar.Footer>
         <Sidebar.Nav aria-label="Application">
-          <Button
+          <Button.Link
             appearance="ghost"
             size="icon"
             render={<Link to="/settings" />}
             aria-label="Settings"
           >
             <SettingsIcon aria-hidden="true" />
-          </Button>
+          </Button.Link>
         </Sidebar.Nav>
       </Sidebar.Footer>
     </Sidebar.Root>
