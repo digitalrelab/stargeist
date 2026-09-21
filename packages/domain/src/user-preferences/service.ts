@@ -1,4 +1,4 @@
-import { Context, type Effect, Schema } from "effect";
+import { Context, type Effect, Schema, type Stream } from "effect";
 import type { UserPreferenceValues } from "./values";
 
 export class UserPreferencesError extends Schema.TaggedError<UserPreferencesError>()(
@@ -16,6 +16,9 @@ export class UserPreferences extends Context.Service<
     readonly get: <K extends keyof UserPreferenceValues>(
       key: K,
     ) => Effect.Effect<UserPreferenceValues[K], UserPreferencesError>;
+    readonly watch: <K extends keyof UserPreferenceValues>(
+      key: K,
+    ) => Stream.Stream<UserPreferenceValues[K], UserPreferencesError>;
     readonly set: <K extends keyof UserPreferenceValues>(
       key: K,
       value: UserPreferenceValues[K],

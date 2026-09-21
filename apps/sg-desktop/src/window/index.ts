@@ -7,6 +7,8 @@ import { Backend } from "../backend";
 import { applicationIcon } from "../icon";
 import { windowPlacement } from "./placement";
 import { trackWindowState } from "./state";
+import { withInterfaceScale } from "./scale";
+import { installWindowMenu } from "./menu";
 
 class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
   readonly cause: unknown;
@@ -16,6 +18,7 @@ const openWindow = Effect.gen(function* () {
   const backend = yield* Backend;
   const preferences = yield* UserPreferences;
   const saved = yield* preferences.get("window");
+  const scale = yield* preferences.get("interfaceScale");
   const { bounds, minWidth, minHeight } = windowPlacement(saved?.bounds ?? null);
   const window = yield* Effect.acquireRelease(
     Effect.sync(
@@ -30,6 +33,8 @@ const openWindow = Effect.gen(function* () {
           show: false,
           autoHideMenuBar: true,
           webPreferences: {
+            zoomFactor: scale,
+            zoomMode: "isolated",
             preload: join(__dirname, "preload.js"),
             nodeIntegration: false,
             contextIsolation: true,
@@ -71,21 +76,26 @@ const openWindow = Effect.gen(function* () {
       catch: (cause) => new WindowLoadError({ cause }),
     });
 
-    yield* trackWindowState(
-      window,
-      {
-        bounds,
-        maximized: saved?.maximized ?? false,
-        fullScreen: saved?.fullScreen ?? false,
-      },
-      saved,
+    yield* withInterfaceScale(
+      window.webContents,
+      Effect.gen(function* () {
+        yield* trackWindowState(
+          window,
+          {
+            bounds,
+            maximized: saved?.maximized ?? false,
+            fullScreen: saved?.fullScreen ?? false,
+          },
+          saved,
+        );
+        yield* Effect.sync(() => {
+          if (saved?.maximized) window.maximize();
+          if (saved?.fullScreen) window.setFullScreen(true);
+          window.show();
+        });
+        yield* Effect.never;
+      }),
     );
-    yield* Effect.sync(() => {
-      if (saved?.maximized) window.maximize();
-      if (saved?.fullScreen) window.setFullScreen(true);
-      window.show();
-    });
-    yield* Effect.never;
   }).pipe(Effect.raceFirst(Deferred.await(closed)));
 }).pipe(Effect.scoped);
 
@@ -93,6 +103,7 @@ class Windows extends Context.Service<Windows>()("@stargeist/desktop/Windows", {
   make: Effect.gen(function* () {
     const backend = yield* Backend;
     const preferences = yield* UserPreferences;
+    yield* installWindowMenu;
     return {
       open: openWindow.pipe(
         Effect.provideService(Backend, backend),

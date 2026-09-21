@@ -1,2 +1,2 @@
 export { UserPreferences, UserPreferencesError } from "./service";
-export { UserPreferenceValues } from "./values";
+export { UserPreferenceValues, InterfaceScale } from "./values";

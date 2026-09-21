@@ -5,27 +5,63 @@ import {
   UserPreferencesError,
   type UserPreferenceValues,
 } from "@stargeist/domain";
-import { screen, type BrowserWindowConstructorOptions, type Rectangle } from "electron";
-import { Cause, Clock, Deferred, Effect, Fiber, Layer, Logger, References } from "effect";
+import {
+  screen,
+  type BrowserWindowConstructorOptions,
+  type MenuItemConstructorOptions,
+  type Rectangle,
+} from "electron";
+import {
+  Cause,
+  Clock,
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Logger,
+  Queue,
+  References,
+  Stream,
+} from "effect";
 import { TestClock } from "effect/testing";
 import { beforeEach, expect, it, onTestFinished, vi } from "vite-plus/test";
 import { Backend } from "../backend";
 import { WindowsModule } from "./index";
+import { changeInterfaceScale, scaleCommands } from "./scale";
+import { installWindowMenu } from "./menu";
 
 const native = vi.hoisted(() => ({
   createWindow: vi.fn<(options: BrowserWindowConstructorOptions) => NativeWindow>(),
   primary: vi.fn(),
   matching: vi.fn(),
   load: vi.fn<() => Promise<void>>(),
+  focused: vi.fn<() => NativeWindow | null>(),
+  alert: vi.fn(),
+  packaged: false,
+  buildMenu: vi.fn((template: MenuItemConstructorOptions[]) => template),
 }));
 
 vi.mock("electron", async () => {
   const { EventEmitter } = await import("node:events");
   return {
-    BrowserWindow: vi.fn(function (options: BrowserWindowConstructorOptions) {
-      return native.createWindow(options);
-    }),
-    app: { getAppPath: () => "/stargeist" },
+    BrowserWindow: Object.assign(
+      vi.fn(function (options: BrowserWindowConstructorOptions) {
+        return native.createWindow(options);
+      }),
+      { getFocusedWindow: native.focused },
+    ),
+    app: {
+      getAppPath: () => "/stargeist",
+      get isPackaged() {
+        return native.packaged;
+      },
+    },
+    Menu: {
+      getApplicationMenu: () => null,
+      buildFromTemplate: native.buildMenu,
+      setApplicationMenu: vi.fn(),
+    },
+    dialog: { showMessageBox: native.alert },
     screen: Object.assign(new EventEmitter(), {
       getPrimaryDisplay: native.primary,
       getDisplayMatching: native.matching,
@@ -54,6 +90,9 @@ class NativeWindow extends EventEmitter {
   destroyed = false;
   webContents = Object.assign(new EventEmitter(), {
     setWindowOpenHandler: vi.fn(),
+    setZoomFactor: vi.fn((_scale: number) => {
+      if (this.destroyed) throw new Error("Web contents are destroyed");
+    }),
     getURL: () => "about:blank",
     session: {
       setPermissionRequestHandler: vi.fn(),
@@ -108,7 +147,8 @@ const wait = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.runPromise(effect.pipe(Effect.timeout("3 seconds")));
 
 function fixture(initial: UserPreferenceValues["window"] = saved) {
-  let value = initial;
+  let values: UserPreferenceValues = { window: initial, interfaceScale: 1.25 };
+  const changes = new EventEmitter();
   const windows: NativeWindow[] = [];
   const created = Deferred.makeUnsafe<NativeWindow>();
   const clock = Deferred.makeUnsafe<TestClock.TestClock>();
@@ -116,15 +156,35 @@ function fixture(initial: UserPreferenceValues["window"] = saved) {
   const write = vi.fn(
     (next: UserPreferenceValues["window"]): Effect.Effect<void, UserPreferencesError> =>
       Effect.sync(() => {
-        value = next;
+        values = { ...values, window: next };
+        changes.emit("window");
       }),
   );
   const read = vi.fn((): Effect.Effect<UserPreferenceValues["window"], UserPreferencesError> =>
-    Effect.sync(() => value),
+    Effect.sync(() => values.window),
   );
   const preferences: UserPreferences["Service"] = {
-    get: read,
-    set: (_key, next) => write(next),
+    get: (key) => read().pipe(Effect.map(() => values[key])),
+    set: (key, next) => {
+      if (key === "window") return write({ ...values, [key]: next }.window);
+      return Effect.sync(() => {
+        values = { ...values, [key]: next };
+        changes.emit(key);
+      });
+    },
+    watch: (key) =>
+      Stream.callback(
+        Effect.fnUntraced(function* (queue) {
+          const emit = () => {
+            Queue.offerUnsafe(queue, values[key]);
+          };
+          yield* Effect.acquireRelease(
+            Effect.sync(() => changes.on(key, emit)),
+            () => Effect.sync(() => changes.off(key, emit)),
+          );
+          emit();
+        }),
+      ),
   };
   native.createWindow.mockImplementation((options) => {
     const window = new NativeWindow(options);
@@ -156,7 +216,18 @@ function fixture(initial: UserPreferenceValues["window"] = saved) {
   };
   const advance = (millis: number) =>
     wait(Deferred.await(clock).pipe(Effect.flatMap((clock) => clock.adjust(millis))));
-  return { open, created, windows, read, write, value: () => value, operations, advance };
+  return {
+    open,
+    created,
+    windows,
+    read,
+    write,
+    value: () => values.window,
+    preferences,
+    changes,
+    operations,
+    advance,
+  };
 }
 
 beforeEach(() => {
@@ -164,6 +235,9 @@ beforeEach(() => {
   native.primary.mockReturnValue({ workArea: area });
   native.matching.mockReturnValue({ workArea: area });
   native.load.mockResolvedValue(undefined);
+  native.focused.mockReturnValue(null);
+  native.alert.mockResolvedValue({ response: 0, checkboxChecked: false });
+  native.packaged = false;
   vi.stubGlobal("MAIN_WINDOW_VITE_DEV_SERVER_URL", undefined);
   vi.stubGlobal("MAIN_WINDOW_VITE_NAME", "main_window");
   onTestFinished(() => {
@@ -193,6 +267,143 @@ it("centers the first window, persists normal bounds on close, and restores them
   reopened.close();
   await wait(Fiber.join(second));
   expect(runtime.write).toHaveBeenCalledOnce();
+});
+
+it("restores scale before showing, follows saved changes, and persists native zoom requests", async () => {
+  const runtime = fixture();
+  const fiber = runtime.open();
+  const window = await wait(Deferred.await(runtime.created));
+  expect(window.options.webPreferences).toMatchObject({ zoomFactor: 1.25, zoomMode: "isolated" });
+  await wait(Deferred.await(window.shown));
+  expect(window.webContents.setZoomFactor).toHaveBeenCalledWith(1.25);
+
+  await wait(runtime.preferences.set("interfaceScale", 2));
+  await vi.waitFor(() => expect(window.webContents.setZoomFactor).toHaveBeenLastCalledWith(2));
+  const event = { preventDefault: vi.fn() };
+  window.webContents.emit("zoom-changed", event, "out");
+  await vi.waitFor(() => expect(window.webContents.setZoomFactor).toHaveBeenLastCalledWith(1.75));
+  expect(await wait(runtime.preferences.get("interfaceScale"))).toBe(1.75);
+  expect(event.preventDefault).toHaveBeenCalledOnce();
+
+  window.close();
+  await wait(Fiber.join(fiber));
+  expect(runtime.changes.listenerCount("interfaceScale")).toBe(0);
+  expect(window.webContents.listenerCount("zoom-changed")).toBe(0);
+});
+
+it("closes cleanly when a saved scale change is still queued for the renderer", async () => {
+  const runtime = fixture();
+  const fiber = runtime.open();
+  const window = await wait(Deferred.await(runtime.created));
+  await wait(Deferred.await(window.shown));
+  Effect.runSync(runtime.preferences.set("interfaceScale", 1.75));
+  window.close();
+  await wait(Fiber.join(fiber));
+  expect(await wait(runtime.preferences.get("interfaceScale"))).toBe(1.75);
+  expect(window.webContents.setZoomFactor).not.toHaveBeenCalledWith(1.75);
+});
+
+it("keeps one native failure notification open and accepts commands again after dismissal", async () => {
+  const runtime = fixture();
+  runtime.open();
+  const window = await wait(Deferred.await(runtime.created));
+  await wait(Deferred.await(window.shown));
+  native.focused.mockReturnValue(window);
+  const displayed = Deferred.makeUnsafe<void>();
+  const dismissed = Deferred.makeUnsafe<void>();
+  native.alert.mockImplementationOnce(() => {
+    Effect.runSync(Deferred.succeed(displayed, undefined));
+    return Effect.runPromise(
+      Deferred.await(dismissed).pipe(Effect.as({ response: 0, checkboxChecked: false })),
+    );
+  });
+  runtime.read.mockReturnValueOnce(
+    Effect.fail(
+      new UserPreferencesError({
+        operation: "read",
+        message: "Preferences could not be read.",
+        cause: new Error("Preferences file is unreadable"),
+      }),
+    ),
+  );
+
+  await wait(
+    Effect.gen(function* () {
+      const command = yield* scaleCommands;
+      const failed = command("increase");
+      yield* Deferred.await(displayed);
+      command("increase");
+      command("decrease");
+      expect(native.alert).toHaveBeenCalledExactlyOnceWith(
+        window,
+        expect.objectContaining({
+          type: "error",
+          detail: "Preferences could not be read.",
+          signal: expect.any(AbortSignal),
+        }),
+      );
+      expect(yield* runtime.preferences.get("interfaceScale")).toBe(1.25);
+      yield* Deferred.succeed(dismissed, undefined);
+      yield* Fiber.join(failed);
+      yield* Fiber.join(command("reset"));
+      expect(yield* runtime.preferences.get("interfaceScale")).toBe(1);
+      command("increase");
+      command("increase");
+      yield* Fiber.join(command("increase"));
+      expect(yield* runtime.preferences.get("interfaceScale")).toBe(1.5);
+    }).pipe(Effect.provideService(UserPreferences, runtime.preferences), Effect.scoped),
+  );
+});
+
+it.each([true, false])(
+  "installs scale shortcuts with development actions gated by packaged=%s",
+  async (packaged) => {
+    native.packaged = packaged;
+    await wait(
+      installWindowMenu.pipe(
+        Effect.provideService(UserPreferences, fixture().preferences),
+        Effect.scoped,
+      ),
+    );
+    const template = native.buildMenu.mock.calls[0]![0];
+    const view = template.find((item) => item.label === "View")?.submenu;
+    if (!Array.isArray(view)) throw new Error("View menu is missing");
+    expect(
+      view.filter((item) => item.accelerator).map((item) => [item.label, item.accelerator]),
+    ).toEqual([
+      ["Increase Scale", "CommandOrControl+Plus"],
+      ["Decrease Scale", "CommandOrControl+-"],
+      ["Reset Scale", "CommandOrControl+0"],
+    ]);
+    const developerRoles = view
+      .map((item) => item.role)
+      .filter((role) => role === "reload" || role === "forceReload" || role === "toggleDevTools");
+    if (packaged) expect(developerRoles).toEqual([]);
+    else expect(developerRoles).toEqual(["reload", "forceReload", "toggleDevTools"]);
+    const fullScreen = view.filter((item) => item.role === "togglefullscreen");
+    if (process.platform === "darwin") expect(fullScreen).toEqual([]);
+    else expect(fullScreen).toHaveLength(1);
+  },
+);
+
+it("steps through supported scales, stops at the limits, and resets to 100%", async () => {
+  const { preferences } = fixture();
+  await wait(
+    Effect.gen(function* () {
+      yield* changeInterfaceScale("decrease");
+      expect(yield* preferences.get("interfaceScale")).toBe(1.1);
+      yield* changeInterfaceScale("reset");
+      expect(yield* preferences.get("interfaceScale")).toBe(1);
+      yield* changeInterfaceScale("increase");
+      expect(yield* preferences.get("interfaceScale")).toBe(1.1);
+      yield* preferences.set("interfaceScale", 2);
+      yield* changeInterfaceScale("increase");
+      expect(yield* preferences.get("interfaceScale")).toBe(2);
+      yield* preferences.set("interfaceScale", 0.75);
+      yield* changeInterfaceScale("decrease");
+      expect(yield* preferences.get("interfaceScale")).toBe(0.75);
+    }).pipe(Effect.provideService(UserPreferences, preferences)),
+  );
 });
 
 it.each([
