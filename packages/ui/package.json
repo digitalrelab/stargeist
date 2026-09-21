@@ -10,7 +10,7 @@
     "./reset.css": "./src/reset.css"
   },
   "dependencies": {
-    "@ariakit/react": "0.4.40",
+    "@base-ui/react": "1.8.0",
     "@stylexjs/stylex": "catalog:",
     "lucide-react": "1.47.0"
   },

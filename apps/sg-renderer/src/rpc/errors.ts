@@ -20,5 +20,7 @@ export const failureMessage = (cause: Cause.Cause<unknown>) => {
     return "The connection is unavailable. Reopen Stargeist to reconnect.";
   }
 
-  return error instanceof Error ? error.message : "Something went wrong. Please try again.";
+  if (error instanceof Error) return error.message;
+
+  return "Something went wrong. Please try again.";
 };

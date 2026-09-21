@@ -1,4 +1,12 @@
-import { ArrowLeft, Settings, type LucideProps } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  Settings,
+  type LucideProps,
+} from "lucide-react";
 import { control } from "../tokens.stylex";
 
 export function BackIcon(props: LucideProps) {
@@ -7,4 +15,20 @@ export function BackIcon(props: LucideProps) {
 
 export function SettingsIcon(props: LucideProps) {
   return <Settings size={control.iconSize} {...props} />;
+}
+
+export function CheckIcon(props: LucideProps) {
+  return <Check size={control.iconSize} {...props} />;
+}
+
+export function ChevronDownIcon(props: LucideProps) {
+  return <ChevronDown size={control.iconSize} {...props} />;
+}
+
+export function ChevronUpIcon(props: LucideProps) {
+  return <ChevronUp size={control.iconSize} {...props} />;
+}
+
+export function ChevronsUpDownIcon(props: LucideProps) {
+  return <ChevronsUpDown size={control.iconSize} {...props} />;
 }
