@@ -3,13 +3,13 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { developmentProfile, initializeProfile } from "./desktop/index";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { checkout } from "./context";
 
 const require = createRequire(import.meta.url);
-const loader = require.resolve("tsx");
+const loader = pathToFileURL(require.resolve("tsx")).href;
 const runner = fileURLToPath(new URL("./fixtures/cli-process.ts", import.meta.url));
 
 function fixture() {
@@ -32,32 +32,45 @@ function fixture() {
   };
 }
 
-it("keeps doctor and dry-run read-only and requires noninteractive reset confirmation", () => {
+it("keeps doctor read-only", () => {
+  const { profile, run } = fixture();
+  const doctor = run("doctor", "--json");
+
+  expect(doctor.error).toBeUndefined();
+  expect(JSON.parse(doctor.stdout), doctor.stderr).toMatchObject({ command: "doctor" });
+  expect(existsSync(profile.base)).toBe(false);
+});
+
+it("keeps reset previews read-only", () => {
   const { profile, run } = fixture();
 
-  expect(JSON.parse(run("doctor", "--json").stdout).command).toBe("doctor");
   const preview = run("reset", "--dry-run", "--json");
-  expect(preview.status).toBe(0);
+
+  expect(preview.status, preview.stderr).toBe(0);
   expect(JSON.parse(preview.stdout)).toMatchObject({
     status: "preview",
     exists: false,
   });
   expect(existsSync(profile.base)).toBe(false);
+});
 
+it("requires noninteractive reset confirmation", () => {
+  const { profile, run } = fixture();
   const unconfirmed = run("reset", "--json");
-  expect(unconfirmed.status).toBe(2);
+
+  expect(unconfirmed.status, unconfirmed.stderr).toBe(2);
   expect(JSON.parse(unconfirmed.stdout).code).toBe("confirmation-required");
   expect(existsSync(profile.base)).toBe(false);
 });
 
-it("reports reset and ownership failures through the CLI's JSON contract", () => {
+it("reports a successful reset through the CLI's JSON contract", () => {
   const { profile, run } = fixture();
   initializeProfile(profile);
   mkdirSync(profile.data);
   writeFileSync(join(profile.data, "stargeist.sqlite"), "discard");
 
   const reset = run("reset", "--yes", "--json");
-  expect(reset.status).toBe(0);
+  expect(reset.status, reset.stderr).toBe(0);
   expect(JSON.parse(reset.stdout)).toMatchObject({
     command: "reset",
     status: "reset-complete",
@@ -65,10 +78,16 @@ it("reports reset and ownership failures through the CLI's JSON contract", () =>
     cleanupPending: false,
   });
   expect(existsSync(profile.data)).toBe(false);
+});
+
+it("reports ownership failures through the CLI's JSON contract", () => {
+  const { profile, run } = fixture();
+  initializeProfile(profile);
 
   writeFileSync(profile.marker, "{}");
   const invalid = run("reset", "--yes", "--json");
-  expect(invalid.status).toBe(1);
+
+  expect(invalid.status, invalid.stderr).toBe(1);
   expect(JSON.parse(invalid.stdout).code).toBe("invalid-owner");
 });
 
@@ -76,7 +95,7 @@ it("keeps parsing failures machine-readable without misidentifying the command",
   const { run } = fixture();
   const result = run("unknown", "--json");
 
-  expect(result.status).toBe(1);
+  expect(result.status, result.stderr).toBe(1);
   expect(JSON.parse(result.stdout)).toMatchObject({
     command: "sg",
     status: "failed",

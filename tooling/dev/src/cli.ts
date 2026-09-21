@@ -1,4 +1,4 @@
-import { NodeServices } from "@effect/platform-node";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Console as NodeConsole } from "node:console";
 import { ProfileError } from "./desktop/index";
 import { Cause, Console, Effect } from "effect";

@@ -12,7 +12,7 @@ import {
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   developmentProfile,
   inspectProfile,
@@ -25,7 +25,7 @@ import { expect, it, onTestFinished } from "vite-plus/test";
 import { previewReset, resetData } from "./reset";
 
 const require = createRequire(import.meta.url);
-const loader = require.resolve("tsx");
+const loader = pathToFileURL(require.resolve("tsx")).href;
 const worker = fileURLToPath(new URL("./fixtures/profile-process.ts", import.meta.url));
 
 function fixture() {
@@ -49,6 +49,12 @@ async function holder(action: string, application: string, appData: string) {
     },
   );
 
+  let stderr = "";
+
+  child.stderr?.setEncoding("utf8").on("data", (chunk) => {
+    stderr += chunk;
+  });
+
   onTestFinished(async () => {
     if (child.exitCode === null && child.signalCode === null) {
       await kill(child);
@@ -58,7 +64,7 @@ async function holder(action: string, application: string, appData: string) {
   const message = await Promise.race([
     once(child, "message").then(([value]) => value),
     once(child, "exit").then(([code]) => {
-      throw new Error(`Profile holder exited early: ${code}`);
+      throw new Error(`Profile holder exited early (${code}): ${stderr}`);
     }),
   ]);
 

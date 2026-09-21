@@ -1,4 +1,4 @@
-import { NodeRuntime } from "@effect/platform-node";
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import { developmentProfile } from "../desktop/index";
 import { runCli } from "../cli";
 import { toolingContext } from "../context";
