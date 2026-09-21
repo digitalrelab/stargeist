@@ -71,6 +71,6 @@ const styles = stylex.create({
     outlineColor: colors.focusRing,
     outlineWidth: focusRing.width,
     outlineStyle: { default: "none", ":focus-visible": "solid" },
-    outlineOffset: focusRing.offset,
+    outlineOffset: `calc(-1 * ${focusRing.width})`,
   },
 });
