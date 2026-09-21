@@ -8,10 +8,16 @@ import {
   FileQuestionMark,
   Folder,
   Link,
+  Minus,
   Settings,
+  X,
   type LucideProps,
 } from "lucide-react";
 import { control } from "../tokens.stylex";
+
+export function CloseIcon(props: LucideProps) {
+  return <X size={control.iconSize} {...props} />;
+}
 
 export function FileIcon(props: LucideProps) {
   return <File size={control.iconSize} {...props} />;
@@ -39,6 +45,10 @@ export function SettingsIcon(props: LucideProps) {
 
 export function CheckIcon(props: LucideProps) {
   return <Check size={control.iconSize} {...props} />;
+}
+
+export function MinusIcon(props: LucideProps) {
+  return <Minus size={control.iconSize} {...props} />;
 }
 
 export function ChevronDownIcon(props: LucideProps) {
