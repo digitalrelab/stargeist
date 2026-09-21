@@ -2,7 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "types": ["vite-plus/client"]
   },
-  "include": ["src", ".storybook"]
+  "include": ["src", ".storybook/**/*"]
 }

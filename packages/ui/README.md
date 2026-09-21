@@ -10,7 +10,11 @@ Group each component and its `*.stories.tsx` file in a capability folder such as
 
 Use typed CSF stories (`Meta` and `StoryObj`). Document meaningful variants and compositions using the real components. Keep example state local to the story. Stories are interactive examples; this setup does not run DOM assertions or snapshot tests.
 
-The catalog includes button controls and state comparisons, semantic icons, and contextual sidebar compositions with overflow and long labels. Use the Surface toolbar to compare controls against the actual canvas, surface, and raised-surface tokens. The Docs tab describes intended usage.
+Global preview configuration owns typography and theme, while Storybook layout parameters and local decorators own example geometry. Use `padded` for small controls and `fullscreen` for compositions that own their frame. Keep sizing wrappers in decorators so source examples show the component API.
+
+Document compound components with `component` metadata, each part's element and responsibility, and a direct composition story. Use static source for compositions to preserve their authored markup. Keep consumer behavior in separate interactive examples.
+
+The catalog includes button controls and state comparisons, semantic icons, and contextual sidebar compositions with overflow and long labels. Use the background toolbar to compare controls against the actual canvas, surface, and raised-surface tokens. The Docs tab describes intended usage.
 
 ## Geometry
 

@@ -36,7 +36,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Solid emphasizes a primary action; soft provides a neutral surface; ghost stays quiet until interaction. Icon buttons are square and require an accessible name. Use the Surface toolbar to compare backgrounds.",
+          "Solid emphasizes a primary action; soft provides a neutral surface; ghost stays quiet until interaction. Icon buttons are square and require an accessible name. Use the background toolbar to compare backgrounds.",
       },
     },
   },
