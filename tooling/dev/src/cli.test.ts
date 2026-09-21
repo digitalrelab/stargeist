@@ -103,48 +103,31 @@ it.each(["--json", "--json=true"])("keeps parsing failures machine-readable with
   });
 });
 
-it.each([".", "apps/sg-desktop", "apps/sg-web"])(
-  "runs web diagnostics from %s with Node without requiring desktop app data",
-  (directory) => {
-    const result = spawnSync("bun", ["run", "sg", "doctor", "web", "--json"], {
-      cwd: join(checkout, directory),
-      env: { ...process.env, APPDATA: "relative", XDG_CONFIG_HOME: "relative" },
-      encoding: "utf8",
-      timeout: 20000,
-    });
+it.each([".", "apps/sg-desktop"])("runs desktop diagnostics from %s with Node", (directory) => {
+  const { profile } = fixture();
+  const result = spawnSync("bun", ["run", "sg", "doctor", "--json"], {
+    cwd: join(checkout, directory),
+    env: { ...process.env, APPDATA: profile.base, XDG_CONFIG_HOME: profile.base },
+    encoding: "utf8",
+    timeout: 20000,
+  });
 
-    expect(result.error).toBeUndefined();
+  expect(result.error).toBeUndefined();
 
-    const report = JSON.parse(result.stdout);
-    expect(report, result.stderr).toMatchObject({ command: "doctor", checkout, target: "web" });
-    expect(report.checks).toContainEqual(
-      expect.objectContaining({
-        name: "node",
-        message: expect.stringContaining(`${process.versions.node} (required `),
-      }),
-    );
-    expect(result.status).toBe(report.status === "failed" ? 1 : 0);
-  },
-);
-
-it("diagnoses web development without touching or requiring a healthy desktop profile", () => {
-  const { profile, run } = fixture();
-  initializeProfile(profile);
-  writeFileSync(profile.marker, "{}");
-
-  const result = run("doctor", "web", "--json");
   const report = JSON.parse(result.stdout);
-
-  expect(result.status, result.stderr).toBe(0);
-  expect(report).toMatchObject({ target: "web", status: "ok" });
-  expect(report.profile).toBeUndefined();
-  expect(report.checks.map((check: { name: string }) => check.name)).toContain("portless");
-  expect(report.checks.map((check: { name: string }) => check.name)).not.toContain("coordination");
+  expect(report, result.stderr).toMatchObject({ command: "doctor", checkout, target: "desktop" });
+  expect(report.checks).toContainEqual(
+    expect.objectContaining({
+      name: "node",
+      message: expect.stringContaining(`${process.versions.node} (required `),
+    }),
+  );
+  expect(result.status).toBe(report.status === "failed" ? 1 : 0);
 });
 
 it("refuses JSON development sessions before launching a tool", () => {
   const { run } = fixture();
-  const result = run("dev", "web", "--json=true");
+  const result = run("dev", "--json=true");
 
   expect(result.status).toBe(1);
   expect(JSON.parse(result.stdout)).toMatchObject({

@@ -5,15 +5,18 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    "./button": "./src/button.tsx",
-    "./sidebar": "./src/sidebar.tsx",
+    "./button": "./src/button/index.tsx",
+    "./icons": "./src/icons/index.tsx",
+    "./sidebar": "./src/sidebar/index.tsx",
     "./colors.stylex": "./src/colors.stylex.ts",
     "./tokens.stylex": "./src/tokens.stylex.ts",
-    "./typography": "./src/typography.ts"
+    "./typography": "./src/typography.ts",
+    "./reset.css": "./src/reset.css"
   },
   "dependencies": {
     "@ariakit/react": "0.4.40",
-    "@stylexjs/stylex": "catalog:"
+    "@stylexjs/stylex": "catalog:",
+    "lucide-react": "1.47.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",

@@ -9,28 +9,32 @@ import { launchDevelopment } from "./development";
 
 function fixture(source: string) {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), "stargeist launch ")));
-  const tool = join(directory, "node_modules", "@electron-forge", "cli");
+  const name = "@electron-forge/cli";
+  const tool = join(directory, "node_modules", name);
 
   mkdirSync(tool, { recursive: true });
   writeFileSync(join(directory, "package.json"), "{}");
   writeFileSync(
     join(tool, "package.json"),
-    JSON.stringify({ name: "@electron-forge/cli", bin: { "electron-forge": "launcher.cjs" } }),
+    JSON.stringify({
+      name,
+      bin: { "electron-forge": "launcher.cjs" },
+    }),
   );
   writeFileSync(join(tool, "launcher.cjs"), source);
 
   onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
 
   const context = toolingContext();
-  context.targets.desktop.directory = directory;
+  context.desktop.directory = directory;
 
   return {
     directory,
-    run: launchDevelopment(context, "desktop").pipe(Effect.provide(NodeServices.layer)),
+    run: launchDevelopment(context).pipe(Effect.provide(NodeServices.layer)),
   };
 }
 
-it("launches the installed tool in the target directory and preserves a failing exit code", async () => {
+it("launches desktop in its directory and preserves a failing exit code", async () => {
   const { directory, run } = fixture(`
     require("node:fs").writeFileSync("launched.json", JSON.stringify({
       directory: process.cwd(), args: process.argv.slice(2),

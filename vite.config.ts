@@ -7,6 +7,10 @@ const sourceImports = {
 };
 
 const electronImports = ["electron", "electron/*", "@electron-forge/*"];
+const iconImports = {
+  group: ["lucide-react", "lucide-react/*"],
+  message: "Import icons from @stargeist/ui/icons.",
+};
 const platformImports = [
   "node:*",
   ...electronImports,
@@ -15,8 +19,8 @@ const platformImports = [
   "@effect/sql-*",
 ];
 const appImports = [
-  "@stargeist/web",
-  "@stargeist/web/*",
+  "@stargeist/renderer",
+  "@stargeist/renderer/*",
   "@stargeist/desktop",
   "@stargeist/desktop/*",
   "@stargeist/dev-tools",
@@ -28,6 +32,13 @@ const featureImports = [
   "@stargeist/ui",
   "@stargeist/ui/*",
 ];
+const uiImports = [
+  ...appImports,
+  "@stargeist/domain",
+  "@stargeist/domain/*",
+  "@stargeist/application",
+  "@stargeist/application/*",
+];
 
 const boundaries = [
   {
@@ -36,14 +47,14 @@ const boundaries = [
     patterns: appImports,
   },
   {
-    files: ["apps/sg-web/src/**"],
+    files: ["apps/sg-renderer/src/**"],
     portable: true,
-    patterns: appImports,
+    patterns: [...appImports, iconImports],
   },
   {
     files: ["apps/sg-desktop/src/**"],
     portable: false,
-    patterns: appImports,
+    patterns: [...appImports, iconImports],
   },
   {
     files: ["packages/std/src/**"],
@@ -51,6 +62,7 @@ const boundaries = [
     patterns: [
       ...appImports,
       ...featureImports,
+      iconImports,
       "@stargeist/application",
       "@stargeist/application/*",
     ],
@@ -58,23 +70,22 @@ const boundaries = [
   {
     files: ["packages/application/src/**"],
     portable: true,
-    patterns: [...appImports, ...featureImports],
+    patterns: [...appImports, ...featureImports, iconImports],
   },
   {
     files: ["packages/ui/src/**"],
     portable: true,
-    patterns: [
-      ...appImports,
-      "@stargeist/domain",
-      "@stargeist/domain/*",
-      "@stargeist/application",
-      "@stargeist/application/*",
-    ],
+    patterns: [...uiImports, iconImports],
+  },
+  {
+    files: ["packages/ui/src/icons/index.tsx"],
+    portable: true,
+    patterns: uiImports,
   },
   {
     files: ["packages/domain/src/**"],
     portable: true,
-    patterns: [...appImports, "@stargeist/ui", "@stargeist/ui/*"],
+    patterns: [...appImports, "@stargeist/ui", "@stargeist/ui/*", iconImports],
   },
   {
     files: ["packages/database/src/**"],
@@ -82,6 +93,7 @@ const boundaries = [
     patterns: [
       ...appImports,
       ...electronImports,
+      iconImports,
       "@stargeist/ui",
       "@stargeist/ui/*",
       "@stargeist/application",

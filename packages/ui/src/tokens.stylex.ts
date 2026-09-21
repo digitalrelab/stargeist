@@ -34,9 +34,11 @@ export const fonts = stylex.defineVars({
   displayTracking: "-0.04em",
 });
 
-export const controlHeight = stylex.defineVars({
-  sm: "32px",
-  md: "40px",
+export const control = stylex.defineVars({
+  heightSm: "32px",
+  heightMd: "40px",
+  radius: radii.md,
+  iconSize: "16px",
 });
 
 export const focusRing = stylex.defineVars({
