@@ -29,8 +29,12 @@ const styles = stylex.create({
     gridTemplateColumns: {
       default: "240px minmax(0, 1fr)",
       "@media (max-width: 640px)": "160px minmax(0, 1fr)",
+      "@media (max-width: 480px)": "minmax(0, 1fr)",
     },
-    gridTemplateRows: "minmax(0, 1fr)",
+    gridTemplateRows: {
+      default: "minmax(0, 1fr)",
+      "@media (max-width: 480px)": "auto minmax(0, 1fr)",
+    },
     height: "100dvh",
     paddingBlock: {
       default: space[2],
