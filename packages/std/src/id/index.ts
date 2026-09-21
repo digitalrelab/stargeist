@@ -9,6 +9,7 @@ export function define<const Prefix extends string>(prefix: Prefix) {
       (value) => {
         try {
           TypeID.fromString(value, prefix);
+
           return true;
         } catch {
           return false;

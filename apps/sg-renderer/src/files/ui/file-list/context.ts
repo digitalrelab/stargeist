@@ -1,0 +1,108 @@
+import type { FileSystemEntry } from "@stargeist/domain";
+import { Selection } from "@stargeist/std/selection/react";
+import { createContext, useContext, useId, useMemo, useState, type KeyboardEvent } from "react";
+import { canRetryFailure } from "#src/client/index.ts";
+import { createFileSelectionController, type FileInteraction } from "../../selection";
+import type { FileListing } from "../../state";
+
+export const rowHeight = 42;
+
+export interface FileListProps {
+  listing: FileListing;
+  onInteraction: (interaction: FileInteraction, trigger: HTMLElement) => void;
+}
+
+export function useFileList({ listing, onInteraction }: FileListProps) {
+  const selection = useMemo(() => createFileSelectionController(listing), [listing]);
+  const gridId = useId();
+  const [column, setColumn] = useState(1);
+  const navigation = Selection.useController(selection, {
+    onInteraction,
+    pageSize: (element) => Math.floor((element?.clientHeight ?? rowHeight) / rowHeight),
+  });
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.target !== event.currentTarget ||
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    ) {
+      navigation.props.onKeyDown(event);
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowLeft":
+        setColumn(0);
+        break;
+
+      case "ArrowRight":
+        setColumn(1);
+        break;
+
+      case "Enter":
+        if (event.repeat) {
+          break;
+        }
+
+        if (navigation.request._tag === "Failure" && canRetryFailure(navigation.request.cause)) {
+          navigation.dispatch({ type: "retry" });
+        } else if (column === 0) {
+          navigation.dispatch({ type: "toggle" });
+        } else {
+          navigation.props.onKeyDown(event);
+          return;
+        }
+        break;
+
+      default:
+        navigation.props.onKeyDown(event);
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  return {
+    listing,
+    gridId,
+    column,
+    active: navigation.active,
+    focused: navigation.focused,
+    selection,
+    rowProps: navigation.itemProps,
+    viewportProps: { ...navigation.props, onKeyDown },
+    inspect: (index: number, entry: FileSystemEntry) => {
+      setColumn(1);
+      navigation.dispatch({ type: "activate", value: { index, item: entry } });
+    },
+    toggle: (index: number, entry: FileSystemEntry) => {
+      setColumn(0);
+      navigation.dispatch({ type: "toggle", value: { index, item: entry } });
+    },
+    extend: (index: number, nextColumn: number) => {
+      setColumn(nextColumn);
+      navigation.dispatch({ type: "range", index });
+    },
+    clear: () => navigation.dispatch({ type: "clear" }),
+    cancel: () => navigation.dispatch({ type: "cancel" }),
+    retry: () => navigation.dispatch({ type: "retry" }),
+  };
+}
+
+export const FileListContext = createContext<ReturnType<typeof useFileList> | undefined>(undefined);
+
+export function useFileListContext() {
+  const context = useContext(FileListContext);
+
+  if (!context) {
+    throw new Error("File list parts must be rendered inside FileList.");
+  }
+
+  return context;
+}

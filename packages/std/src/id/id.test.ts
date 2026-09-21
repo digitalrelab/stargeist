@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
-import * as Id from "./id";
+import * as Id from "./index";
 
 const workspaces = Id.define("wsp");
 const documents = Id.define("doc");

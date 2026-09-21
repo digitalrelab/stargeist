@@ -111,6 +111,17 @@
         "effect": "catalog:",
         "typeid-js": "1.2.0",
       },
+      "devDependencies": {
+        "@types/react": "catalog:",
+      },
+      "peerDependencies": {
+        "@effect/atom-react": "4.0.0-rc.116",
+        "react": "catalog:",
+      },
+      "optionalPeers": [
+        "@effect/atom-react",
+        "react",
+      ],
     },
     "packages/ui": {
       "name": "@stargeist/ui",
