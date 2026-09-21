@@ -269,10 +269,10 @@ it.each(["initialization", "window", "backend"])(
   "releases resources and exits unsuccessfully after %s fails",
   async (stage) => {
     const failure = new Error(`${stage} failed`);
-    const runtime = desktop({
-      initialize: stage === "initialization" ? Effect.fail(failure) : Effect.void,
-      open: stage === "window" ? Effect.fail(failure) : undefined,
-    });
+    let options: Parameters<typeof desktop>[0] = {};
+    if (stage === "initialization") options = { initialize: Effect.fail(failure) };
+    if (stage === "window") options = { open: Effect.fail(failure) };
+    const runtime = desktop(options);
     if (stage === "backend") {
       await wait(Queue.take(runtime.opened));
       Effect.runSync(Deferred.fail(runtime.failure, failure));
@@ -283,11 +283,16 @@ it.each(["initialization", "window", "backend"])(
       expect(app.eventNames()).toEqual([]);
     });
     await wait(Fiber.join(runtime.fiber));
-    expect(runtime.events).toEqual(
-      stage === "backend"
-        ? ["backend acquired", "window opened", "window released", "backend released"]
-        : ["backend acquired", "backend released"],
-    );
+    if (stage === "backend") {
+      expect(runtime.events).toEqual([
+        "backend acquired",
+        "window opened",
+        "window released",
+        "backend released",
+      ]);
+    } else {
+      expect(runtime.events).toEqual(["backend acquired", "backend released"]);
+    }
     expect(native.exit).toHaveBeenCalledExactlyOnceWith(1);
     expect(native.quit).not.toHaveBeenCalled();
   },
@@ -297,14 +302,19 @@ it.each(["initialization", "window", "backend"])(
   "reports %s cleanup failure instead of accepting a successful quit",
   async (stage) => {
     const cleanup = Effect.die(new Error("Cleanup failed"));
-    const runtime = desktop({
-      initialize: stage === "initialization" ? Effect.never : Effect.void,
-      release: stage === "window" ? Effect.void : cleanup,
-      releaseWindow: stage === "window" ? cleanup : Effect.void,
-    });
-    await wait(
-      stage === "initialization" ? Deferred.await(runtime.acquired) : Queue.take(runtime.opened),
-    );
+    let options: Parameters<typeof desktop>[0] = { release: cleanup };
+    if (stage === "window") {
+      options = { releaseWindow: cleanup };
+    }
+    if (stage === "initialization") {
+      options = { initialize: Effect.never, release: cleanup };
+    }
+    const runtime = desktop(options);
+    if (stage === "initialization") {
+      await wait(Deferred.await(runtime.acquired));
+    } else {
+      await wait(Queue.take(runtime.opened));
+    }
     requestQuit();
     await wait(Fiber.join(runtime.fiber));
 

@@ -174,8 +174,10 @@ it("refuses reset until both independently running consumers exit, including abr
   mkdirSync(profile.data);
   writeFileSync(join(profile.data, "stargeist.sqlite"), "live database");
 
-  const host = await holder("use", application, appData);
-  const backend = await holder("use", application, appData);
+  const [host, backend] = await Promise.all([
+    holder("use", application, appData),
+    holder("use", application, appData),
+  ]);
 
   expect(inspectProfileAccess(profile)).toBe("busy");
   expect(() => resetData(profile)).toThrow(/in use/);

@@ -1,15 +1,13 @@
 import { Button, typography } from "@stargeist/ui";
 import { space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
-import { useRouter } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 
 export function RouteError() {
-  const router = useRouter();
-
   return (
     <main {...stylex.props(styles.error)}>
       <h1 {...stylex.props(typography.heading)}>This page could not be opened.</h1>
-      <Button onClick={() => void router.navigate({ to: "/" })}>Back to home</Button>
+      <Button.Link render={<Link to="/" />}>Back to home</Button.Link>
     </main>
   );
 }

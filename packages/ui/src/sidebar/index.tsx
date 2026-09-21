@@ -1,4 +1,5 @@
-import { Role, type RoleProps } from "@ariakit/react";
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
 import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps } from "react";
 import { colors, control, focusRing, space } from "../tokens.stylex";
@@ -26,8 +27,17 @@ export function Footer(props: Props<"div">) {
   return <div {...props} {...stylex.props(styles.footer)} />;
 }
 
-export function Link(props: Omit<RoleProps<"a">, "className" | "style">) {
-  return <Role.a {...props} {...stylex.props(styles.link, typography.label)} />;
+export function Link({
+  render,
+  ref,
+  ...props
+}: Omit<useRender.ComponentProps<"a">, "className" | "style">) {
+  return useRender({
+    defaultTagName: "a",
+    render,
+    ref,
+    props: mergeProps<"a">(props, stylex.props(styles.link, typography.label)),
+  });
 }
 
 const styles = stylex.create({

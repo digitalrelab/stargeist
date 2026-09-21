@@ -6,7 +6,8 @@ import * as stylex from "@stylexjs/stylex";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
-import { useLibraryState, type DirectoryView } from "#src/libraries/index.ts";
+import type { DirectoryView } from "../state";
+import { useLibraryState } from "./use-state";
 
 const rowHeight = 40;
 

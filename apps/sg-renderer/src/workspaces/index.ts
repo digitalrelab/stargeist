@@ -1,2 +1,1 @@
-export { useWorkspaceState } from "./use-state";
-export { CreateWorkspace } from "./create-workspace";
+export { WorkspaceSidebar } from "./ui/workspace-sidebar";
