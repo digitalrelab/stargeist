@@ -11,9 +11,8 @@
   "scripts": {
     "prepare": "vp config --no-agent",
     "postinstall": "bun run --cwd apps/sg-web generate",
-    "dev": "bun run sg dev",
-    "dev:web": "bun run sg dev web",
-    "sg": "bun run --cwd tooling/dev cli",
+    "dev": "sg dev",
+    "dev:web": "sg dev web",
     "build": "bun run build:web && bun run package",
     "build:web": "bun run --cwd apps/sg-web build",
     "package": "bun run --cwd apps/sg-desktop package",
@@ -24,6 +23,7 @@
     "test": "vp test run"
   },
   "devDependencies": {
+    "@stargeist/dev-tools": "workspace:*",
     "@types/node": "26.6.2",
     "typescript": "7.0.2",
     "vite": "catalog:",

@@ -16,7 +16,7 @@
   },
   "scripts": {
     "generate": "tsr generate",
-    "dev": "bun run --cwd ../../tooling/dev cli dev web",
+    "dev": "sg dev web",
     "build": "vp build",
     "preview": "vp preview"
   },
@@ -33,6 +33,7 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@stargeist/dev-tools": "workspace:*",
     "@stylexjs/unplugin": "0.19.1",
     "@tanstack/router-cli": "1.167.38",
     "@tanstack/router-plugin": "1.168.40",

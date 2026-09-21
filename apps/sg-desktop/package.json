@@ -7,7 +7,7 @@
   "author": "digitalrelab",
   "main": ".vite/build/main.js",
   "scripts": {
-    "dev": "bun run --cwd ../../tooling/dev cli dev",
+    "dev": "sg dev",
     "package": "electron-forge package",
     "make": "electron-forge make"
   },

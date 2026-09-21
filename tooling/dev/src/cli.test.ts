@@ -103,17 +103,28 @@ it("keeps parsing failures machine-readable without misidentifying the command",
   });
 });
 
-it("preserves clean JSON and argument forwarding through the public Bun entrypoint", () => {
-  const result = spawnSync("bun", ["run", "--cwd", checkout, "sg", "doctor", "--json"], {
-    cwd: join(checkout, "packages", "domain"),
-    encoding: "utf8",
-    timeout: 20000,
-  });
+it.each([".", "apps/sg-desktop", "apps/sg-web"])(
+  "resolves the workspace binary from %s with Node and forwards arguments",
+  (directory) => {
+    const result = spawnSync("bun", ["run", "sg", "doctor", "web", "--json"], {
+      cwd: join(checkout, directory),
+      encoding: "utf8",
+      timeout: 20000,
+    });
 
-  const report = JSON.parse(result.stdout);
-  expect(report).toMatchObject({ command: "doctor", checkout });
-  expect(result.status).toBe(report.status === "failed" ? 1 : 0);
-});
+    expect(result.error).toBeUndefined();
+
+    const report = JSON.parse(result.stdout);
+    expect(report, result.stderr).toMatchObject({ command: "doctor", checkout, target: "web" });
+    expect(report.checks).toContainEqual(
+      expect.objectContaining({
+        name: "node",
+        message: expect.stringContaining(`${process.versions.node} (required `),
+      }),
+    );
+    expect(result.status).toBe(report.status === "failed" ? 1 : 0);
+  },
+);
 
 it("diagnoses web development without touching or requiring a healthy desktop profile", () => {
   const { profile, run } = fixture();
