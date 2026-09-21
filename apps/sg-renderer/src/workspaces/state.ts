@@ -24,6 +24,7 @@ export const createWorkspaceState = (client: WorkspacesClient["Service"]) => {
       Effect.acquireRelease(
         Effect.suspend(() => client.openDirectory({ id })),
         (page) => client.closeDirectory({ listingId: page.listingId }).pipe(Effect.ignore),
+        { interruptible: true },
       ),
     ).pipe(Atom.setIdleTTL(0));
 

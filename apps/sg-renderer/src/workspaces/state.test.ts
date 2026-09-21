@@ -188,4 +188,24 @@ describe("Workspace state", () => {
     expect(registry.get(detail).workspace).toEqual(workspace);
     expect(registry.get(detail).canRefresh).toBe(true);
   });
+
+  it("cancels a pending directory request when its detail is no longer observed", async () => {
+    const registry = createRegistry();
+    const started = Effect.runSync(Deferred.make<void>());
+    const canceled = Effect.runSync(Deferred.make<void>());
+    const state = createWorkspaceState(
+      await createClient({
+        openDirectory: () =>
+          Deferred.succeed(started, undefined).pipe(
+            Effect.andThen(Effect.never),
+            Effect.ensuring(Deferred.succeed(canceled, undefined)),
+          ),
+      }),
+    );
+    const unsubscribe = registry.mount(state.detail(workspace.id));
+
+    await Effect.runPromise(Deferred.await(started).pipe(Effect.timeout("3 seconds")));
+    unsubscribe();
+    await Effect.runPromise(Deferred.await(canceled).pipe(Effect.timeout("3 seconds")));
+  });
 });
