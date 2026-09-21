@@ -4,6 +4,7 @@ import { app, BrowserWindow } from "electron";
 import squirrelStartup from "electron-squirrel-startup";
 import { Deferred, Effect, FiberSet } from "effect";
 import { Backend, backendLayer } from "./backend";
+import { applicationIcon } from "./icon";
 import { WindowsModule, type WindowLoadError } from "./window";
 
 const Desktop = Application.define({
@@ -16,6 +17,10 @@ const Desktop = Application.define({
 
 const program = Effect.gen(function* () {
   yield* Effect.promise(() => app.whenReady());
+
+  if (process.platform === "darwin" && !app.isPackaged) {
+    yield* Effect.sync(() => app.dock?.setIcon(applicationIcon()));
+  }
 
   const shutdown = yield* Deferred.make<void, WindowLoadError>();
 

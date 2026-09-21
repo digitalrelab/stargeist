@@ -7,11 +7,13 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 
 const executableName = "Stargeist";
+const icon = fileURLToPath(new URL("./icons/icon", import.meta.url));
 
 const linuxPackageOptions = {
   name: "stargeist",
   bin: executableName,
   homepage: "https://github.com/digitalrelab/stargeist",
+  icon: `${icon}.png`,
 };
 
 export default {
@@ -20,10 +22,16 @@ export default {
     name: executableName,
     executableName,
     appBundleId: "com.digitalrelab.stargeist",
-    extraResource: [fileURLToPath(new URL("../../LICENSE", import.meta.url))],
+    icon,
+    extraResource: [fileURLToPath(new URL("../../LICENSE", import.meta.url)), `${icon}.png`],
   },
   makers: [
-    new MakerSquirrel({ name: executableName }),
+    new MakerSquirrel({
+      name: executableName,
+      setupIcon: `${icon}.ico`,
+      iconUrl:
+        "https://raw.githubusercontent.com/digitalrelab/stargeist/main/apps/sg-desktop/icons/icon.ico",
+    }),
     new MakerZIP({}, ["darwin"]),
     new MakerDeb({
       options: {
