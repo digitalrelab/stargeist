@@ -13,6 +13,11 @@ const invalidResponse = () =>
     code: "InvalidResponse",
     message: "The provider returned an unexpected response. Try again later.",
   });
+const networkUnavailable = () =>
+  new ProviderConnectionError({
+    code: "NetworkUnavailable",
+    message: "OpenRouter could not be reached. Check your connection and try again.",
+  });
 
 export const makeOpenRouter = Effect.gen(function* () {
   const client = (yield* HttpClient.HttpClient).pipe(HttpClient.withScope);
@@ -25,15 +30,7 @@ export const makeOpenRouter = Effect.gen(function* () {
             HttpClientRequest.acceptJson,
           ),
         )
-        .pipe(
-          Effect.mapError(
-            () =>
-              new ProviderConnectionError({
-                code: "NetworkUnavailable",
-                message: "OpenRouter could not be reached. Check your connection and try again.",
-              }),
-          ),
-        );
+        .pipe(Effect.mapError(networkUnavailable));
 
       if (response.status === 401 || response.status === 403)
         return yield* new ProviderConnectionError({
@@ -54,6 +51,7 @@ export const makeOpenRouter = Effect.gen(function* () {
 
       let length = 0;
       const text = yield* response.stream.pipe(
+        Stream.mapError(networkUnavailable),
         Stream.mapEffect((chunk) => {
           length += chunk.byteLength;
           if (length > 64 * 1024) return Effect.fail(invalidResponse());
@@ -61,7 +59,6 @@ export const makeOpenRouter = Effect.gen(function* () {
         }),
         Stream.decodeText(),
         Stream.mkString,
-        Effect.mapError(invalidResponse),
       );
       const result = yield* Schema.decodeUnknownEffect(KeyResponse)(text).pipe(
         Effect.mapError(invalidResponse),

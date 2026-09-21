@@ -1,37 +1,33 @@
 import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 import { TestClock } from "effect/testing";
 import { FetchHttpClient } from "effect/unstable/http";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
+import { makeProviderAdapters } from "./index";
 import { makeOpenRouter } from "./openrouter";
 
 const key = { kind: "apiKey" as const, key: Redacted.make("test-secret-key") };
 const http = (fetch: typeof globalThis.fetch) =>
-  FetchHttpClient.layer.pipe(
-    Layer.provide(Layer.succeed(FetchHttpClient.Fetch, fetch)),
-    Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: "error" })),
-  );
+  FetchHttpClient.layer.pipe(Layer.provide(Layer.succeed(FetchHttpClient.Fetch, fetch)));
 
 it("validates through the key endpoint without generating content, and prevents redirects", async () => {
-  let calls = 0;
+  const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+    Response.json({ data: { is_management_key: false, unexpected: "ignored" } }),
+  );
   await Effect.runPromise(
     Effect.gen(function* () {
-      const adapter = yield* makeOpenRouter;
-      yield* adapter.validate(key);
-    }).pipe(
-      Effect.provide(
-        http(async (url, init) => {
-          calls++;
-          expect(url).toEqual(new URL("https://openrouter.ai/api/v1/key"));
-          expect(init?.method).toBe("GET");
-          expect(init?.redirect).toBe("error");
-          expect(new Headers(init?.headers).get("authorization")).toBe("Bearer test-secret-key");
-          expect(init?.body).toBeUndefined();
-          return Response.json({ data: { is_management_key: false, unexpected: "ignored" } });
-        }),
-      ),
-    ),
+      const adapters = yield* makeProviderAdapters;
+      const adapter = adapters.find((provider) => provider.id === "openrouter");
+      expect(adapter).toBeDefined();
+      yield* adapter!.validate(key);
+    }).pipe(Effect.provideService(FetchHttpClient.Fetch, fetch)),
   );
-  expect(calls).toBe(1);
+  expect(fetch).toHaveBeenCalledOnce();
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toEqual(new URL("https://openrouter.ai/api/v1/key"));
+  expect(init?.method).toBe("GET");
+  expect(init?.redirect).toBe("error");
+  expect(new Headers(init?.headers).get("authorization")).toBe("Bearer test-secret-key");
+  expect(init?.body).toBeUndefined();
 });
 
 it.each([
@@ -90,4 +86,27 @@ it("times out and cancels pending transport work", async () => {
       expect(signal?.aborted).toBe(true);
     }).pipe(Effect.provide(TestClock.layer())),
   );
+});
+
+it("reports a connection failure while reading the response without exposing transport errors", async () => {
+  const result = await Effect.runPromise(
+    makeOpenRouter.pipe(
+      Effect.flatMap((adapter) => adapter.validate(key)),
+      Effect.flip,
+      Effect.provide(
+        http(
+          async () =>
+            new Response(
+              new ReadableStream({
+                start(controller) {
+                  controller.error(new Error("test-secret-key"));
+                },
+              }),
+            ),
+        ),
+      ),
+    ),
+  );
+  expect(result.code).toBe("NetworkUnavailable");
+  expect(JSON.stringify(result)).not.toContain("test-secret-key");
 });
