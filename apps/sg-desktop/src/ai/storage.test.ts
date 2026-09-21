@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rename, rm, writeFile, stat } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AIProviderConnections, ProviderConnectionError } from "@stargeist/domain/ai";
-import { Effect, Layer, Redacted } from "effect";
+import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { pathsLayer } from "../storage";
 import { connectionsLayer } from "./connections";
@@ -13,7 +13,7 @@ import { credentialsLayer } from "./storage";
 
 const record: StoredCredential = {
   version: 1,
-  providerId: "openrouter",
+  providerId: "first",
   credential: { kind: "apiKey", key: Redacted.make("a-secret-api-key") },
   lastValidatedAt: 1234,
 };
@@ -60,6 +60,7 @@ async function fixture() {
   return {
     profile,
     layer,
+    protection,
     rotate: () => {
       rotate = true;
     },
@@ -74,11 +75,11 @@ async function fixture() {
 
 it("persists encrypted records across service restarts and rewrites rotated encryption atomically", async () => {
   const setup = await fixture();
-  const file = join(setup.profile, "data", "credentials", "openrouter.bin");
+  const file = join(setup.profile, "data", "credentials", "first.bin");
   await Effect.runPromise(
     Effect.gen(function* () {
       const store = yield* Credentials;
-      expect(yield* store.read("openrouter")).toBeNull();
+      expect(yield* store.read("first")).toBeNull();
       yield* store.write(record);
     }).pipe(Effect.provide(setup.layer)),
   );
@@ -89,13 +90,51 @@ it("persists encrypted records across service restarts and rewrites rotated encr
   await Effect.runPromise(
     Effect.gen(function* () {
       const store = yield* Credentials;
-      const saved = yield* store.read("openrouter");
+      const saved = yield* store.read("first");
       expect(saved?.lastValidatedAt).toBe(1234);
       expect(Redacted.value(saved!.credential.key)).toBe("a-secret-api-key");
     }).pipe(Effect.provide(setup.layer)),
   );
   expect(await readFile(file)).not.toEqual(before);
-  expect(await readdir(join(setup.profile, "data", "credentials"))).toEqual(["openrouter.bin"]);
+  expect(await readdir(join(setup.profile, "data", "credentials"))).toEqual(["first.bin"]);
+});
+
+it("keeps other providers usable during key rotation and prevents rotation from undoing removal", async () => {
+  const setup = await fixture();
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      const finish = yield* Deferred.make<void>();
+      const layer = credentialsLayer.pipe(
+        Layer.provide(pathsLayer(setup.profile)),
+        Layer.provide(
+          Layer.succeed(SecretProtection, {
+            ...setup.protection,
+            decrypt: (bytes) =>
+              Deferred.succeed(started, undefined).pipe(
+                Effect.andThen(Deferred.await(finish)),
+                Effect.andThen(setup.protection.decrypt(bytes)),
+              ),
+          }),
+        ),
+      );
+      yield* Effect.gen(function* () {
+        const store = yield* Credentials;
+        yield* store.write(record);
+        setup.rotate();
+        const rotation = yield* store.read("first").pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const removal = yield* store.remove("first").pipe(Effect.forkChild);
+        yield* store.write({ ...record, providerId: "second" });
+        yield* store.remove("second");
+        yield* Deferred.succeed(finish, undefined);
+        yield* Fiber.join(rotation);
+        yield* Fiber.join(removal);
+        expect(yield* store.read("first")).toBeNull();
+        expect(yield* store.read("second")).toBeNull();
+      }).pipe(Effect.provide(layer));
+    }).pipe(Effect.scoped, Effect.timeout("3 seconds")),
+  );
 });
 
 it("preserves existing ciphertext on encryption failure and permits removal while locked", async () => {
@@ -111,12 +150,10 @@ it("preserves existing ciphertext on encryption failure and permits removal whil
           .pipe(Effect.flip),
       ).toMatchObject({ code: "SecureStorageUnavailable" });
       setup.unlock();
-      expect(Redacted.value((yield* store.read("openrouter"))!.credential.key)).toBe(
-        "a-secret-api-key",
-      );
+      expect(Redacted.value((yield* store.read("first"))!.credential.key)).toBe("a-secret-api-key");
       setup.lock();
-      yield* store.remove("openrouter");
-      expect(yield* store.read("openrouter")).toBeNull();
+      yield* store.remove("first");
+      expect(yield* store.read("first")).toBeNull();
     }).pipe(Effect.provide(setup.layer)),
   );
 });
@@ -125,8 +162,8 @@ it("surfaces unreadable credentials without failing startup and supports removal
   const setup = await fixture();
   const layer = connectionsLayer([
     {
-      id: "openrouter",
-      displayName: "OpenRouter",
+      id: "first",
+      displayName: "First provider",
       credentialKind: "apiKey",
       validate: () => Effect.void,
     },
@@ -134,19 +171,16 @@ it("surfaces unreadable credentials without failing startup and supports removal
   await Effect.runPromise(
     Effect.gen(function* () {
       const connections = yield* AIProviderConnections;
-      yield* connections.configure({ providerId: "openrouter", credential: record.credential });
+      yield* connections.configure({ providerId: "first", credential: record.credential });
       yield* Effect.promise(() =>
-        writeFile(
-          join(setup.profile, "data", "credentials", "openrouter.bin"),
-          Buffer.alloc(65537),
-        ),
+        writeFile(join(setup.profile, "data", "credentials", "first.bin"), Buffer.alloc(65537)),
       );
       expect((yield* connections.list)[0]?.state).toMatchObject({
         status: "unavailable",
         error: { code: "CredentialUnreadable" },
       });
-      yield* connections.remove("openrouter");
-      yield* connections.configure({ providerId: "openrouter", credential: record.credential });
+      yield* connections.remove("first");
+      yield* connections.configure({ providerId: "first", credential: record.credential });
       expect((yield* connections.list)[0]?.state.status).toBe("configured");
     }).pipe(Effect.provide(layer)),
   );
@@ -169,16 +203,14 @@ it("reports filesystem failures and retains the previous credential for recovery
           .write({ ...record, credential: { kind: "apiKey", key: Redacted.make("replacement") } })
           .pipe(Effect.flip),
       ).toMatchObject({ code: "StorageUnavailable" });
-      expect(yield* store.read("openrouter").pipe(Effect.flip)).toMatchObject({
+      expect(yield* store.read("first").pipe(Effect.flip)).toMatchObject({
         code: "StorageUnavailable",
       });
       yield* Effect.promise(async () => {
         await rm(data);
         await rename(backup, data);
       });
-      expect(Redacted.value((yield* store.read("openrouter"))!.credential.key)).toBe(
-        "a-secret-api-key",
-      );
+      expect(Redacted.value((yield* store.read("first"))!.credential.key)).toBe("a-secret-api-key");
       expect(yield* store.read("../escape").pipe(Effect.flip)).toMatchObject({
         code: "StorageUnavailable",
       });

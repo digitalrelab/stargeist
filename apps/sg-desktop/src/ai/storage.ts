@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { ProviderConnectionError, ProviderId } from "@stargeist/domain/ai";
-import { Effect, Layer, Predicate, Redacted, Schema, Semaphore } from "effect";
+import { Effect, Layer, Predicate, RcMap, Redacted, Schema, Semaphore } from "effect";
 import { StoragePaths } from "../storage";
 import { Credentials, StoredCredential } from "./credentials";
 import { SecretProtection } from "./protection";
@@ -27,7 +27,12 @@ export const credentialsLayer = Layer.effect(
   Effect.gen(function* () {
     const { credentials: directory } = yield* StoragePaths;
     const protection = yield* SecretProtection;
-    const lock = yield* Semaphore.make(1);
+    const locks = yield* RcMap.make({ lookup: (_id: string) => Semaphore.make(1) });
+    const withLock = <A, E>(id: string, operation: Effect.Effect<A, E>) =>
+      RcMap.get(locks, id).pipe(
+        Effect.flatMap((lock) => lock.withPermit(operation)),
+        Effect.scoped,
+      );
     const path = (id: string) =>
       Schema.decodeUnknownEffect(ProviderId)(id).pipe(
         Effect.map((valid) => join(directory, `${valid}.bin`)),
@@ -111,9 +116,9 @@ export const credentialsLayer = Layer.effect(
     });
 
     return Credentials.of({
-      read: (id) => lock.withPermit(read(id)),
-      write: (record) => lock.withPermit(write(record)),
-      remove: (id) => lock.withPermit(remove(id)),
+      read: (id) => withLock(id, read(id)),
+      write: (record) => withLock(record.providerId, write(record)),
+      remove: (id) => withLock(id, remove(id)),
     });
   }),
 );
