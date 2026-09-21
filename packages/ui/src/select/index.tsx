@@ -29,7 +29,8 @@ export function Popup({ children, ...props }: Omit<BaseSelect.Popup.Props, "clas
   return (
     <BaseSelect.Portal>
       <BaseSelect.Positioner
-        alignItemWithTrigger
+        alignItemWithTrigger={false}
+        align="start"
         sideOffset={4}
         {...stylex.props(styles.positioner)}
       >
@@ -50,10 +51,12 @@ export function Popup({ children, ...props }: Omit<BaseSelect.Popup.Props, "clas
 export function Item({ children, ...props }: Omit<BaseSelect.Item.Props, "className" | "style">) {
   return (
     <BaseSelect.Item {...props} {...stylex.props(styles.item)}>
-      <BaseSelect.ItemText {...stylex.props(styles.label)}>{children}</BaseSelect.ItemText>
-      <BaseSelect.ItemIndicator {...stylex.props(styles.indicator)}>
+      <BaseSelect.ItemIndicator {...stylex.props(styles.indicator, styles.itemIndicator)}>
         <CheckIcon />
       </BaseSelect.ItemIndicator>
+      <BaseSelect.ItemText {...stylex.props(styles.label, styles.itemLabel)}>
+        {children}
+      </BaseSelect.ItemText>
     </BaseSelect.Item>
   );
 }
@@ -79,6 +82,8 @@ const styles = stylex.create({
     width: control.iconSize,
     height: control.iconSize,
   },
+  itemIndicator: { gridColumn: 1, gridRow: 1 },
+  itemLabel: { gridColumn: 2, gridRow: 1 },
   positioner: {
     zIndex: 1,
   },
@@ -117,7 +122,7 @@ const styles = stylex.create({
   scrollDown: { bottom: 0 },
   item: {
     display: "grid",
-    gridTemplateColumns: `minmax(0, 1fr) ${control.iconSize}`,
+    gridTemplateColumns: `${control.iconSize} minmax(0, 1fr)`,
     alignItems: "center",
     gap: space[2],
     minHeight: control.heightSm,

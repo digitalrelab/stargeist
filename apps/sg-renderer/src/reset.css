@@ -4,8 +4,8 @@
     user-select: none;
   }
 
-  body {
-    min-width: 320px;
+  * {
+    -webkit-user-drag: none;
   }
 
   :where(

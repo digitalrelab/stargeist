@@ -91,7 +91,7 @@ const styles = stylex.create({
     justifyContent: "center",
     textDecoration: "none",
     outlineColor: colors.focusRing,
-    outlineOffset: focusRing.offset,
+    outlineOffset: `calc(-1 * ${focusRing.width})`,
     outlineStyle: { default: "none", ":focus-visible": "solid" },
     outlineWidth: focusRing.width,
   },
@@ -102,6 +102,8 @@ const states = {
   pressed: ':active:not(:disabled):not([aria-disabled="true"])',
   interacting: ':is(:hover, :active):not(:disabled):not([aria-disabled="true"])',
   disabled: ':is(:disabled, [aria-disabled="true"])',
+  current:
+    '[aria-current="page"]:not(:hover):not(:active):not(:disabled):not([aria-disabled="true"])',
 };
 
 const appearances = stylex.create({
@@ -132,11 +134,13 @@ const appearances = stylex.create({
   ghost: {
     backgroundColor: {
       default: "oklch(0% 0 0 / 0)",
+      [states.current]: colors.controlSelected,
       [states.hovered]: colors.controlHovered,
       [states.pressed]: colors.controlPressed,
     },
     color: {
       default: colors.onControlMuted,
+      [states.current]: colors.onControl,
       [states.disabled]: colors.onControlDisabled,
       [states.interacting]: colors.onControl,
     },
