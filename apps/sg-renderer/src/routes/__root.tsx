@@ -34,18 +34,28 @@ function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> 
   const PrimarySidebar = useMatches({
     select: (matches) => {
       let primarySidebar;
+
       for (const match of matches) {
-        if (match.staticData.primarySidebar) primarySidebar = match.staticData.primarySidebar;
+        if (match.staticData.primarySidebar) {
+          primarySidebar = match.staticData.primarySidebar;
+        }
       }
+
       return primarySidebar;
     },
   });
 
   let primarySidebar;
-  if (PrimarySidebar) primarySidebar = <PrimarySidebar />;
+
+  if (PrimarySidebar) {
+    primarySidebar = <PrimarySidebar />;
+  }
 
   let secondarySidebar;
-  if (inspectorOpen) secondarySidebar = <FileInspector />;
+
+  if (inspectorOpen) {
+    secondarySidebar = <FileInspector />;
+  }
 
   return (
     <AppShell
@@ -54,7 +64,10 @@ function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> 
       primarySidebar={primarySidebar}
       secondarySidebar={secondarySidebar}
       onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.defaultPrevented || !inspectorOpen) return;
+        if (event.key !== "Escape" || event.defaultPrevented || !inspectorOpen) {
+          return;
+        }
+
         event.preventDefault();
         event.stopPropagation();
         inspection.close();

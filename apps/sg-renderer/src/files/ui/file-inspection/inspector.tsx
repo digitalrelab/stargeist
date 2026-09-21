@@ -10,13 +10,16 @@ import { describeFileInspection, type FileInspection } from "./state";
 
 export function FileInspector() {
   const inspection = useFileInspection();
-  const { id, close } = inspection;
+  const { close } = inspection;
   const target = useAtomValue(inspection.target);
   const headingId = useId();
-  if (!target) return null;
+
+  if (!target) {
+    return null;
+  }
 
   return (
-    <SecondarySidebar.Root id={id} aria-labelledby={headingId}>
+    <SecondarySidebar.Root aria-labelledby={headingId}>
       <SecondarySidebar.Header>
         <h2 id={headingId} {...stylex.props(typography.label, styles.heading)}>
           File details
@@ -34,10 +37,13 @@ export function FileInspector() {
 
 function InspectionContent({ target }: { target: FileInspection }) {
   const description = describeFileInspection(target);
+
   if (description.type === "selection") {
     return <p {...stylex.props(typography.label)}>{description.label}</p>;
   }
+
   const { folder } = target.files;
+
   return (
     <dl {...stylex.props(typography.label, styles.details)}>
       <div {...stylex.props(styles.field)}>

@@ -15,7 +15,10 @@ type Props = { kind: FileSystemEntry["kind"] };
 function Icon({ kind, decorative = false }: Props & { decorative?: boolean }) {
   const { Icon: KindIcon, label } = kinds[kind];
   let accessibleLabel;
-  if (!decorative) accessibleLabel = label;
+
+  if (!decorative) {
+    accessibleLabel = label;
+  }
 
   return (
     <KindIcon

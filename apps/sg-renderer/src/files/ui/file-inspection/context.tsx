@@ -2,7 +2,6 @@ import { useAtomSet } from "@effect/atom-react";
 import {
   createContext,
   useContext,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -16,14 +15,12 @@ const FileInspectionContext = createContext<ReturnType<typeof useInspection> | u
 );
 
 function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
-  const id = useId();
   const [inspection] = useState(createFileInspection);
   const dispatch = useAtomSet(inspection.command);
   const origin = useRef<HTMLElement>(null);
 
   return useMemo(
     () => ({
-      id,
       target: inspection.target,
       isOpen: inspection.isOpen,
       interact: (input: FileInspectionInput, trigger: HTMLElement) => {
@@ -35,11 +32,15 @@ function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
         const trigger = origin.current;
         origin.current = null;
         dispatch({ type: "close" });
-        if (trigger?.isConnected) trigger.focus({ preventScroll: true });
-        else fallbackFocus.current?.focus({ preventScroll: true });
+
+        if (trigger?.isConnected) {
+          trigger.focus({ preventScroll: true });
+        } else {
+          fallbackFocus.current?.focus({ preventScroll: true });
+        }
       },
     }),
-    [id, inspection, dispatch, fallbackFocus],
+    [inspection, dispatch, fallbackFocus],
   );
 }
 
@@ -51,11 +52,16 @@ export function FileInspectionProvider({
   fallbackFocus: RefObject<HTMLElement | null>;
 }) {
   const inspection = useInspection(fallbackFocus);
+
   return <FileInspectionContext value={inspection}>{children}</FileInspectionContext>;
 }
 
 export function useFileInspection() {
   const context = useContext(FileInspectionContext);
-  if (!context) throw new Error("File inspection requires FileInspectionProvider.");
+
+  if (!context) {
+    throw new Error("File inspection requires FileInspectionProvider.");
+  }
+
   return context;
 }

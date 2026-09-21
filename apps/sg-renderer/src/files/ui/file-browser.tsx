@@ -17,7 +17,11 @@ export function FileBrowser({
   const inspection = useFileInspection();
   const extent = useAtomValue(listing.extent);
   let total: number | undefined;
-  if (!extent.hasMore) total = extent.count;
+
+  if (!extent.hasMore) {
+    total = extent.count;
+  }
+
   useEffect(() => inspection.cancelNavigation, [inspection, listing]);
 
   return (

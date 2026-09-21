@@ -11,6 +11,7 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
   const selected = Selection.useSelected(list.selection, entry.name);
   const active = list.focused && index === list.active;
   const id = `${list.gridId}-${index}`;
+
   return (
     <div
       {...list.rowProps}
@@ -26,9 +27,13 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
       data-selected={selected}
       data-active={active}
       onClick={(event) => {
-        if (event.shiftKey) list.extend(index, 1);
-        else if (event.metaKey || event.ctrlKey) list.toggle(index, entry);
-        else list.inspect(index, entry);
+        if (event.shiftKey) {
+          list.extend(index, 1);
+        } else if (event.metaKey || event.ctrlKey) {
+          list.toggle(index, entry);
+        } else {
+          list.inspect(index, entry);
+        }
       }}
     >
       <span
@@ -37,8 +42,12 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
         id={`${id}-0`}
         onClick={(event) => {
           event.stopPropagation();
-          if (event.shiftKey) list.extend(index, 0);
-          else list.toggle(index, entry);
+
+          if (event.shiftKey) {
+            list.extend(index, 0);
+          } else {
+            list.toggle(index, entry);
+          }
         }}
       >
         <Checkbox.Root
@@ -50,8 +59,10 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
             if ("shiftKey" in details.event && details.event.shiftKey) {
               details.cancel();
               list.extend(index, 0);
+
               return;
             }
+
             list.toggle(index, entry);
           }}
         >

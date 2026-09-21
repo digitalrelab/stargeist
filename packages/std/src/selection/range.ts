@@ -39,16 +39,20 @@ export const extendRange = Effect.fnUntraced(function* <Key, E, Scope>(
 
   for (const [start, end] of addedSegments(previous, from, to)) {
     const added = yield* read(start, end, options);
-    if (added.length !== end - start + 1)
+
+    if (added.length !== end - start + 1) {
       return yield* Effect.die(
         new Error("Selection range does not match the collection revision."),
       );
+    }
+
     for (let offset = 0; offset < added.length; offset++) {
       const key = added[offset]!;
       keys = HashMap.set(keys, start + offset, key);
       selection = Membership.set(selection, key, true);
     }
   }
+
   return { from, to, keys, baseline, selection } satisfies Range<Key, Scope>;
 });
 
@@ -58,8 +62,18 @@ function addedSegments<Key, Scope>(
   to: number,
 ) {
   const segments: Array<readonly [number, number]> = [];
-  if (!previous || to < previous.from || from > previous.to) return [[from, to] as const];
-  if (from < previous.from) segments.push([from, previous.from - 1]);
-  if (to > previous.to) segments.push([previous.to + 1, to]);
+
+  if (!previous || to < previous.from || from > previous.to) {
+    return [[from, to] as const];
+  }
+
+  if (from < previous.from) {
+    segments.push([from, previous.from - 1]);
+  }
+
+  if (to > previous.to) {
+    segments.push([previous.to + 1, to]);
+  }
+
   return segments;
 }

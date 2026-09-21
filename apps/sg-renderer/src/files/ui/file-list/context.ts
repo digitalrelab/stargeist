@@ -23,44 +23,49 @@ export function useFileList({ listing, onInteraction }: FileListProps) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (
-      event.target === event.currentTarget &&
-      !event.defaultPrevented &&
-      !event.altKey &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.shiftKey &&
-      !event.nativeEvent.isComposing
+      event.target !== event.currentTarget ||
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
     ) {
-      if (event.key === "Enter" && event.repeat) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.key === "ArrowLeft") setColumn(0);
-        else setColumn(1);
-        return;
-      }
-      if (
-        event.key === "Enter" &&
-        navigation.request._tag === "Failure" &&
-        canRetryFailure(navigation.request.cause)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        navigation.dispatch({ type: "retry" });
-        return;
-      }
-      if (event.key === "Enter" && column === 0) {
-        event.preventDefault();
-        event.stopPropagation();
-        navigation.dispatch({ type: "toggle" });
-        return;
-      }
+      navigation.props.onKeyDown(event);
+      return;
     }
-    navigation.props.onKeyDown(event);
+
+    switch (event.key) {
+      case "ArrowLeft":
+        setColumn(0);
+        break;
+
+      case "ArrowRight":
+        setColumn(1);
+        break;
+
+      case "Enter":
+        if (event.repeat) {
+          break;
+        }
+
+        if (navigation.request._tag === "Failure" && canRetryFailure(navigation.request.cause)) {
+          navigation.dispatch({ type: "retry" });
+        } else if (column === 0) {
+          navigation.dispatch({ type: "toggle" });
+        } else {
+          navigation.props.onKeyDown(event);
+          return;
+        }
+        break;
+
+      default:
+        navigation.props.onKeyDown(event);
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   return {
@@ -74,22 +79,19 @@ export function useFileList({ listing, onInteraction }: FileListProps) {
     viewportProps: { ...navigation.props, onKeyDown },
     inspect: (index: number, entry: FileSystemEntry) => {
       setColumn(1);
-      navigation.activate({ index, item: entry });
+      navigation.dispatch({ type: "activate", value: { index, item: entry } });
     },
     toggle: (index: number, entry: FileSystemEntry) => {
       setColumn(0);
-      navigation.toggle({ index, item: entry });
+      navigation.dispatch({ type: "toggle", value: { index, item: entry } });
     },
     extend: (index: number, nextColumn: number) => {
       setColumn(nextColumn);
-      navigation.extend(index);
+      navigation.dispatch({ type: "range", index });
     },
-    clear: navigation.clear,
-    cancel: navigation.cancel,
-    retry: () => {
-      navigation.dispatch({ type: "retry" });
-      navigation.focus();
-    },
+    clear: () => navigation.dispatch({ type: "clear" }),
+    cancel: () => navigation.dispatch({ type: "cancel" }),
+    retry: () => navigation.dispatch({ type: "retry" }),
   };
 }
 
@@ -97,6 +99,10 @@ export const FileListContext = createContext<ReturnType<typeof useFileList> | un
 
 export function useFileListContext() {
   const context = useContext(FileListContext);
-  if (!context) throw new Error("File list parts must be rendered inside FileList.");
+
+  if (!context) {
+    throw new Error("File list parts must be rendered inside FileList.");
+  }
+
   return context;
 }

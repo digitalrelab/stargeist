@@ -18,7 +18,9 @@ describe("Selection membership", () => {
     const all = Selection.all<string, string>("listing-a");
     const except = Selection.toggle(Selection.toggle(all, "a"), "b");
     expect(all.mode).toBe("all");
-    if (all.mode !== "all" || except.mode !== "all") throw new Error("Expected all selection");
+    if (all.mode !== "all" || except.mode !== "all") {
+      throw new Error("Expected all selection");
+    }
     expect(HashSet.size(all.excludedKeys)).toBe(0);
     expect(HashSet.size(except.excludedKeys)).toBe(2);
     expect(Selection.count(except, 5_000)).toBe(4_998);

@@ -16,7 +16,11 @@ function Indicator(
       {...stylex.props(styles.indicator)}
       render={(elementProps, state) => {
         let Icon = CheckIcon;
-        if (state.indeterminate) Icon = MinusIcon;
+
+        if (state.indeterminate) {
+          Icon = MinusIcon;
+        }
+
         return (
           <span {...elementProps}>
             <Icon size={space[3]} aria-hidden="true" />

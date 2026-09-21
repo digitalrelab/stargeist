@@ -35,7 +35,9 @@ export const clientProtocol = (connection: Connection) =>
       let failure: RpcClientError.RpcClientError | undefined;
 
       const close = (error = disconnected()) => {
-        if (failure) return;
+        if (failure) {
+          return;
+        }
 
         failure = error;
 
@@ -48,7 +50,9 @@ export const clientProtocol = (connection: Connection) =>
       };
 
       const receive = (data: unknown) => {
-        if (failure) return;
+        if (failure) {
+          return;
+        }
 
         try {
           const message = decode(data);
@@ -60,19 +64,30 @@ export const clientProtocol = (connection: Connection) =>
             message._tag !== "Pong"
           ) {
             close(disconnected(new Error(`Unexpected server message: ${message._tag}`)));
+
             return;
           }
 
-          const recipients =
-            "requestId" in message
-              ? [requests.get(String(message.requestId))]
-              : new Set([...clientIds, ...requests.values()]);
+          let recipients: Iterable<number | undefined>;
 
-          if (message._tag === "Exit") requests.delete(String(message.requestId));
-          if (message._tag === "Defect") requests.clear();
+          if ("requestId" in message) {
+            recipients = [requests.get(String(message.requestId))];
+          } else {
+            recipients = new Set([...clientIds, ...requests.values()]);
+          }
+
+          if (message._tag === "Exit") {
+            requests.delete(String(message.requestId));
+          }
+
+          if (message._tag === "Defect") {
+            requests.clear();
+          }
 
           for (const id of recipients) {
-            if (id === undefined) continue;
+            if (id === undefined) {
+              continue;
+            }
 
             run(writeResponse(id, message as unknown as RpcMessage.FromServerEncoded));
           }
@@ -94,16 +109,24 @@ export const clientProtocol = (connection: Connection) =>
         send: (id, message) =>
           Effect.try({
             try: () => {
-              if (failure) throw failure;
+              if (failure) {
+                throw failure;
+              }
 
-              if (message._tag === "Request") requests.set(String(message.id), id);
-              if (message._tag === "Interrupt") requests.delete(String(message.requestId));
+              if (message._tag === "Request") {
+                requests.set(String(message.id), id);
+              }
+
+              if (message._tag === "Interrupt") {
+                requests.delete(String(message.requestId));
+              }
 
               connection.send(message);
             },
             catch: (cause) => {
               const error = failure ?? disconnected(cause);
               close(error);
+
               return error;
             },
           }),
@@ -124,7 +147,9 @@ export const serverProtocol = (connection: Connection) =>
       let closed = false;
 
       const close = () => {
-        if (closed) return;
+        if (closed) {
+          return;
+        }
 
         closed = true;
         run(Queue.offer(disconnects, 0));
@@ -132,7 +157,9 @@ export const serverProtocol = (connection: Connection) =>
       };
 
       const receive = (data: unknown) => {
-        if (closed) return;
+        if (closed) {
+          return;
+        }
 
         try {
           const message = decode(data);
@@ -145,6 +172,7 @@ export const serverProtocol = (connection: Connection) =>
             message._tag !== "Eof"
           ) {
             close();
+
             return;
           }
 
@@ -167,14 +195,22 @@ export const serverProtocol = (connection: Connection) =>
         disconnects,
         send: (_id, message) =>
           Effect.sync(() => {
-            if (!closed) connection.send(message);
+            if (!closed) {
+              connection.send(message);
+            }
           }).pipe(
             Effect.catchCause((cause) =>
               reportFailure("rpc.server.send", cause).pipe(Effect.andThen(Effect.sync(close))),
             ),
           ),
         end: () => Effect.sync(close),
-        clientIds: Effect.sync(() => new Set(closed ? [] : [0])),
+        clientIds: Effect.sync(() => {
+          if (closed) {
+            return new Set<number>();
+          }
+
+          return new Set([0]);
+        }),
         initialMessage: Effect.succeedNone,
         supportsAck: true,
         supportsTransferables: false,

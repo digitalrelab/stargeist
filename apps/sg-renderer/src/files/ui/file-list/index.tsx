@@ -22,6 +22,7 @@ export function FileList(props: FileListProps) {
   const extent = useAtomValue(listing.extent);
   let count = extent.count;
   let total = extent.count;
+
   if (extent.hasMore) {
     count += 1;
     total = -1;
@@ -36,19 +37,27 @@ export function FileList(props: FileListProps) {
     paddingEnd: 8,
     rangeExtractor: (range) => {
       const indexes = defaultRangeExtractor(range);
+
       if (active !== undefined && active < count && !indexes.includes(active)) {
-        if (active < range.startIndex) indexes.unshift(active);
-        else indexes.push(active);
+        if (active < range.startIndex) {
+          indexes.unshift(active);
+        } else {
+          indexes.push(active);
+        }
       }
+
       return indexes;
     },
   });
 
   useEffect(() => {
-    if (active !== undefined) virtualizer.scrollToIndex(active, { align: "auto" });
+    if (active !== undefined) {
+      virtualizer.scrollToIndex(active, { align: "auto" });
+    }
   }, [active, virtualizer]);
 
   const groups = new Map<number, VirtualItem[]>();
+
   for (const item of virtualizer.getVirtualItems()) {
     const offset = listing.pageOffset(item.index);
     const group = groups.get(offset) ?? [];
@@ -57,6 +66,7 @@ export function FileList(props: FileListProps) {
   }
 
   let activeDescendant;
+
   if (active !== undefined && active < count) {
     activeDescendant = `${gridId}-${active}-${column}`;
   }
@@ -84,8 +94,9 @@ export function FileList(props: FileListProps) {
     </ScrollArea.Root>
   );
 
-  if (extent.count === 0 && !extent.hasMore)
+  if (extent.count === 0 && !extent.hasMore) {
     content = <p {...stylex.props(styles.empty)}>This folder is empty.</p>;
+  }
 
   return (
     <FileListContext value={list}>
@@ -96,17 +107,38 @@ export function FileList(props: FileListProps) {
 }
 
 function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
-  const { listing, gridId, active, focused, retry: retrySelection } = useFileListContext();
+  const {
+    listing,
+    gridId,
+    active,
+    focused,
+    selection,
+    retry: retrySelection,
+  } = useFileListContext();
   const atom = listing.pages(offset);
   const result = useAtomValue(atom);
+  const request = useAtomValue(selection.request);
   const refresh = useAtomRefresh(atom);
 
   if (result._tag !== "Success") {
     const first = items.find((item) => item.index === active) ?? items[0];
-    if (!first) return null;
+
+    if (!first) {
+      return null;
+    }
+
     let retry = refresh;
-    if (active !== undefined && listing.pageOffset(active) === offset) retry = retrySelection;
+
+    if (
+      request._tag === "Failure" &&
+      active !== undefined &&
+      listing.pageOffset(active) === offset
+    ) {
+      retry = retrySelection;
+    }
+
     let content = <span role="status">Loading entries…</span>;
+
     if (result._tag === "Failure") {
       content = (
         <>
@@ -119,6 +151,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
         </>
       );
     }
+
     return (
       <div
         {...stylex.props(
@@ -144,7 +177,11 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
 
   return items.map((item) => {
     const entry = result.value.items[item.index - offset];
-    if (!entry) return null;
+
+    if (!entry) {
+      return null;
+    }
+
     return (
       <div key={entry.name} {...stylex.props(styles.row(item.start))}>
         <FileRow entry={entry} index={item.index} />
@@ -160,29 +197,49 @@ function ListFooter() {
   const request = useAtomValue(list.selection.request);
   const operation = useAtomValue(list.selection.operation);
   let total: number | undefined;
-  if (!extent.hasMore) total = extent.count;
+
+  if (!extent.hasMore) {
+    total = extent.count;
+  }
+
   const count = Selection.count(selection, total);
   let label = `${extent.count.toLocaleString()} entries`;
-  if (extent.count === 1) label = "1 entry";
-  if (extent.hasMore) label += " · Scroll for more";
+
+  if (extent.count === 1) {
+    label = "1 entry";
+  }
+
+  if (extent.hasMore) {
+    label += " · Scroll for more";
+  }
+
   let hasSelection = false;
+
   if (selection.mode === "all") {
     hasSelection = true;
     label = "All entries selected";
     const excluded = HashSet.size(selection.excludedKeys);
-    if (excluded > 0) label += ` except ${excluded.toLocaleString()}`;
+
+    if (excluded > 0) {
+      label += ` except ${excluded.toLocaleString()}`;
+    }
   }
+
   if (count !== undefined && (count > 0 || selection.mode === "all")) {
     hasSelection = true;
     label = `${count.toLocaleString()} selected`;
   }
+
   let action;
-  if (hasSelection)
+
+  if (hasSelection) {
     action = (
       <Button appearance="ghost" size="sm" onClick={list.clear}>
         Clear selection
       </Button>
     );
+  }
+
   if (request.waiting && operation === "range") {
     label = "Selecting range…";
     action = (
@@ -191,6 +248,7 @@ function ListFooter() {
       </Button>
     );
   }
+
   return (
     <div {...stylex.props(typography.label, styles.footer)}>
       <span role="status">{label}</span>

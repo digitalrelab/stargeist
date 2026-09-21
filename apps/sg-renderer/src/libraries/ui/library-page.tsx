@@ -23,7 +23,9 @@ export function LibraryPage({
 
   let retry;
 
-  if (canRefresh) retry = refresh;
+  if (canRefresh) {
+    retry = refresh;
+  }
 
   return (
     <WorkArea.Page>
