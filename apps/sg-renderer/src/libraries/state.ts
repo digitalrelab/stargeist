@@ -50,19 +50,14 @@ export const createLibraryState = (client: LibrariesClient) => {
           const details = get(metadata);
           const entries = get(listing);
 
-          let library;
           let result = entries;
-
-          if (details._tag === "Success") {
-            library = details.value;
-          }
 
           if (details._tag === "Failure") {
             result = AsyncResult.failure(details.cause, { waiting: details.waiting });
           }
 
           return {
-            library,
+            metadata: details,
             listing: result,
             canRefresh:
               !details.waiting &&

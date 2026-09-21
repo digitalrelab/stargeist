@@ -19,7 +19,7 @@ export function LibraryPage({
   libraryId: LibraryId;
 }) {
   const detail = useLibraryState().detail(workspaceId)(libraryId);
-  const { library, listing, canRefresh } = useAtomValue(detail);
+  const { metadata, listing, canRefresh } = useAtomValue(detail);
   const refresh = useAtomRefresh(detail);
 
   let retry;
@@ -28,10 +28,15 @@ export function LibraryPage({
     retry = refresh;
   }
 
-  let heading: ReactNode = library?.displayName ?? "Library";
-  let path: ReactNode = library?.source.path;
+  let library;
+  let heading: ReactNode = "Library";
+  let path: ReactNode;
 
-  if (!library && (listing._tag === "Initial" || listing.waiting)) {
+  if (metadata._tag === "Success") {
+    library = metadata.value;
+    heading = library.displayName;
+    path = library.source.path;
+  } else if (metadata._tag === "Initial" || metadata.waiting) {
     heading = <Skeleton styles={styles.nameSkeleton} />;
     path = <Skeleton styles={styles.pathSkeleton} />;
   }
