@@ -17,8 +17,8 @@ const storageUnavailable = () =>
 
 const decodeEntries = Schema.decodeUnknownEffect(Schema.Array(FileSystemEntry));
 
-export const openDirectoryCache = (filename: string) =>
-  Effect.gen(function* () {
+export const openDirectoryCache = Effect.fnUntraced(
+  function* (filename: string) {
     yield* Effect.addFinalizer(() => Effect.promise(() => rm(filename, { force: true })));
 
     const client = yield* SqliteClient.make({ filename, disableWAL: true }).pipe(
@@ -44,19 +44,17 @@ export const openDirectoryCache = (filename: string) =>
         return;
       }
 
-      yield* database.transaction((transaction) =>
-        transaction
-          .insert(entries)
-          .values(pending.map((entry, index) => ({ position: count + index, ...entry })))
-          .run(),
-      );
+      yield* database
+        .insert(entries)
+        .values(pending.map((entry, index) => ({ position: count + index, ...entry })))
+        .run();
 
       count += pending.length;
       pending.length = 0;
-    });
+    }).pipe(Effect.uninterruptible);
 
-    const read = (offset: number) =>
-      Effect.gen(function* () {
+    const read = Effect.fnUntraced(
+      function* (offset: number) {
         yield* flush;
 
         const rows = yield* database
@@ -67,10 +65,10 @@ export const openDirectoryCache = (filename: string) =>
           .limit(entryPageSize);
 
         return yield* decodeEntries(rows);
-      }).pipe(
-        Effect.onError((cause) => reportFailure("directories.cache.read", cause)),
-        Effect.mapError(storageUnavailable),
-      );
+      },
+      Effect.onError((cause) => reportFailure("directories.cache.read", cause)),
+      Effect.mapError(storageUnavailable),
+    );
 
     return {
       get committedCount() {
@@ -84,8 +82,8 @@ export const openDirectoryCache = (filename: string) =>
       },
       read,
     };
-  }).pipe(
-    Effect.provide(Reactivity.layer),
-    Effect.onError((cause) => reportFailure("directories.cache.open", cause)),
-    Effect.mapError(storageUnavailable),
-  );
+  },
+  Effect.provide(Reactivity.layer),
+  Effect.onError((cause) => reportFailure("directories.cache.open", cause)),
+  Effect.mapError(storageUnavailable),
+);
