@@ -3,6 +3,8 @@ import {
   ProviderConnectionError,
   type ProviderConnection,
   type ConfigureProvider,
+  type ConnectionState,
+  type ProviderCredential,
 } from "@stargeist/domain/ai";
 import { DateTime, Effect, Layer, Option, Redacted, Schema, Semaphore } from "effect";
 import { Credentials, type StoredCredential } from "./credentials";
@@ -10,16 +12,20 @@ import type { ProviderAdapter } from "./provider";
 
 const Key = Schema.Redacted(Schema.String.check(Schema.isPattern(/^[\x21-\x7e]{1,4096}$/)));
 
-function configured(provider: ProviderAdapter, record: StoredCredential): ProviderConnection {
-  let keyHint = "••••";
-  const key = Redacted.value(record.credential.key);
-  if (key.length > 8) keyHint += key.slice(-4);
+function connection(provider: ProviderAdapter, state: ConnectionState): ProviderConnection {
   return {
     providerId: provider.id,
     displayName: provider.displayName,
     credentialKind: provider.credentialKind,
-    state: { status: "configured", keyHint, lastValidatedAt: record.lastValidatedAt },
+    state,
   };
+}
+
+function configured(record: StoredCredential): ConnectionState {
+  let keyHint = "••••";
+  const key = Redacted.value(record.credential.key);
+  if (key.length > 8) keyHint += key.slice(-4);
+  return { status: "configured", keyHint, lastValidatedAt: record.lastValidatedAt };
 }
 
 export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
@@ -63,6 +69,22 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
             );
         });
 
+      const validateAndSave = Effect.fnUntraced(function* (
+        provider: ProviderAdapter,
+        credential: ProviderCredential,
+      ) {
+        yield* provider.validate(credential);
+        const now = yield* DateTime.now;
+        const record: StoredCredential = {
+          version: 1,
+          providerId: provider.id,
+          credential,
+          lastValidatedAt: DateTime.toEpochMillis(now),
+        };
+        yield* credentials.write(record);
+        return connection(provider, configured(record));
+      });
+
       const configure = (input: ConfigureProvider) =>
         mutate(
           input.providerId,
@@ -76,16 +98,7 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
                   }),
               ),
             );
-            yield* provider.validate(input.credential);
-            const now = yield* DateTime.now;
-            const record: StoredCredential = {
-              version: 1,
-              providerId: provider.id,
-              credential: input.credential,
-              lastValidatedAt: DateTime.toEpochMillis(now),
-            };
-            yield* credentials.write(record);
-            return configured(provider, record);
+            return yield* validateAndSave(provider, input.credential);
           }),
         );
 
@@ -99,11 +112,7 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
                 code: "NotConfigured",
                 message: "Add an API key first.",
               });
-            yield* provider.validate(record.credential);
-            const now = yield* DateTime.now;
-            const updated = { ...record, lastValidatedAt: DateTime.toEpochMillis(now) };
-            yield* credentials.write(updated);
-            return configured(provider, updated);
+            return yield* validateAndSave(provider, record.credential);
           }),
         );
 
@@ -111,23 +120,14 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
         providers,
         (provider) =>
           credentials.read(provider.id).pipe(
-            Effect.map((record): ProviderConnection => {
-              if (record) return configured(provider, record);
-              return {
-                providerId: provider.id,
-                displayName: provider.displayName,
-                credentialKind: provider.credentialKind,
-                state: { status: "notConfigured" },
-              };
+            Effect.map((record): ConnectionState => {
+              if (record) return configured(record);
+              return { status: "notConfigured" };
             }),
             Effect.catch((error) =>
-              Effect.succeed<ProviderConnection>({
-                providerId: provider.id,
-                displayName: provider.displayName,
-                credentialKind: provider.credentialKind,
-                state: { status: "unavailable", error },
-              }),
+              Effect.succeed<ConnectionState>({ status: "unavailable", error }),
             ),
+            Effect.map((state) => connection(provider, state)),
           ),
         { concurrency: 4 },
       );

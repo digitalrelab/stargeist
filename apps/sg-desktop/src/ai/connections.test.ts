@@ -4,6 +4,7 @@ import {
   type ProviderCredential,
 } from "@stargeist/domain/ai";
 import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
+import { TestClock } from "effect/testing";
 import { expect, it } from "vite-plus/test";
 import { connectionsLayer } from "./connections";
 import { Credentials, type StoredCredential } from "./credentials";
@@ -39,7 +40,7 @@ function fixture(validate: ProviderAdapter["validate"] = () => Effect.void) {
       }),
   };
   const adapters: ProviderAdapter[] = [
-    { id: "openrouter", displayName: "OpenRouter", credentialKind: "apiKey", validate },
+    { id: "first", displayName: "First provider", credentialKind: "apiKey", validate },
     {
       id: "second",
       displayName: "Second provider",
@@ -48,7 +49,6 @@ function fixture(validate: ProviderAdapter["validate"] = () => Effect.void) {
     },
   ];
   return {
-    records,
     failWrites: () => {
       failWrite = true;
     },
@@ -69,20 +69,20 @@ it("isolates providers and preserves the saved key through failed validation and
         "notConfigured",
       ]);
       const saved = yield* connections.configure({
-        providerId: "openrouter",
+        providerId: "first",
         credential: credential("first-secret-1234"),
       });
       expect(saved.state).toMatchObject({ status: "configured", keyHint: "••••1234" });
       expect(JSON.stringify(saved)).not.toContain("first-secret");
       expect(
         yield* connections
-          .configure({ providerId: "openrouter", credential: credential("rejected-secret") })
+          .configure({ providerId: "first", credential: credential("rejected-secret") })
           .pipe(Effect.flip),
       ).toEqual(rejected);
       setup.failWrites();
       expect(
         yield* connections
-          .configure({ providerId: "openrouter", credential: credential("replacement-secret") })
+          .configure({ providerId: "first", credential: credential("replacement-secret") })
           .pipe(Effect.flip),
       ).toMatchObject({ code: "StorageUnavailable" });
       expect(yield* connections.list).toEqual([
@@ -94,9 +94,9 @@ it("isolates providers and preserves the saved key through failed validation and
           state: { status: "notConfigured" },
         },
       ]);
-      yield* connections.remove("openrouter");
-      yield* connections.remove("openrouter");
-      expect(yield* connections.check("openrouter").pipe(Effect.flip)).toMatchObject({
+      yield* connections.remove("first");
+      yield* connections.remove("first");
+      expect(yield* connections.check("first").pipe(Effect.flip)).toMatchObject({
         code: "NotConfigured",
       });
     }).pipe(Effect.provide(setup.layer)),
@@ -113,10 +113,10 @@ it("keeps other providers and local status usable during validation and rejects 
       yield* Effect.gen(function* () {
         const connections = yield* AIProviderConnections;
         const pending = yield* connections
-          .configure({ providerId: "openrouter", credential: credential("first-secret") })
+          .configure({ providerId: "first", credential: credential("first-secret") })
           .pipe(Effect.forkChild);
         yield* Deferred.await(started);
-        expect(yield* connections.remove("openrouter").pipe(Effect.flip)).toMatchObject({
+        expect(yield* connections.remove("first").pipe(Effect.flip)).toMatchObject({
           code: "Busy",
         });
         expect((yield* connections.list)[0]?.state.status).toBe("notConfigured");
@@ -125,9 +125,11 @@ it("keeps other providers and local status usable during validation and rejects 
           credential: credential("second-secret"),
         });
         yield* Fiber.interrupt(pending);
-        yield* connections.remove("openrouter");
-        expect(setup.records.has("openrouter")).toBe(false);
-        expect(setup.records.has("second")).toBe(true);
+        yield* connections.remove("first");
+        expect((yield* connections.list).map((provider) => provider.state.status)).toEqual([
+          "notConfigured",
+          "configured",
+        ]);
       }).pipe(Effect.provide(setup.layer));
     }).pipe(Effect.scoped, Effect.timeout("3 seconds")),
   );
@@ -142,33 +144,41 @@ it("reports failed checks without discarding credentials, and supports replacing
   await Effect.runPromise(
     Effect.gen(function* () {
       const connections = yield* AIProviderConnections;
-      yield* connections.configure({
-        providerId: "openrouter",
+      const original = yield* connections.configure({
+        providerId: "first",
         credential: credential("original-key"),
       });
       valid = false;
-      expect(yield* connections.check("openrouter").pipe(Effect.flip)).toEqual(rejected);
-      expect((yield* connections.list)[0]?.state.status).toBe("configured");
+      yield* TestClock.adjust("1 second");
+      expect(yield* connections.check("first").pipe(Effect.flip)).toEqual(rejected);
+      expect((yield* connections.list)[0]).toEqual(original);
       valid = true;
       yield* connections.configure({
-        providerId: "openrouter",
+        providerId: "first",
         credential: credential("new-key-5678"),
       });
-      expect((yield* connections.check("openrouter")).state).toMatchObject({ keyHint: "••••5678" });
-      yield* connections.remove("openrouter");
+      yield* TestClock.adjust("1 second");
+      const checked = yield* connections.check("first");
+      expect(checked.state).toEqual({
+        status: "configured",
+        keyHint: "••••5678",
+        lastValidatedAt: 2000,
+      });
+      expect((yield* connections.list)[0]).toEqual(checked);
+      yield* connections.remove("first");
       yield* connections.configure({
-        providerId: "openrouter",
+        providerId: "first",
         credential: credential("third-key-9012"),
       });
       expect((yield* connections.list)[0]?.state).toMatchObject({ keyHint: "••••9012" });
       expect(
         yield* connections
-          .configure({ providerId: "openrouter", credential: credential("bad\nsecret") })
+          .configure({ providerId: "first", credential: credential("bad\nsecret") })
           .pipe(Effect.flip),
       ).toMatchObject({ code: "InvalidCredential" });
       expect(yield* connections.remove("unknown").pipe(Effect.flip)).toMatchObject({
         code: "UnknownProvider",
       });
-    }).pipe(Effect.provide(setup.layer)),
+    }).pipe(Effect.provide(setup.layer), Effect.provide(TestClock.layer())),
   );
 });

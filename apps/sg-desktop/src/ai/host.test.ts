@@ -52,8 +52,8 @@ it("round-trips credentials privately and keeps host requests usable during vali
       });
       const connections = connectionsLayer([
         {
-          id: "openrouter",
-          displayName: "OpenRouter",
+          id: "first",
+          displayName: "First provider",
           credentialKind: "apiKey",
           validate: (credential) => {
             expect(Redacted.value(credential.key)).toBe("rpc-secret-1234");
@@ -82,24 +82,24 @@ it("round-trips credentials privately and keeps host requests usable during vali
         Effect.provideService(RpcClient.Protocol, clientTransport),
       );
       const pending = yield* client["ai.connections.configure"]({
-        providerId: "openrouter",
+        providerId: "first",
         credential: { kind: "apiKey", key: Redacted.make("rpc-secret-1234") },
       }).pipe(Effect.forkChild);
       yield* Deferred.await(started);
       expect(yield* client.ping()).toBe("pong");
       expect((yield* client["ai.connections.list"]())[0]?.state.status).toBe("notConfigured");
       expect(
-        yield* client["ai.connections.remove"]({ providerId: "openrouter" }).pipe(Effect.flip),
+        yield* client["ai.connections.remove"]({ providerId: "first" }).pipe(Effect.flip),
       ).toMatchObject({ code: "Busy" });
       yield* Deferred.succeed(finish, undefined);
       expect((yield* Fiber.join(pending)).state).toMatchObject({
         status: "configured",
         keyHint: "••••1234",
       });
-      expect(
-        (yield* client["ai.connections.check"]({ providerId: "openrouter" })).state.status,
-      ).toBe("configured");
-      yield* client["ai.connections.remove"]({ providerId: "openrouter" });
+      expect((yield* client["ai.connections.check"]({ providerId: "first" })).state.status).toBe(
+        "configured",
+      );
+      yield* client["ai.connections.remove"]({ providerId: "first" });
       expect((yield* client["ai.connections.list"]())[0]?.state.status).toBe("notConfigured");
       expect(JSON.stringify(responses)).not.toContain("rpc-secret-1234");
     }).pipe(Effect.scoped, Effect.timeout("3 seconds")),
