@@ -28,18 +28,31 @@ export function WorkspaceSwitcher({ workspaceId }: { workspaceId: WorkspaceId | 
 
   if (list._tag === "Failure") placeholder = "Workspaces unavailable";
 
+  const selected = items.find((item) => item.value === workspaceId);
+
   return (
     <div {...stylex.props(styles.switcher)}>
-      <Select
-        aria-label="Workspace"
-        aria-busy={list.waiting}
+      <Select.Root<WorkspaceId>
         items={items}
-        value={workspaceId}
-        placeholder={placeholder}
+        value={selected?.value ?? null}
+        disabled={items.length === 0}
         onValueChange={(id) => {
+          if (id === null) return;
+
           void navigate({ to: "/workspaces/$workspaceId", params: { workspaceId: id } });
         }}
-      />
+      >
+        <Select.Trigger aria-label="Workspace" aria-busy={list.waiting}>
+          <Select.Value placeholder={placeholder} title={selected?.label} />
+        </Select.Trigger>
+        <Select.Popup>
+          {items.map((item) => (
+            <Select.Item key={item.value} value={item.value} title={item.label}>
+              {item.label}
+            </Select.Item>
+          ))}
+        </Select.Popup>
+      </Select.Root>
       {list._tag === "Failure" && (
         <>
           <p {...stylex.props(styles.error, typography.label)} role="alert">

@@ -5,74 +5,56 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ChevronsUpDownIcon } from ".
 import { colors, control, radii, shadows, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
-export interface SelectProps<Value extends string> {
-  readonly items: ReadonlyArray<{ readonly value: Value; readonly label: string }>;
-  readonly value: Value | undefined;
-  readonly onValueChange: (value: Value) => void;
-  readonly placeholder?: string;
-  readonly disabled?: boolean;
-  readonly "aria-label": string;
-  readonly "aria-busy"?: boolean;
+export const Root = BaseSelect.Root;
+
+export function Trigger({
+  children,
+  ...props
+}: Omit<BaseSelect.Trigger.Props, "className" | "style" | "render" | "nativeButton">) {
+  return (
+    <BaseSelect.Trigger {...props} render={<Button appearance="soft" styles={styles.trigger} />}>
+      {children}
+      <BaseSelect.Icon {...stylex.props(styles.indicator)}>
+        <ChevronsUpDownIcon />
+      </BaseSelect.Icon>
+    </BaseSelect.Trigger>
+  );
 }
 
-export function Select<Value extends string>({
-  items,
-  value,
-  onValueChange,
-  placeholder = "Select…",
-  disabled,
-  ...props
-}: SelectProps<Value>) {
-  const selected = items.find((item) => item.value === value);
+export function Value(props: Omit<BaseSelect.Value.Props, "className" | "style">) {
+  return <BaseSelect.Value {...props} {...stylex.props(styles.label)} />;
+}
 
+export function Popup({ children, ...props }: Omit<BaseSelect.Popup.Props, "className" | "style">) {
   return (
-    <BaseSelect.Root<Value>
-      items={items}
-      value={selected?.value ?? null}
-      disabled={disabled || items.length === 0}
-      onValueChange={(next) => {
-        if (next !== null) onValueChange(next);
-      }}
-    >
-      <BaseSelect.Trigger {...props} render={<Button appearance="soft" styles={styles.trigger} />}>
-        <BaseSelect.Value
-          {...stylex.props(styles.label)}
-          placeholder={placeholder}
-          title={selected?.label}
-        />
-        <BaseSelect.Icon {...stylex.props(styles.indicator)}>
-          <ChevronsUpDownIcon />
-        </BaseSelect.Icon>
-      </BaseSelect.Trigger>
-      <BaseSelect.Portal>
-        <BaseSelect.Positioner
-          alignItemWithTrigger
-          sideOffset={4}
-          {...stylex.props(styles.positioner)}
-        >
-          <BaseSelect.Popup {...stylex.props(styles.popup, typography.label)}>
-            <BaseSelect.ScrollUpArrow {...stylex.props(styles.scrollArrow, styles.scrollUp)}>
-              <ChevronUpIcon />
-            </BaseSelect.ScrollUpArrow>
-            <BaseSelect.List {...stylex.props(styles.list)}>
-              {items.map((item) => (
-                <BaseSelect.Item key={item.value} value={item.value} {...stylex.props(styles.item)}>
-                  <BaseSelect.ItemText {...stylex.props(styles.label)} title={item.label}>
-                    {item.label}
-                  </BaseSelect.ItemText>
-                  <BaseSelect.ItemIndicator {...stylex.props(styles.indicator)}>
-                    <CheckIcon />
-                  </BaseSelect.ItemIndicator>
-                </BaseSelect.Item>
-              ))}
-            </BaseSelect.List>
-            <BaseSelect.ScrollDownArrow {...stylex.props(styles.scrollArrow, styles.scrollDown)}>
-              <ChevronDownIcon />
-            </BaseSelect.ScrollDownArrow>
-          </BaseSelect.Popup>
-        </BaseSelect.Positioner>
-      </BaseSelect.Portal>
-    </BaseSelect.Root>
+    <BaseSelect.Portal>
+      <BaseSelect.Positioner
+        alignItemWithTrigger
+        sideOffset={4}
+        {...stylex.props(styles.positioner)}
+      >
+        <BaseSelect.Popup {...props} {...stylex.props(styles.popup, typography.label)}>
+          <BaseSelect.ScrollUpArrow {...stylex.props(styles.scrollArrow, styles.scrollUp)}>
+            <ChevronUpIcon />
+          </BaseSelect.ScrollUpArrow>
+          <BaseSelect.List {...stylex.props(styles.list)}>{children}</BaseSelect.List>
+          <BaseSelect.ScrollDownArrow {...stylex.props(styles.scrollArrow, styles.scrollDown)}>
+            <ChevronDownIcon />
+          </BaseSelect.ScrollDownArrow>
+        </BaseSelect.Popup>
+      </BaseSelect.Positioner>
+    </BaseSelect.Portal>
+  );
+}
+
+export function Item({ children, ...props }: Omit<BaseSelect.Item.Props, "className" | "style">) {
+  return (
+    <BaseSelect.Item {...props} {...stylex.props(styles.item)}>
+      <BaseSelect.ItemText {...stylex.props(styles.label)}>{children}</BaseSelect.ItemText>
+      <BaseSelect.ItemIndicator {...stylex.props(styles.indicator)}>
+        <CheckIcon />
+      </BaseSelect.ItemIndicator>
+    </BaseSelect.Item>
   );
 }
 
