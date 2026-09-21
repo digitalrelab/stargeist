@@ -10,6 +10,7 @@ type Check = { name: string; status: "ok" | "warning" | "error"; message: string
 
 export function diagnose(context: ToolingContext, target: DevelopmentTarget = "desktop") {
   const checks: Check[] = [];
+  const profile = target === "desktop" ? context.desktopProfile() : undefined;
   const nodeRequirement = context.manifest.engines.node;
 
   checks.push({
@@ -61,9 +62,9 @@ export function diagnose(context: ToolingContext, target: DevelopmentTarget = "d
     }
   }
 
-  if (target === "desktop") {
+  if (profile) {
     try {
-      const ownership = inspectProfile(context.profile);
+      const ownership = inspectProfile(profile);
 
       checks.push({
         name: "profile",
@@ -76,7 +77,7 @@ export function diagnose(context: ToolingContext, target: DevelopmentTarget = "d
               : "Close old instances and start the updated desktop to establish ownership.",
       });
 
-      const access = inspectProfileAccess(context.profile);
+      const access = inspectProfileAccess(profile);
 
       checks.push({
         name: "coordination",
@@ -100,9 +101,7 @@ export function diagnose(context: ToolingContext, target: DevelopmentTarget = "d
     checkout: context.checkout,
     target,
     directory: context.targets[target].directory,
-    ...(target === "desktop"
-      ? { profile: context.profile.root }
-      : { name: context.targets.web.name }),
+    ...(profile ? { profile: profile.root } : { name: context.targets.web.name }),
     checks,
   };
 }

@@ -18,7 +18,7 @@ export function toolingContext() {
   return {
     checkout,
     manifest,
-    profile: developmentProfile(desktop),
+    desktopProfile: () => developmentProfile(desktop),
     targets: {
       desktop: { directory: desktop },
       web: { directory: web.directory, name: `stargeist-${web.identity}` },

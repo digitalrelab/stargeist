@@ -11,5 +11,5 @@ if (!application || !appData) {
 
 runCli(args, () => ({
   ...toolingContext(),
-  profile: developmentProfile(application, appData),
+  desktopProfile: () => developmentProfile(application, appData),
 })).pipe(NodeRuntime.runMain);

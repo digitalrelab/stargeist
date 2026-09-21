@@ -91,9 +91,9 @@ it("reports ownership failures through the CLI's JSON contract", () => {
   expect(JSON.parse(invalid.stdout).code).toBe("invalid-owner");
 });
 
-it("keeps parsing failures machine-readable without misidentifying the command", () => {
+it.each(["--json", "--json=true"])("keeps parsing failures machine-readable with %s", (flag) => {
   const { run } = fixture();
-  const result = run("unknown", "--json");
+  const result = run("unknown", flag);
 
   expect(result.status, result.stderr).toBe(1);
   expect(JSON.parse(result.stdout)).toMatchObject({
@@ -104,10 +104,11 @@ it("keeps parsing failures machine-readable without misidentifying the command",
 });
 
 it.each([".", "apps/sg-desktop", "apps/sg-web"])(
-  "resolves the workspace binary from %s with Node and forwards arguments",
+  "runs web diagnostics from %s with Node without requiring desktop app data",
   (directory) => {
     const result = spawnSync("bun", ["run", "sg", "doctor", "web", "--json"], {
       cwd: join(checkout, directory),
+      env: { ...process.env, APPDATA: "relative", XDG_CONFIG_HOME: "relative" },
       encoding: "utf8",
       timeout: 20000,
     });
@@ -143,11 +144,20 @@ it("diagnoses web development without touching or requiring a healthy desktop pr
 
 it("refuses JSON development sessions before launching a tool", () => {
   const { run } = fixture();
-  const result = run("dev", "web", "--json");
+  const result = run("dev", "web", "--json=true");
 
   expect(result.status).toBe(1);
   expect(JSON.parse(result.stdout)).toMatchObject({
     status: "failed",
     message: "Development streams tool output. Use doctor --json for diagnostics.",
   });
+});
+
+it("honors an explicit false JSON value when reporting errors", () => {
+  const { run } = fixture();
+  const result = run("unknown", "--json", "false");
+
+  expect(result.status).toBe(1);
+  expect(result.stdout).toContain("Invalid command.");
+  expect(result.stdout).not.toContain('"status":"failed"');
 });

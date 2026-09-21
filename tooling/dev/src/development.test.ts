@@ -1,13 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Fiber } from "effect";
@@ -69,7 +61,7 @@ it("terminates the launched process and its descendant when the session is inter
   onTestFinished(() => Effect.runPromise(Fiber.interrupt(fiber)));
 
   const ready = join(directory, "ready.json");
-  await expect.poll(() => existsSync(ready)).toBe(true);
+  await expect.poll(() => JSON.parse(readFileSync(ready, "utf8"))).toHaveLength(2);
 
   const pids: number[] = JSON.parse(readFileSync(ready, "utf8"));
   await Effect.runPromise(Fiber.interrupt(fiber));
