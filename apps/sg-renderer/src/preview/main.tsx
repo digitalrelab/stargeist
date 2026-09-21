@@ -30,7 +30,7 @@ function Preview() {
       <div {...stylex.props(styles.panels)}>
         {(["canvas", "surface", "surfaceRaised"] as const).map((surface) => (
           <section key={surface} id={surface} {...stylex.props(styles.panel, surfaces[surface])}>
-            <h2 {...stylex.props(styles.heading, typography.heading)}>{surface}</h2>
+            <h2 {...stylex.props(typography.heading)}>{surface}</h2>
             <div {...stylex.props(styles.tableViewport)}>
               <table {...stylex.props(styles.table, typography.label)}>
                 <thead>
@@ -118,7 +118,6 @@ const styles = stylex.create({
     padding: space[4],
     minWidth: 0,
   },
-  heading: { margin: 0 },
   tableViewport: { overflowX: "auto", padding: space[1] },
   table: { width: "100%", borderSpacing: space[2], textAlign: "start" },
 });
