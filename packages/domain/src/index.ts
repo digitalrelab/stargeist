@@ -25,4 +25,9 @@ export {
   entryPageSize,
   DirectoryError,
 } from "./filesystem";
-export { UserPreferences, UserPreferencesError, UserPreferenceValues } from "./user-preferences";
+export {
+  UserPreferences,
+  UserPreferencesError,
+  UserPreferenceValues,
+  InterfaceScale,
+} from "./user-preferences";

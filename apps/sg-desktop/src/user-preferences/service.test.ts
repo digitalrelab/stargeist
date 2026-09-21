@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Fiber, Queue, Stream } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { pathsLayer } from "../storage";
 import { UserPreferences } from "@stargeist/domain";
@@ -13,6 +13,31 @@ const window = {
   maximized: false,
   fullScreen: false,
 };
+
+it("publishes the current scale and successful changes, preserves other preferences, and restores scale on reopen", async () => {
+  const { open } = await fixture();
+  const preferences = await open();
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const snapshots = yield* Queue.unbounded<number>();
+      const watcher = yield* preferences.watch("interfaceScale").pipe(
+        Stream.runForEach((scale) => Queue.offer(snapshots, scale)),
+        Effect.forkScoped,
+      );
+      expect(yield* Queue.take(snapshots)).toBe(1);
+      yield* preferences.set("window", window);
+      yield* preferences.set("interfaceScale", 1.5);
+      expect(yield* Queue.take(snapshots)).toBe(1.5);
+      expect(yield* preferences.get("window")).toEqual(window);
+      yield* preferences.set("interfaceScale", 1.5);
+      yield* preferences.set("interfaceScale", 1);
+      expect(yield* Queue.take(snapshots)).toBe(1);
+      yield* Fiber.interrupt(watcher);
+      yield* preferences.set("interfaceScale", 1.75);
+    }).pipe(Effect.scoped, Effect.timeout("3 seconds")),
+  );
+  expect(await Effect.runPromise((await open()).get("interfaceScale"))).toBe(1.75);
+});
 
 async function fixture() {
   const profile = await mkdtemp(join(tmpdir(), "stargeist-preferences-test-"));
@@ -32,7 +57,7 @@ it("defaults to no saved window, persists values across reopening, and permits c
   const preferences = await open();
   expect(await Effect.runPromise(preferences.get("window"))).toBeNull();
   await Effect.runPromise(preferences.set("window", window));
-  expect(JSON.parse(await readFile(filename, "utf8"))).toEqual({ window });
+  expect(JSON.parse(await readFile(filename, "utf8"))).toEqual({ window, interfaceScale: 1 });
 
   const reopened = await open();
   expect(await Effect.runPromise(reopened.get("window"))).toEqual(window);
@@ -48,6 +73,7 @@ it.each([
   ],
   ["invalid document", "[]"],
   ["unrecognized preference", '{"unexpected":true}'],
+  ["unsupported scale", '{"interfaceScale":3}'],
 ])("rejects %s on startup without overwriting the file", async (_description, contents) => {
   const { profile, filename, open } = await fixture();
   await mkdir(join(profile, "data"));
@@ -105,6 +131,7 @@ it("reports unavailable storage on writes and allows retry after recovery", asyn
   expect(error).toMatchObject({ _tag: "UserPreferencesError", operation: "write" });
   expect(JSON.parse(await readFile(join(backup, "user-preferences.json"), "utf8"))).toEqual({
     window,
+    interfaceScale: 1,
   });
 
   await rm(data);

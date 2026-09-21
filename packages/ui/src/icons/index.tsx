@@ -4,11 +4,12 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
+  Settings2,
+  Palette,
   File,
   FileQuestionMark,
   Folder,
   Link,
-  Settings,
   type LucideProps,
 } from "lucide-react";
 import { control } from "../tokens.stylex";
@@ -34,7 +35,11 @@ export function BackIcon(props: LucideProps) {
 }
 
 export function SettingsIcon(props: LucideProps) {
-  return <Settings size={control.iconSize} {...props} />;
+  return <Settings2 size={control.iconSize} {...props} />;
+}
+
+export function AppearanceIcon(props: LucideProps) {
+  return <Palette size={control.iconSize} {...props} />;
 }
 
 export function CheckIcon(props: LucideProps) {
