@@ -36,7 +36,6 @@ function SettingsSidebar() {
             size="icon"
             render={<Link to="/" />}
             aria-label="Back to workspaces"
-            title="Back to workspaces"
           >
             <BackIcon aria-hidden="true" />
           </Button>

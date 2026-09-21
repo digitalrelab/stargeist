@@ -31,7 +31,6 @@ export function WorkspaceSidebar() {
             size="icon"
             render={<Link to="/settings" />}
             aria-label="Settings"
-            title="Settings"
           >
             <SettingsIcon aria-hidden="true" />
           </Button>

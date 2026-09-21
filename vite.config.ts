@@ -71,7 +71,7 @@ const boundaries = [
     patterns: [...uiImports, iconImports],
   },
   {
-    files: ["packages/ui/src/icons.ts"],
+    files: ["packages/ui/src/icons.tsx"],
     portable: true,
     patterns: uiImports,
   },
