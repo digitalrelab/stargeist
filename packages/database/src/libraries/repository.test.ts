@@ -5,7 +5,9 @@ import { WorkspaceId } from "@stargeist/domain/workspaces";
 import { WorkspaceRepository } from "@stargeist/domain/workspaces/repository";
 import { Effect, Layer, Schema } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { sqliteLayer } from "../index";
+import { Database, sqliteLayer } from "../index";
+import { libraries } from "./schema";
+import { eq } from "drizzle-orm";
 import { repositoryLayer } from "./index";
 import { repositoryLayer as workspaceLayer } from "../workspaces";
 import { LibraryRepository } from "@stargeist/domain/libraries/repository";
@@ -90,6 +92,37 @@ describe("library persistence", () => {
         expect(
           yield* libraries.get({ workspaceId: b.id, id: first.id }).pipe(Effect.flip),
         ).toMatchObject({ code: "NotFound" });
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  it("rejects malformed stored identities before exposing library records", async () => {
+    const { layer, folder } = await createFixture();
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const database = yield* Database;
+        const workspaces = yield* WorkspaceRepository;
+        const repository = yield* LibraryRepository;
+        const { workspace, library } = yield* workspaces.create("Footage", folder, 1);
+
+        yield* database.insert(libraries).values({
+          id: "invalid-library-id",
+          workspaceId: workspace.id,
+          displayName: "Invalid record",
+          sourceKind: folder.kind,
+          sourcePath: folder.path,
+          createdAt: 2,
+        });
+
+        expect(yield* repository.list(workspace.id).pipe(Effect.flip)).toMatchObject({
+          _tag: "LibraryError",
+          code: "StorageUnavailable",
+        });
+
+        yield* database.delete(libraries).where(eq(libraries.id, "invalid-library-id"));
+
+        expect(yield* repository.list(workspace.id)).toEqual([library]);
       }).pipe(Effect.provide(layer)),
     );
   });
