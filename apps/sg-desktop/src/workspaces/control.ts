@@ -1,11 +1,16 @@
-import { Workspace, WorkspaceError } from "@stargeist/domain/workspaces";
+import { CreatedWorkspace, WorkspaceCreationError } from "@stargeist/domain/workspaces/rpc";
 import { Schema } from "effect";
-import { Rpc, RpcGroup } from "effect/unstable/rpc";
+import { Rpc, RpcGroup, type RpcClient, type RpcClientError } from "effect/unstable/rpc";
 
 export const WorkspaceControlRpcs = RpcGroup.make(
-  Rpc.make("register", {
+  Rpc.make("create", {
     payload: { path: Schema.String },
-    success: Workspace,
-    error: WorkspaceError,
+    success: CreatedWorkspace,
+    error: WorkspaceCreationError,
   }),
-);
+).prefix("workspaces.");
+
+export type WorkspaceControlClient = RpcClient.FromGroup<
+  typeof WorkspaceControlRpcs,
+  RpcClientError.RpcClientError
+>;

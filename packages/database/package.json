@@ -6,12 +6,23 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./workspaces": "./src/workspaces/index.ts"
+    "./workspaces": "./src/workspaces/index.ts",
+    "./libraries": "./src/libraries/index.ts",
+    "./filesystem": "./src/filesystem/index.ts",
+    "./workspaces/*": "./src/workspaces/*.ts",
+    "./libraries/*": "./src/libraries/*.ts"
+  },
+  "scripts": {
+    "schema:generate": "bun generate-schema.ts"
   },
   "dependencies": {
     "@effect/sql-sqlite-node": "4.0.0-rc.116",
     "@stargeist/domain": "workspace:*",
     "@stargeist/std": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.5-5935859",
     "effect": "catalog:"
+  },
+  "devDependencies": {
+    "drizzle-kit": "1.0.0-rc.5-5935859"
   }
 }

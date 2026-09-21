@@ -5,12 +5,8 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    "./button": "./src/button/index.tsx",
-    "./icons": "./src/icons/index.tsx",
-    "./sidebar": "./src/sidebar/index.tsx",
-    "./colors.stylex": "./src/colors.stylex.ts",
+    ".": "./src/index.ts",
     "./tokens.stylex": "./src/tokens.stylex.ts",
-    "./typography": "./src/typography.ts",
     "./reset.css": "./src/reset.css"
   },
   "dependencies": {

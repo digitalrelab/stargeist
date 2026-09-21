@@ -1,5 +1,5 @@
+import { typography } from "@stargeist/ui";
 import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
 

@@ -1,8 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { Button } from "@stargeist/ui/button";
-import { colors } from "@stargeist/ui/colors.stylex";
-import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
+import { Button, typography } from "@stargeist/ui";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { RouterProvider } from "@tanstack/react-router";
 import type { AsyncResult, Atom } from "effect/unstable/reactivity";
@@ -21,17 +19,21 @@ export function ApplicationRoot({
 
   if (result._tag === "Success") return <RouterProvider router={result.value} />;
 
+  let content = <p role="status">Starting Stargeist…</p>;
+
+  if (result._tag === "Failure" && !result.waiting) {
+    content = (
+      <>
+        <p role="alert">{failureMessage(result.cause)}</p>
+        <Button onClick={retry}>Try again</Button>
+      </>
+    );
+  }
+
   return (
     <main {...stylex.props(styles.startup)}>
       <h1 {...stylex.props(typography.heading)}>Stargeist</h1>
-      {result._tag === "Failure" && !result.waiting ? (
-        <>
-          <p role="alert">{failureMessage(result.cause)}</p>
-          <Button onClick={retry}>Try again</Button>
-        </>
-      ) : (
-        <p role="status">Starting Stargeist…</p>
-      )}
+      {content}
     </main>
   );
 }

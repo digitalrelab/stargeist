@@ -1,6 +1,7 @@
+import type { LibrarySource } from "../libraries";
 import { Module } from "@stargeist/application";
 import { Clock, Context, Effect, Layer } from "effect";
-import { WorkspaceRepository, type SelectedFolder } from "./repository";
+import { WorkspaceRepository } from "./repository";
 
 export class Workspaces extends Context.Service<Workspaces>()("@stargeist/domain/Workspaces", {
   make: Effect.gen(function* () {
@@ -9,8 +10,10 @@ export class Workspaces extends Context.Service<Workspaces>()("@stargeist/domain
     return {
       list: repository.list,
       get: repository.get,
-      register: (folder: SelectedFolder) =>
-        Clock.currentTimeMillis.pipe(Effect.flatMap((now) => repository.register(folder, now))),
+      create: (displayName: string, source: typeof LibrarySource.Type) =>
+        Clock.currentTimeMillis.pipe(
+          Effect.flatMap((now) => repository.create(displayName, source, now)),
+        ),
     };
   }),
 }) {}

@@ -4,15 +4,13 @@ import {
   type DirectoryListingPage,
   entryPageSize,
 } from "@stargeist/domain/filesystem";
-import { Button } from "@stargeist/ui/button";
-import { colors } from "@stargeist/ui/colors.stylex";
-import { space } from "@stargeist/ui/tokens.stylex";
-import { typography } from "@stargeist/ui/typography";
+import { Button, typography } from "@stargeist/ui";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
 import { canRetryFailure, failureMessage } from "#src/rpc/index.ts";
-import { useWorkspaceState, type DirectoryView } from "#src/workspaces/index.ts";
+import { useLibraryState, type DirectoryView } from "#src/libraries/index.ts";
 
 const rowHeight = 40;
 
@@ -24,12 +22,23 @@ const entryLabels: Record<FileSystemEntry["kind"], string> = {
 };
 
 export function EntryList({ initial }: { initial: DirectoryListingPage }) {
-  const { directoryView } = useWorkspaceState();
+  const { directoryView } = useLibraryState();
   const view = useMemo(() => directoryView(initial), [directoryView, initial]);
   const extent = useAtomValue(view.extent);
   const viewport = useRef<HTMLDivElement>(null);
+  let count = extent.count;
+  let total = extent.count;
+  let entryLabel = "entries";
+
+  if (extent.hasMore) {
+    count += 1;
+    total = -1;
+  }
+
+  if (extent.count === 1) entryLabel = "entry";
+
   const virtualizer = useVirtualizer({
-    count: extent.count + (extent.hasMore ? 1 : 0),
+    count,
     getScrollElement: () => viewport.current,
     estimateSize: () => rowHeight,
     overscan: 8,
@@ -44,38 +53,36 @@ export function EntryList({ initial }: { initial: DirectoryListingPage }) {
     groups.set(offset, group);
   }
 
+  let content = (
+    <div
+      ref={viewport}
+      {...stylex.props(styles.viewport)}
+      role="list"
+      aria-label="Folder entries"
+      tabIndex={0}
+    >
+      <div {...stylex.props(styles.content(virtualizer.getTotalSize()))}>
+        {[...groups].map(([offset, items]) => (
+          <PageRows key={offset} offset={offset} items={items} view={view} total={total} />
+        ))}
+      </div>
+    </div>
+  );
+
+  if (extent.count === 0 && !extent.hasMore) {
+    content = <p {...stylex.props(styles.empty)}>This folder is empty.</p>;
+  }
+
   return (
     <>
       <div {...stylex.props(styles.columns, styles.heading, typography.label)} aria-hidden="true">
         <span>Name</span>
         <span>Kind</span>
       </div>
-      {extent.count === 0 && !extent.hasMore ? (
-        <p {...stylex.props(styles.empty)}>This folder is empty.</p>
-      ) : (
-        <div
-          ref={viewport}
-          {...stylex.props(styles.viewport)}
-          role="list"
-          aria-label="Folder entries"
-          tabIndex={0}
-        >
-          <div {...stylex.props(styles.content(virtualizer.getTotalSize()))}>
-            {[...groups].map(([offset, items]) => (
-              <PageRows
-                key={offset}
-                offset={offset}
-                items={items}
-                view={view}
-                total={extent.hasMore ? -1 : extent.count}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {content}
       <p {...stylex.props(styles.footer, typography.label)}>
-        {extent.count.toLocaleString()} {extent.count === 1 ? "entry" : "entries"}
-        {extent.hasMore ? " · Scroll for more" : ""}
+        {extent.count.toLocaleString()} {entryLabel}
+        {extent.hasMore && " · Scroll for more"}
       </p>
     </>
   );
@@ -101,23 +108,27 @@ function PageRows({
 
     if (!first) return null;
 
+    let content = <span role="status">Loading entries…</span>;
+
+    if (result._tag === "Failure") {
+      content = (
+        <>
+          <span role="alert">{failureMessage(result.cause)}</span>
+          {canRetryFailure(result.cause) && (
+            <Button appearance="soft" size="sm" onClick={refresh} disabled={result.waiting}>
+              Retry
+            </Button>
+          )}
+        </>
+      );
+    }
+
     return (
       <div
         {...stylex.props(styles.columns, styles.row(first.start), styles.status)}
         role="listitem"
       >
-        {result._tag === "Failure" ? (
-          <>
-            <span role="alert">{failureMessage(result.cause)}</span>
-            {canRetryFailure(result.cause) && (
-              <Button appearance="soft" size="sm" onClick={refresh} disabled={result.waiting}>
-                Retry
-              </Button>
-            )}
-          </>
-        ) : (
-          <span role="status">Loading entries…</span>
-        )}
+        {content}
       </div>
     );
   }
