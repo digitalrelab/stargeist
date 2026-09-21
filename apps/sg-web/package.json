@@ -16,7 +16,7 @@
   },
   "scripts": {
     "generate": "tsr generate",
-    "dev": "portless \"$(bun scripts/dev-name.ts)\" vp dev",
+    "dev": "bun run --cwd ../../tooling/dev cli dev web",
     "build": "vp build",
     "preview": "vp preview"
   },
@@ -39,7 +39,6 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "6.1.1",
-    "portless": "0.15.6",
     "vite-plus": "catalog:"
   }
 }

@@ -11,8 +11,8 @@
   "scripts": {
     "prepare": "vp config --no-agent",
     "postinstall": "bun run --cwd apps/sg-web generate",
-    "dev": "bun run --cwd apps/sg-desktop dev",
-    "dev:web": "bun run --cwd apps/sg-web dev",
+    "dev": "bun run sg dev",
+    "dev:web": "bun run sg dev web",
     "sg": "bun run --cwd tooling/dev cli",
     "build": "bun run build:web && bun run package",
     "build:web": "bun run --cwd apps/sg-web build",

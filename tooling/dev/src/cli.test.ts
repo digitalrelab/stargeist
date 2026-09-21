@@ -114,3 +114,29 @@ it("preserves clean JSON and argument forwarding through the public Bun entrypoi
   expect(report).toMatchObject({ command: "doctor", checkout });
   expect(result.status).toBe(report.status === "failed" ? 1 : 0);
 });
+
+it("diagnoses web development without touching or requiring a healthy desktop profile", () => {
+  const { profile, run } = fixture();
+  initializeProfile(profile);
+  writeFileSync(profile.marker, "{}");
+
+  const result = run("doctor", "web", "--json");
+  const report = JSON.parse(result.stdout);
+
+  expect(result.status, result.stderr).toBe(0);
+  expect(report).toMatchObject({ target: "web", status: "ok" });
+  expect(report.profile).toBeUndefined();
+  expect(report.checks.map((check: { name: string }) => check.name)).toContain("portless");
+  expect(report.checks.map((check: { name: string }) => check.name)).not.toContain("coordination");
+});
+
+it("refuses JSON development sessions before launching a tool", () => {
+  const { run } = fixture();
+  const result = run("dev", "web", "--json");
+
+  expect(result.status).toBe(1);
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    status: "failed",
+    message: "Development streams tool output. Use doctor --json for diagnostics.",
+  });
+});

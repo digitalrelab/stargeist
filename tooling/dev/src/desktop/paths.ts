@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { ProfileError } from "./errors";
+import { identifyDirectory } from "../identity";
 
 export function applicationDataDirectory() {
   if (process.platform === "darwin") {
@@ -61,10 +61,7 @@ function canonicalPath(path: string): string {
 }
 
 export function developmentProfile(applicationPath: string, appData = applicationDataDirectory()) {
-  const canonicalApplication = realpathSync(applicationPath);
-  const application =
-    process.platform === "win32" ? canonicalApplication.toLowerCase() : canonicalApplication;
-  const identity = createHash("sha256").update(application).digest("hex").slice(0, 16);
+  const { directory: application, identity } = identifyDirectory(applicationPath);
 
   const base = join(canonicalPath(resolve(appData)), "Stargeist-development");
   const root = join(base, identity);

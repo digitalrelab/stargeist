@@ -2,9 +2,18 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Console as NodeConsole } from "node:console";
 import { ProfileError } from "./desktop/index";
 import { Cause, Console, Effect } from "effect";
-import { CliConfig, CliError, Command, Flag, GlobalFlag, Prompt } from "effect/unstable/cli";
+import {
+  Argument,
+  CliConfig,
+  CliError,
+  Command,
+  Flag,
+  GlobalFlag,
+  Prompt,
+} from "effect/unstable/cli";
 import { toolingContext, type ToolingContext } from "./context";
 import { diagnose } from "./doctor";
+import { launchDevelopment } from "./development";
 import { previewReset, resetData } from "./reset";
 
 function output(report: object, json: boolean, message: string) {
@@ -28,17 +37,49 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
     }),
   );
 
-  const doctor = Command.make("doctor", {}, () =>
+  const target = Argument.Literals("target", ["desktop", "web"]).pipe(
+    Argument.withDefault("desktop"),
+  );
+
+  const dev = Command.make("dev", { target }, ({ target }) =>
     Effect.gen(function* () {
       const { json } = yield* root;
-      const report = yield* Effect.try(() => diagnose(createContext()));
+
+      if (json) {
+        return yield* Effect.fail(
+          new Error("Development streams tool output. Use doctor --json for diagnostics."),
+        );
+      }
+
+      const context = yield* Effect.try(createContext);
+      const report = yield* Effect.try(() => diagnose(context, target));
+      const failures = report.checks.filter((check) => check.status === "error");
+
+      if (failures.length > 0) {
+        return yield* Effect.fail(
+          new Error(failures.map((check) => `${check.name}: ${check.message}`).join("\n")),
+        );
+      }
+
+      process.stdout.write(`Starting ${target} in ${report.directory}\n`);
+      process.exitCode = yield* launchDevelopment(context, target);
+    }),
+  ).pipe(Command.withDescription("Start this checkout's desktop or web development session."));
+
+  const doctor = Command.make("doctor", { target }, ({ target }) =>
+    Effect.gen(function* () {
+      const { json } = yield* root;
+      const report = yield* Effect.try(() => diagnose(createContext(), target));
 
       output(
         report,
         json,
         [
           `Checkout: ${report.checkout}`,
-          `Profile: ${report.profile}`,
+          `Target: ${report.target}`,
+          `Directory: ${report.directory}`,
+          ...("profile" in report ? [`Profile: ${report.profile}`] : []),
+          ...("name" in report ? [`Web app: ${report.name}`] : []),
           ...report.checks.map(
             (check) => `${check.status.toUpperCase()} ${check.name}: ${check.message}`,
           ),
@@ -133,7 +174,7 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
     ),
   );
 
-  const command = root.pipe(Command.withSubcommands([doctor, reset]));
+  const command = root.pipe(Command.withSubcommands([dev, doctor, reset]));
 
   return Command.runWith(command, { version: "0.0.0", renderErrors: !jsonOutput })(args).pipe(
     Effect.catch((error) =>
