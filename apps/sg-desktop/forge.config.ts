@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
@@ -19,6 +20,7 @@ export default {
     name: executableName,
     executableName,
     appBundleId: "com.digitalrelab.stargeist",
+    extraResource: [fileURLToPath(new URL("../../LICENSE", import.meta.url))],
   },
   makers: [
     new MakerSquirrel({ name: executableName }),

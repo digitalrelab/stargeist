@@ -2,6 +2,7 @@
   "name": "@stargeist/domain",
   "version": "0.0.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     "./filesystem": "./src/filesystem/index.ts",

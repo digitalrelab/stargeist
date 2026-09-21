@@ -2,6 +2,7 @@
   "name": "@stargeist/std",
   "version": "0.0.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     "./errors": "./src/errors.ts",
