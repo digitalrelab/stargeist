@@ -67,6 +67,7 @@ const slateDark = {
 };
 
 export const colors = stylex.defineVars({
+  backdrop: "oklch(0% 0 0 / 45%)",
   canvas: slateDark.slate1,
   surface: slateDark.slate2,
   surfaceRaised: slateDark.slate3,

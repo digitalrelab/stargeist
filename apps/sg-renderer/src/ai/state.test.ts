@@ -132,3 +132,47 @@ it("preserves the saved summary after rejected replacement and clears submitted 
     }).pipe(Effect.timeout("3 seconds")),
   );
 });
+
+it("retains the saved connection after failed removal and refreshes it after a successful retry", async () => {
+  const store = registry();
+  const failure = new ProviderConnectionError({
+    code: "StorageUnavailable",
+    message: "Cannot remove the saved key.",
+  });
+  let current = saved;
+  let unavailable = true;
+  const state = createAIProviderConnectionsState({
+    list: Effect.sync(() => [current]),
+    configure: () => Effect.die("Unexpected configuration"),
+    check: () => Effect.die("Unexpected check"),
+    remove: Effect.fnUntraced(function* (providerId) {
+      expect(providerId).toBe("example");
+      if (unavailable) return yield* failure;
+      current = provider;
+    }),
+  });
+  const operation = state.operation("example");
+  store.mount(state.connections);
+  store.mount(operation);
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([saved]);
+      store.set(operation, { type: "remove" });
+      expect(
+        yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true }).pipe(
+          Effect.flip,
+        ),
+      ).toEqual(failure);
+      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([saved]);
+      unavailable = false;
+      store.set(operation, { type: "remove" });
+      expect(yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true })).toBe(
+        "remove",
+      );
+      expect(
+        yield* AtomRegistry.getResult(store, state.connections, { suspendOnWaiting: true }),
+      ).toEqual([provider]);
+    }),
+  );
+});

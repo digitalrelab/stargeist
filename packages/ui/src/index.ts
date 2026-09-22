@@ -1,5 +1,7 @@
 export { Button, type ButtonProps, type ButtonLinkProps } from "./button";
 export * as Select from "./select";
+export * as Dialog from "./dialog";
+export * as ConfirmDialog from "./confirm-dialog";
 export {
   BackIcon,
   SettingsIcon,
