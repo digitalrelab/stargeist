@@ -1,33 +1,38 @@
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LibraryError } from "@stargeist/domain";
+import { WorkspaceError, Workspace, makeWorkspaceId } from "@stargeist/domain";
 import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
-import { makeLibraryListing } from "./listing";
+import { makeWorkspaceBrowser } from "./browser";
 
 async function createFixture() {
   const root = await mkdtemp(join(tmpdir(), "stargeist-workspace-listing-test-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
+  const workspace = new Workspace({ id: Effect.runSync(makeWorkspaceId), root });
   return {
+    workspace,
     root,
     layer: temporaryStorageLayer.pipe(Layer.provide(pathsLayer(join(root, "profile")))),
   };
 }
 
-describe("active library listing", () => {
+describe("active workspace listing", () => {
   it("releases failed acquisitions without leaving temporary files", async () => {
-    const { root, layer } = await createFixture();
+    const { root, workspace, layer } = await createFixture();
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const paths = yield* TemporaryStorage;
-        const listing = yield* makeLibraryListing;
-        const error = yield* listing.open(join(root, "missing")).pipe(Effect.flip);
+        const listing = yield* makeWorkspaceBrowser({
+          get: () =>
+            Effect.succeed(new Workspace({ id: workspace.id, root: join(root, "missing") })),
+        });
+        const error = yield* listing.browse(workspace.id).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(LibraryError);
+        expect(error).toBeInstanceOf(WorkspaceError);
         expect(error.code).toBe("FolderUnavailable");
         expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
       }).pipe(Effect.scoped, Effect.provide(layer)),
@@ -35,15 +40,17 @@ describe("active library listing", () => {
   });
 
   it("expires replaced views and ignores their stale close requests", async () => {
-    const { root, layer } = await createFixture();
+    const { workspace, layer } = await createFixture();
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const paths = yield* TemporaryStorage;
         const scope = yield* Scope.fork(yield* Effect.scope);
-        const listing = yield* makeLibraryListing.pipe(Scope.provide(scope));
-        const first = yield* listing.open(root);
-        const second = yield* listing.open(root);
+        const listing = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) }).pipe(
+          Scope.provide(scope),
+        );
+        const first = (yield* listing.browse(workspace.id)).directory;
+        const second = (yield* listing.browse(workspace.id)).directory;
 
         expect(second.listingId).not.toBe(first.listingId);
         expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(1);
@@ -61,13 +68,13 @@ describe("active library listing", () => {
   });
 
   it("expires explicitly closed views and removes their temporary files", async () => {
-    const { root, layer } = await createFixture();
+    const { workspace, layer } = await createFixture();
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const paths = yield* TemporaryStorage;
-        const listing = yield* makeLibraryListing;
-        const page = yield* listing.open(root);
+        const listing = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) });
+        const page = (yield* listing.browse(workspace.id)).directory;
 
         yield* listing.close(page.listingId);
 

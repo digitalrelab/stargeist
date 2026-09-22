@@ -34,7 +34,10 @@ function entryKind(entry: Dirent): FileSystemEntry["kind"] {
   return "other";
 }
 
-export const openListing = Effect.fnUntraced(function* (rootPath: string) {
+export const openListing = Effect.fnUntraced(function* (
+  rootPath: string,
+  options?: { readonly exclude: ReadonlySet<string> },
+) {
   const temporaryStorage = yield* TemporaryStorage;
   const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
   const filename = join(temporaryStorage.directory, `directory-listing-${listingId}.sqlite`);
@@ -61,7 +64,9 @@ export const openListing = Effect.fnUntraced(function* (rootPath: string) {
       return;
     }
 
-    cache.append({ name: entry.name, kind: entryKind(entry) });
+    if (!options?.exclude.has(entry.name)) {
+      cache.append({ name: entry.name, kind: entryKind(entry) });
+    }
   }).pipe(Effect.uninterruptible);
 
   const read = Effect.fnUntraced(function* (offset: number) {

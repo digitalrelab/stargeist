@@ -2,7 +2,7 @@ import { reportFailure } from "@stargeist/std/errors";
 import { Deferred, Effect, Fiber, FiberSet, Layer } from "effect";
 import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { BackendApplication } from "./application";
-import { backendServer } from "./server";
+import { backendIpc } from "./ipc";
 
 const profile = process.argv[2];
 
@@ -48,7 +48,7 @@ const program = Effect.gen(function* () {
 
     if (!port) return;
 
-    const task = backendServer[data.type](port);
+    const task = backendIpc[data.type](port);
     const fiber = run(
       task.pipe(
         Effect.catchCause((cause) => reportFailure("backend.connection", cause)),

@@ -1,19 +1,23 @@
 import { BrowserWindow, dialog, type WebContents } from "electron";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
-export const chooseFolder = (contents: WebContents, title: string) =>
-  Effect.tryPromise(async () => {
-    const window = BrowserWindow.fromWebContents(contents);
+import { FolderPicker, FolderPickerError } from "./dialogs";
 
-    if (!window) return null;
-
-    const result = await dialog.showOpenDialog(window, {
-      title,
-      buttonLabel: "Use folder",
-      properties: ["openDirectory"],
-    });
-
-    if (result.canceled) return null;
-
-    return result.filePaths[0] ?? null;
+export const folderPickerLayer = (contents: WebContents) =>
+  Layer.succeed(FolderPicker, {
+    choose: (title) =>
+      Effect.tryPromise({
+        try: async () => {
+          const window = BrowserWindow.fromWebContents(contents);
+          if (!window) return null;
+          const result = await dialog.showOpenDialog(window, {
+            title,
+            buttonLabel: "Use folder",
+            properties: ["openDirectory"],
+          });
+          if (result.canceled) return null;
+          return result.filePaths[0] ?? null;
+        },
+        catch: (cause) => new FolderPickerError({ cause }),
+      }),
   });

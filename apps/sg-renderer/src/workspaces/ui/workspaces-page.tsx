@@ -6,7 +6,7 @@ export function WorkspacesPage() {
   return (
     <main {...stylex.props(styles.page)}>
       <h1 {...stylex.props(typography.heading)}>Your workspaces</h1>
-      <p {...stylex.props(styles.description)}>Choose a workspace or create one from a folder.</p>
+      <p {...stylex.props(styles.description)}>Choose a workspace or open a folder.</p>
     </main>
   );
 }

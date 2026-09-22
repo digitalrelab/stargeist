@@ -3,7 +3,7 @@ import { Module } from "@stargeist/application";
 import { UserPreferences } from "@stargeist/domain";
 import { BrowserWindow } from "electron";
 import { Context, Data, Deferred, Effect, Layer } from "effect";
-import { Backend } from "../backend";
+import { WindowConnections } from "./connections";
 import { applicationIcon } from "../icon";
 import { windowPlacement } from "./placement";
 import { trackWindowState } from "./state";
@@ -15,7 +15,7 @@ class WindowLoadError extends Data.TaggedError("WindowLoadError")<{
 }> {}
 
 const openWindow = Effect.fnUntraced(function* (changeScale: RunScaleCommand) {
-  const backend = yield* Backend;
+  const connections = yield* WindowConnections;
   const preferences = yield* UserPreferences;
   const saved = yield* preferences.get("window");
   const scale = yield* preferences.get("interfaceScale");
@@ -67,7 +67,7 @@ const openWindow = Effect.fnUntraced(function* (changeScale: RunScaleCommand) {
   );
 
   yield* Effect.gen(function* () {
-    yield* backend.connect(window.webContents);
+    yield* connections.connect(window.webContents);
     yield* Effect.tryPromise({
       try: () => {
         if (MAIN_WINDOW_VITE_DEV_SERVER_URL) return window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -102,13 +102,13 @@ const openWindow = Effect.fnUntraced(function* (changeScale: RunScaleCommand) {
 
 class Windows extends Context.Service<Windows>()("@stargeist/desktop/Windows", {
   make: Effect.gen(function* () {
-    const backend = yield* Backend;
+    const connections = yield* WindowConnections;
     const preferences = yield* UserPreferences;
     const changeScale = yield* scaleCommands;
     yield* installWindowMenu(changeScale);
     return {
       open: openWindow(changeScale).pipe(
-        Effect.provideService(Backend, backend),
+        Effect.provideService(WindowConnections, connections),
         Effect.provideService(UserPreferences, preferences),
       ),
     };
@@ -119,3 +119,6 @@ export const WindowsModule = Module.define({
   exports: Windows,
   layer: Layer.effect(Windows, Windows.make),
 });
+
+export { WindowConnections } from "./connections";
+export { runWindows } from "./lifecycle";

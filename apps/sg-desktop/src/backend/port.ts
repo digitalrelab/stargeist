@@ -1,5 +1,6 @@
-import type { Connection } from "@stargeist/std/rpc";
+import { serverProtocol, type Connection } from "@stargeist/std/rpc";
 import { Effect } from "effect";
+import { RpcServer } from "effect/unstable/rpc";
 
 export interface NativePort {
   postMessage(message: unknown): void;
@@ -34,3 +35,13 @@ export const connectPort = (port: NativePort): Connection => ({
     };
   },
 });
+
+export const servePort = <E, R>(program: Effect.Effect<void, E, R>) =>
+  Effect.fnUntraced(function* (port: NativePort) {
+    const connection = connectPort(port);
+    const protocol = yield* serverProtocol(connection);
+    yield* program.pipe(
+      Effect.provideService(RpcServer.Protocol, protocol),
+      Effect.raceFirst(connection.closed),
+    );
+  }, Effect.scoped);

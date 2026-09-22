@@ -1,4 +1,4 @@
-import type { FileSystemEntry, LibraryId, ListingId } from "@stargeist/domain";
+import type { FileSystemEntry, WorkspaceId, ListingId } from "@stargeist/domain";
 import { Selection, type Interaction, type SelectionState } from "@stargeist/std/selection";
 import { Effect } from "effect";
 import type { Atom } from "effect/unstable/reactivity";
@@ -51,7 +51,7 @@ export const createFileSelectionController = (
 export type FileSelectionController = ReturnType<typeof createFileSelectionController>;
 
 export interface FileSelection {
-  readonly libraryId: LibraryId;
+  readonly workspaceId: WorkspaceId;
   readonly folder: string | undefined;
   readonly members: SelectionState<string, ListingId>;
 }

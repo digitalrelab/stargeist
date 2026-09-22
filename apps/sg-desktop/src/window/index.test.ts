@@ -25,8 +25,7 @@ import {
 } from "effect";
 import { TestClock } from "effect/testing";
 import { beforeEach, expect, it, onTestFinished, vi } from "vite-plus/test";
-import { Backend } from "../backend";
-import { WindowsModule } from "./index";
+import { WindowsModule, WindowConnections } from "./index";
 import { changeInterfaceScale, scaleCommands } from "./scale";
 import { installWindowMenu } from "./menu";
 
@@ -67,11 +66,6 @@ vi.mock("electron", async () => {
       getDisplayMatching: native.matching,
     }),
   };
-});
-
-vi.mock("../backend", async () => {
-  const { Context } = await import("effect");
-  return { Backend: Context.Service("test/window/Backend") };
 });
 
 type WindowState = NonNullable<UserPreferenceValues["window"]>;
@@ -195,7 +189,7 @@ function fixture(initial: UserPreferenceValues["window"] = saved) {
   const application = Application.define({
     modules: { windows: WindowsModule },
     provide: Layer.merge(
-      Layer.succeed(Backend, { failure: Effect.never, connect: () => Effect.void }),
+      Layer.succeed(WindowConnections, { connect: () => Effect.void }),
       Layer.succeed(UserPreferences, preferences),
     ),
   });

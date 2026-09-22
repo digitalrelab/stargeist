@@ -11,19 +11,39 @@ export const makeRpcWorkspacesClient = Effect.fnUntraced(function* (protocols: {
   const backend = yield* RpcClient.make(WorkspaceRpcs).pipe(
     Effect.provideService(RpcClient.Protocol, protocols.backend),
   );
-
   const host = yield* RpcClient.make(WorkspaceDialogRpcs).pipe(
     Effect.provideService(RpcClient.Protocol, protocols.host),
   );
-
   const client: WorkspacesClient = {
     list: Effect.suspend(() => backend["workspaces.list"]()).pipe(
       Effect.catchTag("RpcClientError", connectionFailure),
     ),
-    get: (id) =>
-      backend["workspaces.get"]({ id }).pipe(Effect.catchTag("RpcClientError", connectionFailure)),
-    createFromFolder: () =>
-      host["workspaces.createFromFolder"]().pipe(
+    openFromFolder: () =>
+      host["workspaces.openFromFolder"]().pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    initializeFromFolder: () =>
+      host["workspaces.initializeFromFolder"]().pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    reconnectFromFolder: (id) =>
+      host["workspaces.reconnectFromFolder"]({ id }).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    forget: (id) =>
+      backend["workspaces.forget"]({ id }).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    browse: (id) =>
+      backend["workspaces.browse"]({ id }).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    readDirectory: (input) =>
+      backend["workspaces.readDirectory"](input).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+    closeDirectory: (input) =>
+      backend["workspaces.closeDirectory"](input).pipe(
         Effect.catchTag("RpcClientError", connectionFailure),
       ),
   };
