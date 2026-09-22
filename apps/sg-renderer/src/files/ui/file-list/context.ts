@@ -1,73 +1,130 @@
+import { useAtomValue } from "@effect/atom-react";
 import type { FileSystemEntry } from "@stargeist/domain";
-import { Selection } from "@stargeist/std/selection/react";
-import type { Atom } from "effect/unstable/reactivity";
 import {
   createContext,
   useContext,
   useId,
   useState,
   type KeyboardEvent,
-  type FocusEventHandler,
+  type MouseEvent,
 } from "react";
 import { canRetryFailure } from "#src/client/index.ts";
-import type { FileSelectionController } from "../../selection";
-import type { FileListing } from "../../state";
+import { useFileBrowserContext } from "../file-browser";
 import { rowHeight } from "./layout";
 
-export interface FileListProps {
-  listing: FileListing;
-  selection: FileSelectionController;
-  inspectedName: Atom.Atom<string | undefined>;
-  onFocus: FocusEventHandler<HTMLDivElement>;
-}
-
-export function useFileList({ listing, selection, inspectedName, onFocus }: FileListProps) {
+export function useFileList() {
+  const { selection, dispatch, viewProps } = useFileBrowserContext();
+  const active = useAtomValue(selection.active);
+  const request = useAtomValue(selection.request);
   const gridId = useId();
   const [column, setColumn] = useState(1);
-  const navigation = Selection.useController(selection, {
-    pageSize: (element) => Math.floor((element?.clientHeight ?? rowHeight) / rowHeight),
-  });
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (
       event.target !== event.currentTarget ||
       event.defaultPrevented ||
       event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey ||
       event.nativeEvent.isComposing
     ) {
-      navigation.props.onKeyDown(event);
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      if (event.key.toLowerCase() !== "a" || event.shiftKey) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!event.repeat) {
+        dispatch({ type: "all" });
+      }
+
       return;
     }
 
     switch (event.key) {
-      case "ArrowLeft":
-        setColumn(0);
+      case "ArrowDown":
+        dispatch({ type: "move", by: 1, extend: event.shiftKey });
         break;
 
+      case "ArrowUp":
+        dispatch({ type: "move", by: -1, extend: event.shiftKey });
+        break;
+
+      case "ArrowLeft":
       case "ArrowRight":
-        setColumn(1);
+        if (event.shiftKey) {
+          return;
+        }
+
+        if (event.key === "ArrowLeft") {
+          setColumn(0);
+        } else {
+          setColumn(1);
+        }
+        break;
+
+      case "Home":
+        dispatch({ type: "first", extend: event.shiftKey });
+        break;
+
+      case "End":
+        dispatch({ type: "last", extend: event.shiftKey });
+        break;
+
+      case "PageDown":
+      case "PageUp": {
+        let by = Math.max(1, Math.floor(event.currentTarget.clientHeight / rowHeight));
+
+        if (event.key === "PageUp") {
+          by = -by;
+        }
+
+        dispatch({ type: "move", by, extend: event.shiftKey });
+        break;
+      }
+
+      case " ":
+        if (!event.repeat) {
+          if (event.shiftKey) {
+            dispatch({ type: "range", index: active ?? 0 });
+          } else {
+            dispatch({ type: "toggle" });
+          }
+        }
         break;
 
       case "Enter":
-        if (event.repeat) {
-          break;
+        if (event.shiftKey) {
+          return;
         }
 
-        if (navigation.request._tag === "Failure" && canRetryFailure(navigation.request.cause)) {
-          navigation.dispatch({ type: "retry" });
-        } else if (column === 0) {
-          navigation.dispatch({ type: "toggle" });
-        } else {
-          navigation.props.onKeyDown(event);
+        if (!event.repeat) {
+          if (request._tag === "Failure" && canRetryFailure(request.cause)) {
+            dispatch({ type: "retry" });
+          } else if (column === 0) {
+            dispatch({ type: "toggle" });
+          } else {
+            dispatch({ type: "activate" });
+          }
+        }
+        break;
+
+      case "Escape":
+        if (event.shiftKey) {
           return;
+        }
+
+        if (request.waiting || request._tag === "Failure") {
+          dispatch({ type: "cancel" });
+        } else {
+          dispatch({ type: "clear" });
         }
         break;
 
       default:
-        navigation.props.onKeyDown(event);
         return;
     }
 
@@ -76,29 +133,29 @@ export function useFileList({ listing, selection, inspectedName, onFocus }: File
   };
 
   return {
-    listing,
     gridId,
     column,
-    active: navigation.active,
-    selection,
-    inspectedName,
-    rowProps: navigation.itemProps,
-    viewportProps: { ...navigation.props, onKeyDown, onFocus },
+    active,
+    rowProps: {
+      onMouseDown: (event: MouseEvent<HTMLElement>) => {
+        if (event.button === 0) {
+          event.preventDefault();
+        }
+      },
+    },
+    viewportProps: { ...viewProps, tabIndex: 0, onKeyDown },
     inspect: (index: number, entry: FileSystemEntry) => {
       setColumn(1);
-      navigation.dispatch({ type: "activate", value: { index, item: entry } });
+      dispatch({ type: "activate", value: { index, item: entry } });
     },
     toggle: (index: number, entry: FileSystemEntry) => {
       setColumn(0);
-      navigation.dispatch({ type: "toggle", value: { index, item: entry } });
+      dispatch({ type: "toggle", value: { index, item: entry } });
     },
     extend: (index: number, nextColumn: number) => {
       setColumn(nextColumn);
-      navigation.dispatch({ type: "range", index });
+      dispatch({ type: "range", index });
     },
-    clear: () => navigation.dispatch({ type: "clear" }),
-    cancel: () => navigation.dispatch({ type: "cancel" }),
-    retry: () => navigation.dispatch({ type: "retry" }),
   };
 }
 

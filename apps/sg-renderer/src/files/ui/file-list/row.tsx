@@ -5,15 +5,17 @@ import { Checkbox, typography } from "@stargeist/ui";
 import { colors, focusRing, fonts, radii } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback } from "react";
+import { useFileBrowserContext } from "../file-browser";
 import { FileKind } from "../file-kind";
 import { useFileListContext } from "./context";
 import { layout } from "./layout";
 
 export function FileRow({ entry, index }: { entry: FileSystemEntry; index: number }) {
   const list = useFileListContext();
-  const selected = Selection.useSelected(list.selection, entry.name);
+  const browser = useFileBrowserContext();
+  const selected = Selection.useSelected(browser.selection, entry.name);
   const matchesEntry = useCallback((name: string | undefined) => name === entry.name, [entry.name]);
-  const inspected = useAtomValue(list.inspectedName, matchesEntry);
+  const inspected = useAtomValue(browser.inspectedName, matchesEntry);
   const active = index === list.active;
   const id = `${list.gridId}-${index}`;
 

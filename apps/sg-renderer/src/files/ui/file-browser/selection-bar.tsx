@@ -5,14 +5,14 @@ import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { HashSet } from "effect";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
-import { useFileListContext } from "./context";
+import { useFileBrowserContext } from "./context";
 
 export function FileSelectionBar() {
-  const list = useFileListContext();
-  const extent = useAtomValue(list.listing.extent);
-  const selection = useAtomValue(list.selection.selection);
-  const request = useAtomValue(list.selection.request);
-  const operation = useAtomValue(list.selection.operation);
+  const browser = useFileBrowserContext();
+  const extent = useAtomValue(browser.listing.extent);
+  const selection = useAtomValue(browser.selection.selection);
+  const request = useAtomValue(browser.selection.request);
+  const operation = useAtomValue(browser.selection.operation);
   let total: number | undefined;
 
   if (!extent.hasMore) {
@@ -54,9 +54,9 @@ export function FileSelectionBar() {
         event.stopPropagation();
 
         if (request.waiting || failed) {
-          list.cancel();
+          browser.dispatch({ type: "cancel" });
         } else {
-          list.clear();
+          browser.dispatch({ type: "clear" });
         }
       }}
     >
@@ -66,7 +66,12 @@ export function FileSelectionBar() {
         Actions
       </Button>
       {selecting && (
-        <Button appearance="ghost" size="sm" shape="pill" onClick={list.cancel}>
+        <Button
+          appearance="ghost"
+          size="sm"
+          shape="pill"
+          onClick={() => browser.dispatch({ type: "cancel" })}
+        >
           Cancel
         </Button>
       )}
@@ -75,7 +80,7 @@ export function FileSelectionBar() {
         size="iconSm"
         shape="pill"
         aria-label="Clear selection"
-        onClick={list.clear}
+        onClick={() => browser.dispatch({ type: "clear" })}
       >
         <CloseIcon aria-hidden="true" />
       </Button>
@@ -89,7 +94,7 @@ export function FileSelectionBar() {
               appearance="soft"
               size="sm"
               shape="pill"
-              onClick={list.retry}
+              onClick={() => browser.dispatch({ type: "retry" })}
               disabled={request.waiting}
             >
               Retry

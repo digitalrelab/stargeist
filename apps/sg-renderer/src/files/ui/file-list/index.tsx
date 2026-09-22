@@ -1,19 +1,20 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { Button, ScrollArea, typography } from "@stargeist/ui";
-import { colors, fonts, radii, space } from "@stargeist/ui/tokens.stylex";
+import { colors, radii, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useEffect } from "react";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
-import { FileListContext, useFileList, useFileListContext, type FileListProps } from "./context";
+import { FileListContext, useFileList, useFileListContext } from "./context";
 import { layout, rowHeight } from "./layout";
 import { FileNameSkeleton } from "./loading";
 import { FileRow } from "./row";
-import { FileSelectionBar } from "./selection-bar";
+import { useFileBrowserContext } from "../file-browser";
 
-export function FileList(props: FileListProps) {
-  const list = useFileList(props);
-  const { listing, gridId, active, column } = list;
+export function FileList() {
+  const list = useFileList();
+  const { listing } = useFileBrowserContext();
+  const { gridId, active, column } = list;
   const extent = useAtomValue(listing.extent);
   let count = extent.count;
   let total = extent.count;
@@ -67,49 +68,36 @@ export function FileList(props: FileListProps) {
     activeDescendant = `${gridId}-${active}-${column}`;
   }
 
-  let content = (
-    <ScrollArea.Root>
-      <ScrollArea.Viewport
-        {...list.viewportProps}
-        render={<div {...stylex.props(stylex.defaultMarker())} />}
-        role="grid"
-        aria-label="Folder entries"
-        aria-rowcount={total}
-        aria-colcount={2}
-        aria-multiselectable
-        aria-activedescendant={activeDescendant}
-      >
-        <ScrollArea.Content
-          render={<div {...stylex.props(styles.content(virtualizer.getTotalSize()))} />}
-        >
-          {[...groups].map(([offset, items]) => (
-            <PageRows key={offset} offset={offset} items={items} />
-          ))}
-        </ScrollArea.Content>
-      </ScrollArea.Viewport>
-      <ScrollArea.Scrollbar />
-    </ScrollArea.Root>
-  );
-
-  if (extent.count === 0 && !extent.hasMore) {
-    content = <p {...stylex.props(styles.empty)}>This folder is empty.</p>;
-  }
-
   return (
     <FileListContext value={list}>
-      <div {...stylex.props(styles.viewport)}>
-        {content}
-        <div {...stylex.props(styles.overlay)}>
-          <FileSelectionBar />
-        </div>
-      </div>
-      <ListFooter />
+      <ScrollArea.Root>
+        <ScrollArea.Viewport
+          {...list.viewportProps}
+          render={<div {...stylex.props(stylex.defaultMarker())} />}
+          role="grid"
+          aria-label="Folder entries"
+          aria-rowcount={total}
+          aria-colcount={2}
+          aria-multiselectable
+          aria-activedescendant={activeDescendant}
+        >
+          <ScrollArea.Content
+            render={<div {...stylex.props(styles.content(virtualizer.getTotalSize()))} />}
+          >
+            {[...groups].map(([offset, items]) => (
+              <PageRows key={offset} offset={offset} items={items} />
+            ))}
+          </ScrollArea.Content>
+        </ScrollArea.Viewport>
+        <ScrollArea.Scrollbar />
+      </ScrollArea.Root>
     </FileListContext>
   );
 }
 
 function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
-  const { listing, gridId, active, selection, retry: retrySelection } = useFileListContext();
+  const { gridId, active } = useFileListContext();
+  const { listing, selection, dispatch } = useFileBrowserContext();
   const atom = listing.pages(offset);
   const result = useAtomValue(atom);
   const request = useAtomValue(selection.request);
@@ -155,7 +143,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
       active !== undefined &&
       listing.pageOffset(active) === offset
     ) {
-      retry = retrySelection;
+      retry = () => dispatch({ type: "retry" });
     }
 
     return (
@@ -201,46 +189,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
   });
 }
 
-function ListFooter() {
-  const list = useFileListContext();
-  const extent = useAtomValue(list.listing.extent);
-  let label = `${extent.count.toLocaleString()} entries`;
-
-  if (extent.count === 1) {
-    label = "1 entry";
-  }
-
-  if (extent.hasMore) {
-    label += " · Scroll for more";
-  }
-
-  return (
-    <div {...stylex.props(typography.label, layout.footer, styles.footer)}>
-      <span role="status">{label}</span>
-    </div>
-  );
-}
-
 const styles = stylex.create({
-  viewport: {
-    display: "flex",
-    flexDirection: "column",
-    position: "relative",
-    isolation: "isolate",
-    flexGrow: 1,
-    flexBasis: 0,
-    minHeight: 0,
-    minWidth: 0,
-  },
-  overlay: {
-    position: "absolute",
-    insetInline: space[3],
-    bottom: space[3],
-    display: "flex",
-    justifyContent: "center",
-    pointerEvents: "none",
-    zIndex: 1,
-  },
   content: (height: number) => ({ height, position: "relative", width: "100%" }),
   row: (top: number) => ({
     position: "absolute",
@@ -273,10 +222,5 @@ const styles = stylex.create({
         [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: "solid",
       },
     },
-  },
-  empty: { padding: space[6], color: colors.textMuted, flexGrow: 1 },
-  footer: {
-    fontWeight: fonts.regular,
-    color: colors.textMuted,
   },
 });
