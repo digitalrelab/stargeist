@@ -12,6 +12,7 @@ export function workspaceRecovery(cause: Cause.Cause<unknown>): ReadonlyArray<Wo
     case "NotFound":
       return ["open"];
     case "FolderUnavailable":
+    case "InvalidWorkspace":
       return ["retry", "locate"];
     case "WorkspaceChanged":
       return ["locate", "open"];
@@ -20,7 +21,6 @@ export function workspaceRecovery(cause: Cause.Cause<unknown>): ReadonlyArray<Wo
     case "BackendUnavailable":
     case "UnsupportedFormat":
       return [];
-    case "InvalidWorkspace":
     case "FolderPickerUnavailable":
     case "StorageUnavailable":
     case "ListingExpired":

@@ -118,7 +118,7 @@ export const workspaceRoots: WorkspaceRoots = {
       const root = await canonicalDirectory(path);
       if (!(await markerExists(root))) {
         throw new WorkspaceError({
-          code: "NotFound",
+          code: "InvalidWorkspace",
           message:
             "Workspace metadata is missing. Locate the workspace folder or restore its .stargeist directory.",
         });

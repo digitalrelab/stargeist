@@ -142,6 +142,13 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       expect(yield* (yield* Workspaces).get(child.id).pipe(Effect.flip)).toMatchObject({
         code: "FolderUnavailable",
       });
+      yield* Effect.promise(() => mkdir(film));
+      expect(
+        yield* client["workspaces.browse"]({ id: child.id }).pipe(Stream.runDrain, Effect.flip),
+      ).toMatchObject({
+        code: "InvalidWorkspace",
+      });
+      expect(yield* Effect.promise(() => readdir(film))).toEqual([]);
       const reconnected = yield* host["workspaces.reconnect"]({
         id: child.id,
         path: moved,

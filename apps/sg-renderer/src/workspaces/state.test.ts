@@ -161,6 +161,7 @@ describe("Workspace state", () => {
 
   it.each([
     ["FolderUnavailable", ["retry", "locate"], true],
+    ["InvalidWorkspace", ["retry", "locate"], true],
     ["BackendUnavailable", [], false],
   ] as const)("offers actionable recovery for %s", async (code, recovery, canRefresh) => {
     const registry = createRegistry();
