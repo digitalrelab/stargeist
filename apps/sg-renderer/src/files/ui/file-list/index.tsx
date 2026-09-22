@@ -3,7 +3,7 @@ import { Button, ScrollArea, typography } from "@stargeist/ui";
 import { colors, fonts, radii, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useEffectEvent, useState } from "react";
+import { useEffect } from "react";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { FileListContext, useFileList, useFileListContext, type FileListProps } from "./context";
 import { layout, rowHeight } from "./layout";
@@ -25,37 +25,14 @@ export function FileList(props: FileListProps) {
     total = -1;
   }
 
-  const [overlayHeight, setOverlayHeight] = useState(0);
-  const observeOverlay = useCallback((element: HTMLDivElement | null) => {
-    if (!element) {
-      return;
-    }
-
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) {
-        setOverlayHeight(entry.contentRect.height);
-      }
-    });
-
-    observer.observe(element);
-
-    return () => observer.disconnect();
-  }, []);
-
-  let bottomPadding = 8;
-
-  if (overlayHeight > 0) {
-    bottomPadding += overlayHeight + overlayInset;
-  }
-
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => list.viewportProps.ref.current,
     estimateSize: () => rowHeight,
     overscan: 8,
     paddingStart: 8,
-    paddingEnd: bottomPadding,
-    scrollPaddingEnd: bottomPadding,
+    paddingEnd: 8,
+    scrollPaddingEnd: 8,
     rangeExtractor: (range) => {
       const indexes = defaultRangeExtractor(range);
 
@@ -76,28 +53,6 @@ export function FileList(props: FileListProps) {
       virtualizer.scrollToIndex(active, { align: "auto" });
     }
   }, [active, virtualizer]);
-
-  const keepVisibleRowAboveBar = useEffectEvent(() => {
-    const viewport = list.viewportProps.ref.current;
-    const item = virtualizer.getVirtualItems().find((item) => item.index === active);
-
-    if (!viewport || !item) {
-      return;
-    }
-
-    const top = viewport.scrollTop;
-    const bottom = top + viewport.clientHeight;
-
-    if (item.start >= top && item.end <= bottom) {
-      virtualizer.scrollToIndex(item.index, { align: "auto" });
-    }
-  });
-
-  useEffect(() => {
-    if (overlayHeight > 0) {
-      keepVisibleRowAboveBar();
-    }
-  }, [overlayHeight]);
 
   const groups = new Map<number, VirtualItem[]>();
 
@@ -146,7 +101,7 @@ export function FileList(props: FileListProps) {
     <FileListContext value={list}>
       <div {...stylex.props(styles.viewport)}>
         {content}
-        <div ref={observeOverlay} {...stylex.props(styles.overlay)}>
+        <div {...stylex.props(styles.overlay)}>
           <FileSelectionBar />
         </div>
       </div>
