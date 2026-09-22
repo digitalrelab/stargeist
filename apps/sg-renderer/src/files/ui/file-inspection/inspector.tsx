@@ -1,8 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { Button, CloseIcon, typography } from "@stargeist/ui";
+import { Button, FileSearchIcon, typography } from "@stargeist/ui";
 import { colors, fonts, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
-import { useId } from "react";
 import { SecondarySidebar } from "#src/shell/index.ts";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { FileKind } from "../file-kind";
@@ -11,28 +10,36 @@ import { describeFileInspection, type FileInspection } from "./state";
 
 export function FileInspector() {
   const inspection = useFileInspection();
-  const { close } = inspection;
   const target = useAtomValue(inspection.target);
-  const headingId = useId();
+  let content = <EmptyInspection />;
 
-  if (!target) {
-    return null;
+  if (target) {
+    content = (
+      <>
+        <SecondarySidebar.Header>
+          <h2 {...stylex.props(typography.label, styles.heading)}>File details</h2>
+        </SecondarySidebar.Header>
+        <SecondarySidebar.Content>
+          <InspectionContent target={target} />
+        </SecondarySidebar.Content>
+      </>
+    );
   }
 
+  return <SecondarySidebar.Root aria-label="File details">{content}</SecondarySidebar.Root>;
+}
+
+function EmptyInspection() {
   return (
-    <SecondarySidebar.Root aria-labelledby={headingId}>
-      <SecondarySidebar.Header>
-        <h2 id={headingId} {...stylex.props(typography.label, styles.heading)}>
-          File details
-        </h2>
-        <Button appearance="ghost" shape="square" aria-label="Close file inspector" onClick={close}>
-          <CloseIcon aria-hidden="true" />
-        </Button>
-      </SecondarySidebar.Header>
-      <SecondarySidebar.Content>
-        <InspectionContent target={target} />
-      </SecondarySidebar.Content>
-    </SecondarySidebar.Root>
+    <div {...stylex.props(styles.empty)}>
+      <FileSearchIcon
+        aria-hidden="true"
+        size={32}
+        strokeWidth={1.5}
+        {...stylex.props(styles.emptyIcon)}
+      />
+      <p {...stylex.props(typography.label, styles.emptyMessage)}>Select files to see details</p>
+    </div>
   );
 }
 
@@ -100,6 +107,25 @@ function InspectionContent({ target }: { target: FileInspection }) {
 
 const styles = stylex.create({
   heading: { minWidth: 0, overflowWrap: "anywhere" },
+  empty: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space[3],
+    flexGrow: 1,
+    minWidth: 0,
+    minHeight: 0,
+    padding: space[6],
+    textAlign: "center",
+    color: colors.statusNeutral,
+  },
+  emptyIcon: { flexShrink: 0 },
+  emptyMessage: {
+    maxWidth: "14rem",
+    margin: 0,
+    fontWeight: fonts.regular,
+  },
   details: {
     display: "flex",
     flexDirection: "column",

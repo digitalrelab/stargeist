@@ -1,8 +1,7 @@
-import { useAtomValue } from "@effect/atom-react";
 import { createRootRouteWithContext, Outlet, useMatches } from "@tanstack/react-router";
 import { useRef, type ComponentType, type RefObject } from "react";
 import type { RendererServices } from "#src/application.ts";
-import { FileInspectionProvider, FileInspector, useFileInspection } from "#src/files/views.ts";
+import { FileInspectionProvider, FileInspector } from "#src/files/views.ts";
 import { AppShell, RouteError, SecondarySidebar, WorkArea } from "#src/shell/index.ts";
 import { WorkspaceSidebar } from "#src/workspaces/index.ts";
 
@@ -32,8 +31,6 @@ function RootLayout() {
 }
 
 function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> }) {
-  const inspection = useFileInspection();
-  const inspectorOpen = useAtomValue(inspection.isOpen);
   const PrimarySidebar = useMatches({
     select: (matches) => {
       let primarySidebar;
@@ -54,28 +51,10 @@ function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> 
     primarySidebar = <PrimarySidebar />;
   }
 
-  let secondarySidebar;
-
-  if (inspectorOpen) {
-    secondarySidebar = <FileInspector />;
-  }
-
   return (
-    <AppShell.Root
-      ref={frame}
-      tabIndex={-1}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.defaultPrevented || !inspectorOpen) {
-          return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        inspection.close();
-      }}
-    >
+    <AppShell.Root ref={frame} tabIndex={-1}>
       <AppShell.Navigation>{primarySidebar}</AppShell.Navigation>
-      <SecondarySidebar.Layout panel={secondarySidebar} onClose={inspection.close}>
+      <SecondarySidebar.Layout panel={<FileInspector />}>
         <WorkArea.Root>
           <Outlet />
         </WorkArea.Root>

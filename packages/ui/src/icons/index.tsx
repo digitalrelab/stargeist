@@ -22,6 +22,7 @@ import {
   FileArchive,
   FileCode,
   FileQuestionMark,
+  FileSearch,
   Folder,
   Link,
   Minus,
@@ -75,6 +76,10 @@ export function ArchiveFileIcon(props: LucideProps) {
 
 export function CodeFileIcon(props: LucideProps) {
   return <FileCode size={control.iconSize} {...props} />;
+}
+
+export function FileSearchIcon(props: LucideProps) {
+  return <FileSearch size={control.iconSize} {...props} />;
 }
 
 export function FolderIcon(props: LucideProps) {

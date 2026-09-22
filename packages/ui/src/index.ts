@@ -19,6 +19,7 @@ export {
   PresentationFileIcon,
   ArchiveFileIcon,
   CodeFileIcon,
+  FileSearchIcon,
   FolderIcon,
   LinkIcon,
   UnknownFileIcon,
