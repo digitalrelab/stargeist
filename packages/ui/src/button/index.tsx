@@ -111,7 +111,7 @@ const states = {
     '[aria-current="page"]:not(:hover):not(:active):not([data-popup-open]):not(:disabled):not([aria-disabled="true"])',
 };
 
-const appearanceStyles = stylex.create({
+const appearances = stylex.create({
   solid: {
     backgroundColor: {
       default: colors.action,
@@ -137,6 +137,16 @@ const appearanceStyles = stylex.create({
     },
   },
   outlined: {
+    backgroundColor: {
+      default: colors.controlOutlined,
+      [states.hovered]: colors.controlOutlinedHovered,
+      [states.pressed]: colors.controlOutlinedPressed,
+      [states.disabled]: colors.controlDisabled,
+    },
+    color: {
+      default: colors.onControl,
+      [states.disabled]: colors.onControlDisabled,
+    },
     boxShadow: {
       default: `inset 0 0 0 1px ${colors.border}`,
       [states.interacting]: `inset 0 0 0 1px ${colors.borderStrong}`,
@@ -158,13 +168,6 @@ const appearanceStyles = stylex.create({
     },
   },
 });
-
-const appearances = {
-  solid: appearanceStyles.solid,
-  soft: appearanceStyles.soft,
-  outlined: [appearanceStyles.soft, appearanceStyles.outlined],
-  ghost: appearanceStyles.ghost,
-};
 
 const sizes = stylex.create({
   iconSm: {

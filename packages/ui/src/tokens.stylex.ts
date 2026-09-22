@@ -85,6 +85,9 @@ export const colors = stylex.defineVars({
   controlPressed: slateDark.slate5,
   controlSelected: slateDark.slate5,
   controlDisabled: slateDark.slate3,
+  controlOutlined: slateDark.slate4,
+  controlOutlinedHovered: slateDark.slate5,
+  controlOutlinedPressed: slateDark.slate6,
   onControl: slateDark.slate12,
   onControlMuted: slateDark.slate11,
   onControlDisabled: slateDark.slate10,
@@ -97,4 +100,7 @@ export const raisedSurface = stylex.createTheme(colors, {
   controlPressed: slateDark.slate6,
   controlSelected: slateDark.slate6,
   controlDisabled: slateDark.slate4,
+  controlOutlined: slateDark.slate5,
+  controlOutlinedHovered: slateDark.slate6,
+  controlOutlinedPressed: slateDark.slate7,
 });
