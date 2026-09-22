@@ -1,22 +1,21 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Atom } from "effect/unstable/reactivity";
 import { useEffect } from "react";
-import { useAIProviderConnectionsState } from "./use-state";
+import type { ProviderHealthCheck } from "../state";
 
 const pollingInterval = 30_000;
 
-export function useProviderHealth({
+export function useProviderConnectionHealth({
+  check: atom,
   enabled,
   lastValidatedAt,
   paused,
-  providerId,
 }: {
+  check: ProviderHealthCheck;
   enabled: boolean;
   lastValidatedAt: number;
   paused: boolean;
-  providerId: string;
 }) {
-  const atom = useAIProviderConnectionsState().health(providerId);
   const result = useAtomValue(atom);
   const check = useAtomSet(atom, { mode: "promiseExit" });
   const control = useAtomSet(atom);

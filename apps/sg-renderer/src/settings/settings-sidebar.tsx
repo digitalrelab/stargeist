@@ -23,7 +23,7 @@ export function SettingsSidebar() {
           <Sidebar.Link icon={<AppearanceIcon />} render={<Link to="/settings/appearance" />}>
             Appearance
           </Sidebar.Link>
-          <Sidebar.Link icon={<AIIcon />} render={<Link to="/settings/ai" />}>
+          <Sidebar.Link icon={<AIIcon />} render={<Link to="/settings/ai" preload="intent" />}>
             AI
           </Sidebar.Link>
         </Sidebar.Nav>

@@ -108,7 +108,7 @@ const styles = stylex.create({
     appearance: "none",
     color: colors.text,
     outline: "none",
-    "::placeholder": { color: colors.onControlMuted },
+    "::placeholder": { color: colors.textPlaceholder, opacity: 1 },
   },
   standaloneControl: {
     minHeight: control.heightMd,

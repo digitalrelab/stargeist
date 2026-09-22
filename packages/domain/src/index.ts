@@ -1,12 +1,4 @@
-export {
-  AIProviderConnections,
-  ConfigureProvider,
-  ConnectionState,
-  ProviderConnection,
-  ProviderConnectionError,
-  ProviderCredential,
-  ProviderId,
-} from "./ai";
+export { AgentModelCatalog, AgentModelPreferenceError, AgentModelPreferences } from "./ai";
 export * from "./workspaces";
 export {
   DirectoryPage,

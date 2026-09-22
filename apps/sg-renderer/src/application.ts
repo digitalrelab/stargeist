@@ -2,7 +2,7 @@ import { Application } from "@stargeist/application";
 import type { Effect, Layer } from "effect";
 import type { DesktopConnection } from "#src/desktop/index.ts";
 import type { ClientUnavailableError } from "#src/client/index.ts";
-import { AIProviderConnectionsStateModule } from "#src/ai/desktop.ts";
+import { AIStateModule } from "#src/ai/desktop.ts";
 import { WorkspaceStateModule } from "#src/workspaces/desktop.ts";
 
 export const createRendererApplication = (
@@ -11,7 +11,7 @@ export const createRendererApplication = (
   Application.define({
     modules: {
       workspaces: WorkspaceStateModule,
-      aiProviderConnections: AIProviderConnectionsStateModule,
+      ai: AIStateModule,
     },
     provide: connection,
   });

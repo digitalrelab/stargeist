@@ -1,11 +1,23 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { ProviderConnectionError, ProviderId } from "@stargeist/domain";
+import {
+  ProviderConnectionError,
+  ProviderId,
+  ProviderConfiguration,
+  ProviderConfigurationStore,
+} from "@stargeist/ai";
 import { Effect, Layer, Predicate, RcMap, Redacted, Schema, Semaphore } from "effect";
 import { AppStorage } from "@stargeist/storage";
-import { Credentials, StoredCredential } from "./credentials";
 import { SecretProtection } from "./protection";
+
+const StoredCredential = Schema.Struct({
+  version: Schema.Literal(1),
+  providerId: ProviderId,
+  credential: ProviderConfiguration,
+  lastValidatedAt: Schema.Number,
+});
+type StoredCredential = typeof StoredCredential.Type;
 
 const storageFailure = () =>
   new ProviderConnectionError({
@@ -22,8 +34,8 @@ const codec = Schema.fromJsonString(Schema.toCodecJson(StoredCredential));
 const missing = (error: unknown) => Predicate.hasProperty(error, "code") && error.code === "ENOENT";
 const maxCredentialBytes = 64 * 1024;
 
-export const credentialsLayer = Layer.effect(
-  Credentials,
+export const providerConfigurationStoreLayer = Layer.effect(
+  ProviderConfigurationStore,
   Effect.gen(function* () {
     const { credentials: directory } = yield* AppStorage;
     const protection = yield* SecretProtection;
@@ -104,7 +116,11 @@ export const credentialsLayer = Layer.effect(
       );
       if (record.providerId !== id) return yield* unreadable();
       if (decrypted.shouldReEncrypt) yield* write(record);
-      return record;
+      return {
+        providerId: record.providerId,
+        configuration: record.credential,
+        lastValidatedAt: record.lastValidatedAt,
+      };
     });
 
     const remove = Effect.fnUntraced(function* (id: string) {
@@ -115,9 +131,18 @@ export const credentialsLayer = Layer.effect(
       }).pipe(Effect.uninterruptible);
     });
 
-    return Credentials.of({
+    return ProviderConfigurationStore.of({
       read: (id) => withLock(id, read(id)),
-      write: (record) => withLock(record.providerId, write(record)),
+      write: (record) =>
+        withLock(
+          record.providerId,
+          write({
+            version: 1,
+            providerId: record.providerId,
+            credential: record.configuration,
+            lastValidatedAt: record.lastValidatedAt,
+          }),
+        ),
       remove: (id) => withLock(id, remove(id)),
     });
   }),

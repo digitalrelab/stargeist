@@ -4,5 +4,5 @@
     "types": ["node"]
   },
   "include": ["src", "generate-schema.ts"],
-  "exclude": ["src/preload.ts", "src/**/*.test.ts"]
+  "exclude": ["src/preload.ts"]
 }

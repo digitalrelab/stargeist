@@ -1,23 +1,20 @@
 import { Module } from "@stargeist/application";
 import { Context, Effect, Layer } from "effect";
 import { DesktopConnection } from "#src/desktop/index.ts";
-import {
-  createAIProviderConnectionsState,
-  type AIProviderConnectionsState as State,
-} from "./state";
-import { makeRpcAIProviderConnectionsClient } from "./rpc";
+import { createAIState, type AIState as State } from "./state";
+import { makeRpcAgentModelsClient, makeRpcAIProviderConnectionsClient } from "./rpc";
 
-export class AIProviderConnectionsState extends Context.Service<
-  AIProviderConnectionsState,
-  State
->()("@stargeist/renderer/AIProviderConnectionsState") {}
+export class AIState extends Context.Service<AIState, State>()("@stargeist/renderer/AIState") {}
 
-export const AIProviderConnectionsStateModule = Module.define({
-  exports: AIProviderConnectionsState,
+export const AIStateModule = Module.define({
+  exports: AIState,
   layer: Layer.effect(
-    AIProviderConnectionsState,
-    Effect.flatMap(DesktopConnection, makeRpcAIProviderConnectionsClient).pipe(
-      Effect.map(createAIProviderConnectionsState),
-    ),
+    AIState,
+    Effect.gen(function* () {
+      const connection = yield* DesktopConnection;
+      const connections = yield* makeRpcAIProviderConnectionsClient(connection);
+      const models = yield* makeRpcAgentModelsClient(connection);
+      return createAIState(connections, models);
+    }),
   ),
 });

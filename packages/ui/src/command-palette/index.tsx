@@ -198,7 +198,7 @@ const styles = stylex.create({
     borderWidth: 0,
     backgroundColor: "transparent",
     color: colors.text,
-    "::placeholder": { color: colors.textMuted },
+    "::placeholder": { color: colors.textPlaceholder, opacity: 1 },
     outlineStyle: "none",
   },
   results: {

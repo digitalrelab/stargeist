@@ -1,6 +1,8 @@
 export { Button, type ButtonProps, type ButtonLinkProps } from "./button";
 export * as Breadcrumbs from "./breadcrumbs";
 export * as Select from "./select";
+export * as Combobox from "./combobox";
+export { Tabs } from "@base-ui/react/tabs";
 export * as Dialog from "./dialog";
 export * as ConfirmDialog from "./confirm-dialog";
 export * as CommandPalette from "./command-palette";
@@ -9,6 +11,10 @@ export {
   SettingsIcon,
   AppearanceIcon,
   AIIcon,
+  ImageIcon,
+  VideoIcon,
+  AudioIcon,
+  ReasoningIcon,
   FileIcon,
   ImageFileIcon,
   VideoFileIcon,
@@ -30,6 +36,7 @@ export {
   ErrorIcon,
   TagsIcon,
   ChevronRightIcon,
+  ChevronsUpDownIcon,
 } from "./icons";
 export * as Sidebar from "./sidebar";
 export { ScrollArea } from "./scroll-area";

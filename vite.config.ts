@@ -40,6 +40,8 @@ const protocolImports = [
   "@stargeist/std/rpc",
 ];
 const featureImports = [
+  "@stargeist/ai",
+  "@stargeist/ai/*",
   "@stargeist/protocol",
   "@stargeist/protocol/*",
   "@stargeist/domain",
@@ -48,6 +50,8 @@ const featureImports = [
   "@stargeist/ui/*",
 ];
 const uiImports = [
+  "@stargeist/ai",
+  "@stargeist/ai/*",
   ...protocolImports,
   ...appImports,
   "@stargeist/domain",
@@ -57,6 +61,18 @@ const uiImports = [
 ];
 
 const boundaries = [
+  {
+    files: ["packages/ai/src/**"],
+    portable: true,
+    patterns: [
+      ...appImports,
+      ...featureImports,
+      ...protocolImports,
+      "@stargeist/application",
+      "@stargeist/application/*",
+      iconImports,
+    ],
+  },
   {
     files: ["tooling/checks/src/**"],
     portable: false,

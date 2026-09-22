@@ -4,8 +4,13 @@ import { clientProtocol, serverProtocol, type Connection } from "@stargeist/std/
 import { Cause, Deferred, Effect, Fiber, Layer, Redacted, Schema } from "effect";
 import { Rpc, RpcClient, RpcGroup, RpcServer } from "effect/unstable/rpc";
 import { expect, it } from "vite-plus/test";
-import { connectionsLayer } from "./connections";
-import { Credentials, type StoredCredential } from "./credentials";
+import {
+  connectionsLayer,
+  ProviderConfigurationStore,
+  Provider as AIProvider,
+  registryLayer,
+  type ProviderConfigurationRecord,
+} from "@stargeist/ai";
 import { ProviderConnectionsEndpoint } from "./host";
 
 const connect = (port: MessagePort): Connection => ({
@@ -38,8 +43,8 @@ it("round-trips credentials privately and keeps host requests usable during vali
       );
       const started = yield* Deferred.make<void>();
       const finish = yield* Deferred.make<void>();
-      const records = new Map<string, StoredCredential>();
-      const store = Layer.succeed(Credentials, {
+      const records = new Map<string, ProviderConfigurationRecord>();
+      const store = Layer.succeed(ProviderConfigurationStore, {
         read: (id) => Effect.sync(() => records.get(id) ?? null),
         write: (record) =>
           Effect.sync(() => {
@@ -50,19 +55,25 @@ it("round-trips credentials privately and keeps host requests usable during vali
             records.delete(id);
           }),
       });
-      const connections = connectionsLayer([
-        {
+      const providers = registryLayer([
+        AIProvider.define({
           id: "first",
           displayName: "First provider",
-          credentialKind: "apiKey",
-          validate: (credential) => {
-            expect(Redacted.value(credential.key)).toBe("rpc-secret-1234");
-            return Deferred.succeed(started, undefined).pipe(
-              Effect.andThen(Deferred.await(finish)),
-            );
-          },
-        },
-      ]).pipe(Layer.provide(store));
+          configuration: Schema.Struct({ key: Schema.Redacted(Schema.String) }),
+        })(
+          Effect.succeed({
+            describe: () => "••••1234",
+            check: (credential) => {
+              expect(Redacted.value(credential.key)).toBe("rpc-secret-1234");
+              return Deferred.succeed(started, undefined).pipe(
+                Effect.andThen(Deferred.await(finish)),
+              );
+            },
+            models: () => Effect.succeed([]),
+          }),
+        ),
+      ]);
+      const connections = connectionsLayer.pipe(Layer.provide(providers), Layer.provide(store));
       const serverConnection = connect(port1);
       const protocol = yield* serverProtocol({
         ...serverConnection,
@@ -83,7 +94,7 @@ it("round-trips credentials privately and keeps host requests usable during vali
       );
       const pending = yield* client["ai.connections.configure"]({
         providerId: "first",
-        credential: { kind: "apiKey", key: Redacted.make("rpc-secret-1234") },
+        configuration: Redacted.make({ key: "rpc-secret-1234" }),
       }).pipe(Effect.forkChild);
       yield* Deferred.await(started);
       expect(yield* client.ping()).toBe("pong");
@@ -94,7 +105,7 @@ it("round-trips credentials privately and keeps host requests usable during vali
       yield* Deferred.succeed(finish, undefined);
       expect((yield* Fiber.join(pending)).state).toMatchObject({
         status: "configured",
-        keyHint: "••••1234",
+        summary: "••••1234",
       });
       expect((yield* client["ai.connections.check"]({ providerId: "first" })).state.status).toBe(
         "configured",
@@ -111,7 +122,7 @@ it("does not echo secrets in malformed configuration errors", () => {
   const decode = Schema.decodeUnknownExit(Schema.toCodecJson(request.payloadSchema));
   const result = decode({
     providerId: "../bad",
-    credential: { kind: "apiKey", key: "rpc-secret-1234" },
+    configuration: { key: "rpc-secret-1234" },
   });
   expect(result._tag).toBe("Failure");
   if (result._tag === "Failure")

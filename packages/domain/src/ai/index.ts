@@ -1,69 +1,50 @@
-import { Context, type Effect, Schema } from "effect";
+import { ModelCatalog, type ModelReference, type ProviderModelCatalog } from "@stargeist/ai";
+import { Context, Effect, Layer, Schema } from "effect";
 
-export const ProviderId = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/));
-
-export const ProviderCredential = Schema.Struct({
-  kind: Schema.Literal("apiKey"),
-  key: Schema.Redacted(Schema.String),
-});
-export type ProviderCredential = typeof ProviderCredential.Type;
-
-export const ConfigureProvider = Schema.Struct({
-  providerId: ProviderId,
-  credential: ProviderCredential,
-}).annotate({ message: "Invalid provider configuration." });
-export type ConfigureProvider = typeof ConfigureProvider.Type;
-
-export class ProviderConnectionError extends Schema.TaggedError<ProviderConnectionError>()(
-  "ProviderConnectionError",
+export class AgentModelPreferenceError extends Schema.TaggedError<AgentModelPreferenceError>()(
+  "AgentModelPreferenceError",
   {
-    code: Schema.Literals([
-      "UnknownProvider",
-      "InvalidCredential",
-      "UnsupportedCredential",
-      "NotConfigured",
-      "Busy",
-      "NetworkUnavailable",
-      "RateLimited",
-      "ProviderUnavailable",
-      "InvalidResponse",
-      "SecureStorageUnavailable",
-      "CredentialUnreadable",
-      "StorageUnavailable",
-    ]),
     message: Schema.String,
   },
 ) {}
 
-export const ConnectionState = Schema.Union([
-  Schema.Struct({ status: Schema.Literal("notConfigured") }),
-  Schema.Struct({
-    status: Schema.Literal("configured"),
-    keyHint: Schema.String,
-    lastValidatedAt: Schema.Number,
-  }),
-  Schema.Struct({ status: Schema.Literal("unavailable"), error: ProviderConnectionError }),
-]);
-export type ConnectionState = typeof ConnectionState.Type;
+export class AgentModelCatalog extends Context.Service<
+  AgentModelCatalog,
+  { readonly list: Effect.Effect<ReadonlyArray<ProviderModelCatalog>> }
+>()("@stargeist/domain/AgentModelCatalog") {
+  static readonly layer = Layer.effect(
+    AgentModelCatalog,
+    Effect.gen(function* () {
+      const catalog = yield* ModelCatalog;
+      return AgentModelCatalog.of({
+        list: catalog.list.pipe(
+          Effect.map((providers) =>
+            providers.map((provider) => {
+              if (provider.state.status !== "available") return provider;
+              return {
+                ...provider,
+                state: {
+                  status: "available" as const,
+                  models: provider.state.models.filter(
+                    (model) =>
+                      model.capabilities.toolCalling &&
+                      model.capabilities.inputModalities?.includes("text") === true &&
+                      model.capabilities.outputModalities.includes("text"),
+                  ),
+                },
+              };
+            }),
+          ),
+        ),
+      });
+    }),
+  );
+}
 
-export const ProviderConnection = Schema.Struct({
-  providerId: ProviderId,
-  displayName: Schema.NonEmptyString,
-  credentialKind: Schema.Literal("apiKey"),
-  state: ConnectionState,
-});
-export type ProviderConnection = typeof ProviderConnection.Type;
-
-export class AIProviderConnections extends Context.Service<
-  AIProviderConnections,
+export class AgentModelPreferences extends Context.Service<
+  AgentModelPreferences,
   {
-    readonly list: Effect.Effect<ReadonlyArray<ProviderConnection>>;
-    readonly configure: (
-      input: ConfigureProvider,
-    ) => Effect.Effect<ProviderConnection, ProviderConnectionError>;
-    readonly check: (
-      providerId: string,
-    ) => Effect.Effect<ProviderConnection, ProviderConnectionError>;
-    readonly remove: (providerId: string) => Effect.Effect<void, ProviderConnectionError>;
+    readonly getDefault: Effect.Effect<ModelReference | null, AgentModelPreferenceError>;
+    readonly setDefault: (model: ModelReference) => Effect.Effect<void, AgentModelPreferenceError>;
   }
->()("@stargeist/domain/AIProviderConnections") {}
+>()("@stargeist/domain/AgentModelPreferences") {}

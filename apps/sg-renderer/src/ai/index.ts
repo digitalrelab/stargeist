@@ -1,1 +1,1 @@
-export { ProvidersSection } from "./ui/providers-section";
+export { AISettingsPage } from "./ui/ai-settings-page";

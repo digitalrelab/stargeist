@@ -1,8 +1,9 @@
 import { join } from "node:path";
 import { Module } from "@stargeist/application";
 import { UserPreferences } from "@stargeist/domain";
-import { BrowserWindow } from "electron";
-import { Context, Data, Deferred, Effect, Layer } from "effect";
+import { reportFailure } from "@stargeist/std/errors";
+import { app, BrowserWindow } from "electron";
+import { Cause, Context, Data, Deferred, Effect, Layer } from "effect";
 import { WindowConnections } from "./connections";
 import { applicationIcon } from "../icon";
 import { windowPlacement } from "./placement";
@@ -47,6 +48,41 @@ const openWindow = Effect.fnUntraced(function* (changeScale: RunScaleCommand) {
         if (!window.isDestroyed()) window.destroy();
       }),
   );
+
+  if (!app.isPackaged) {
+    const log = Effect.runSyncWith(yield* Effect.context<never>());
+    const consoleMessage = (
+      details: Electron.Event<Electron.WebContentsConsoleMessageEventParams>,
+    ) => {
+      if (details.level === "debug") return;
+      let message = Effect.logInfo(details.message);
+      if (details.level === "warning") message = Effect.logWarning(details.message);
+      if (details.level === "error") message = Effect.logError(details.message);
+      log(
+        message.pipe(
+          Effect.annotateLogs({
+            operation: "renderer.console",
+            source: details.sourceId,
+            line: details.lineNumber,
+          }),
+        ),
+      );
+    };
+    const preloadError = (_event: Electron.Event, _path: string, error: Error) => {
+      log(reportFailure("renderer.preload", Cause.die(error)));
+    };
+    yield* Effect.acquireRelease(
+      Effect.sync(() => {
+        window.webContents.on("console-message", consoleMessage);
+        window.webContents.on("preload-error", preloadError);
+      }),
+      () =>
+        Effect.sync(() => {
+          window.webContents.removeListener("console-message", consoleMessage);
+          window.webContents.removeListener("preload-error", preloadError);
+        }),
+    );
+  }
 
   yield* Effect.sync(() => {
     window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));

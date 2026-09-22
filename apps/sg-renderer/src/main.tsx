@@ -8,9 +8,7 @@ import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApplicationRoot } from "./application-root";
-import { createRendererApplication } from "./application";
-import { desktopConnectionLayer } from "./desktop/connection";
-import { createAppRouter } from "./router";
+import { startRenderer } from "./startup";
 import "@fontsource-variable/inter/standard.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@stargeist/ui/reset.css";
@@ -38,17 +36,7 @@ if (!root) {
 }
 
 const registry = AtomRegistry.make();
-const startup = Atom.make(
-  createRendererApplication(desktopConnectionLayer).make.pipe(
-    Effect.flatMap((application) =>
-      Effect.acquireRelease(
-        Effect.sync(() => createAppRouter(application)),
-        (router) => Effect.sync(() => router.history.destroy()),
-      ),
-    ),
-    Effect.onError((cause) => reportFailure("renderer.startup", cause)),
-  ),
-).pipe(Atom.keepAlive);
+const startup = Atom.make(startRenderer(registry)).pipe(Atom.keepAlive);
 const reactRoot = createRoot(root, {
   onUncaughtError: (error) => Effect.runSync(reportFailure("renderer.render", Cause.die(error))),
   onRecoverableError: (error) =>

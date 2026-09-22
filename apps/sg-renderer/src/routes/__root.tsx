@@ -1,4 +1,5 @@
 import { createRootRouteWithContext, Outlet, useMatches } from "@tanstack/react-router";
+import type { AtomRegistry } from "effect/unstable/reactivity";
 import type { ComponentType } from "react";
 import type { RendererServices } from "#src/application.ts";
 import { FileInspectionProvider, FileInspector } from "#src/files/views.ts";
@@ -11,7 +12,10 @@ declare module "@tanstack/react-router" {
   }
 }
 
-export const Route = createRootRouteWithContext<{ application: RendererServices }>()({
+export const Route = createRootRouteWithContext<{
+  application: RendererServices;
+  registry: AtomRegistry.AtomRegistry;
+}>()({
   component: RootLayout,
   notFoundComponent: RouteError,
   staticData: {

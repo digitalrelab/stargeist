@@ -1,19 +1,41 @@
 import { AIIcon, IconBadge } from "@stargeist/ui";
 import type { ComponentType } from "react";
-import { OpenRouterBadge } from "./openrouter";
+import type { ProviderConnectionOperation } from "../state";
+import { APIKeyForm } from "../ui/api-key-form";
+import { OpenRouterIcon } from "./openrouter";
 
-const providerBadges: Partial<Record<string, ComponentType>> = {
-  openrouter: OpenRouterBadge,
+const providers: Partial<
+  Record<
+    string,
+    {
+      Icon: ComponentType;
+      Editor?: ComponentType<{
+        operation: ProviderConnectionOperation;
+        summary: string | null;
+        onClose: () => void;
+      }>;
+    }
+  >
+> = {
+  openrouter: { Icon: OpenRouterIcon, Editor: APIKeyForm },
 };
 
+export function providerEditor(providerId: string) {
+  return providers[providerId]?.Editor;
+}
+
+export function ProviderIcon({ providerId }: { providerId: string }) {
+  const Icon = providers[providerId]?.Icon;
+
+  if (Icon) return <Icon />;
+
+  return <AIIcon aria-hidden="true" />;
+}
+
 export function ProviderBadge({ providerId }: { providerId: string }) {
-  const Badge = providerBadges[providerId];
-
-  if (Badge) return <Badge />;
-
   return (
     <IconBadge aria-hidden="true">
-      <AIIcon />
+      <ProviderIcon providerId={providerId} />
     </IconBadge>
   );
 }

@@ -1,9 +1,12 @@
 import {
+  ModelReference,
   ConfigureProvider,
   ProviderConnection,
   ProviderConnectionError,
   ProviderId,
-} from "@stargeist/domain";
+  ProviderModelCatalog,
+} from "@stargeist/ai";
+import { AgentModelPreferenceError } from "@stargeist/domain";
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
 
@@ -25,3 +28,16 @@ export const ProviderConnectionRpcs = RpcGroup.make(
     error: ProviderConnectionError,
   }),
 ).prefix("ai.connections.");
+
+export const AgentModelRpcs = RpcGroup.make(
+  Rpc.make("list", { success: Schema.Array(ProviderModelCatalog) }),
+  Rpc.make("getDefault", {
+    success: Schema.NullOr(ModelReference),
+    error: AgentModelPreferenceError,
+  }),
+  Rpc.make("setDefault", {
+    payload: { model: ModelReference },
+    success: Schema.Void,
+    error: AgentModelPreferenceError,
+  }),
+).prefix("ai.models.");

@@ -1,29 +1,28 @@
-import {
-  AIProviderConnections,
-  ProviderConnectionError,
-  type ProviderCredential,
-} from "@stargeist/domain";
-import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
+import { ProviderConnections, ProviderConnectionError, type ProviderConfiguration } from "./index";
+import { Deferred, Effect, Fiber, Layer, Redacted, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { expect, it } from "vite-plus/test";
 import { connectionsLayer } from "./connections";
-import { Credentials, type StoredCredential } from "./credentials";
-import type { ProviderAdapter } from "./provider";
+import { ProviderConfigurationStore, type ProviderConfigurationRecord } from "./configuration";
+import * as AIProvider from "./provider";
+import { registryLayer } from "./registry";
 
-const credential = (key: string): ProviderCredential => ({
-  kind: "apiKey",
-  key: Redacted.make(key),
-});
+const Configuration = Schema.Redacted(
+  Schema.String.check(Schema.isPattern(/^[\x21-\x7E]{1,4096}$/)),
+);
+const configuration = (key: string): ProviderConfiguration => Redacted.make(key);
 const rejected = new ProviderConnectionError({
   code: "InvalidCredential",
   message: "Rejected key.",
 });
 
-function fixture(validate: ProviderAdapter["validate"] = () => Effect.void) {
-  const records = new Map<string, StoredCredential>();
+function fixture(
+  check: AIProvider.Implementation<typeof Configuration.Type>["check"] = () => Effect.void,
+) {
+  const records = new Map<string, ProviderConfigurationRecord>();
   let failWrite = false;
   let writes = 0;
-  const store: Credentials["Service"] = {
+  const store: ProviderConfigurationStore["Service"] = {
     read: (id) => Effect.sync(() => records.get(id) ?? null),
     write: (record) =>
       Effect.suspend(() => {
@@ -41,51 +40,69 @@ function fixture(validate: ProviderAdapter["validate"] = () => Effect.void) {
         records.delete(id);
       }),
   };
-  const adapters: ProviderAdapter[] = [
-    { id: "first", displayName: "First provider", credentialKind: "apiKey", validate },
-    {
+  const providers = registryLayer([
+    AIProvider.define({
+      id: "first",
+      displayName: "First provider",
+      configuration: Configuration,
+    })(
+      Effect.succeed({
+        describe: (key) => `••••${Redacted.value(key).slice(-4)}`,
+        check,
+        models: () => Effect.succeed([]),
+      }),
+    ),
+    AIProvider.define({
       id: "second",
       displayName: "Second provider",
-      credentialKind: "apiKey",
-      validate: () => Effect.void,
-    },
-  ];
+      configuration: Configuration,
+    })(
+      Effect.succeed({
+        describe: () => null,
+        check: () => Effect.void,
+        models: () => Effect.succeed([]),
+      }),
+    ),
+  ]);
   return {
     failWrites: () => {
       failWrite = true;
     },
     writes: () => writes,
-    layer: connectionsLayer(adapters).pipe(Layer.provide(Layer.succeed(Credentials, store))),
+    layer: connectionsLayer.pipe(
+      Layer.provide(providers),
+      Layer.provide(Layer.succeed(ProviderConfigurationStore, store)),
+    ),
   };
 }
 
 it("isolates providers and preserves the saved key through failed validation and failed persistence", async () => {
   const setup = fixture((input) => {
-    if (Redacted.value(input.key) === "rejected-secret") return Effect.fail(rejected);
+    if (Redacted.value(input) === "rejected-secret") return Effect.fail(rejected);
     return Effect.void;
   });
   await Effect.runPromise(
     Effect.gen(function* () {
-      const connections = yield* AIProviderConnections;
+      const connections = yield* ProviderConnections;
       expect((yield* connections.list).map((p) => p.state.status)).toEqual([
         "notConfigured",
         "notConfigured",
       ]);
       const saved = yield* connections.configure({
         providerId: "first",
-        credential: credential("first-secret-1234"),
+        configuration: configuration("first-secret-1234"),
       });
-      expect(saved.state).toMatchObject({ status: "configured", keyHint: "••••1234" });
+      expect(saved.state).toMatchObject({ status: "configured", summary: "••••1234" });
       expect(JSON.stringify(saved)).not.toContain("first-secret");
       expect(
         yield* connections
-          .configure({ providerId: "first", credential: credential("rejected-secret") })
+          .configure({ providerId: "first", configuration: configuration("rejected-secret") })
           .pipe(Effect.flip),
       ).toEqual(rejected);
       setup.failWrites();
       expect(
         yield* connections
-          .configure({ providerId: "first", credential: credential("replacement-secret") })
+          .configure({ providerId: "first", configuration: configuration("replacement-secret") })
           .pipe(Effect.flip),
       ).toMatchObject({ code: "StorageUnavailable" });
       expect(yield* connections.list).toEqual([
@@ -93,7 +110,6 @@ it("isolates providers and preserves the saved key through failed validation and
         {
           providerId: "second",
           displayName: "Second provider",
-          credentialKind: "apiKey",
           state: { status: "notConfigured" },
         },
       ]);
@@ -114,9 +130,9 @@ it("keeps other providers and local status usable during validation and rejects 
         Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
       );
       yield* Effect.gen(function* () {
-        const connections = yield* AIProviderConnections;
+        const connections = yield* ProviderConnections;
         const pending = yield* connections
-          .configure({ providerId: "first", credential: credential("first-secret") })
+          .configure({ providerId: "first", configuration: configuration("first-secret") })
           .pipe(Effect.forkChild);
         yield* Deferred.await(started);
         expect(yield* connections.remove("first").pipe(Effect.flip)).toMatchObject({
@@ -125,7 +141,7 @@ it("keeps other providers and local status usable during validation and rejects 
         expect((yield* connections.list)[0]?.state.status).toBe("notConfigured");
         yield* connections.configure({
           providerId: "second",
-          credential: credential("second-secret"),
+          configuration: configuration("second-secret"),
         });
         yield* Fiber.interrupt(pending);
         yield* connections.remove("first");
@@ -146,10 +162,10 @@ it("reports failed checks without discarding credentials, and supports replacing
   });
   await Effect.runPromise(
     Effect.gen(function* () {
-      const connections = yield* AIProviderConnections;
+      const connections = yield* ProviderConnections;
       const original = yield* connections.configure({
         providerId: "first",
-        credential: credential("original-key"),
+        configuration: configuration("original-key"),
       });
       valid = false;
       yield* TestClock.adjust("1 second");
@@ -158,13 +174,13 @@ it("reports failed checks without discarding credentials, and supports replacing
       valid = true;
       yield* connections.configure({
         providerId: "first",
-        credential: credential("new-key-5678"),
+        configuration: configuration("new-key-5678"),
       });
       yield* TestClock.adjust("1 second");
       const checked = yield* connections.check("first");
       expect(checked.state).toEqual({
         status: "configured",
-        keyHint: "••••5678",
+        summary: "••••5678",
         lastValidatedAt: 2000,
       });
       expect(setup.writes()).toBe(2);
@@ -172,14 +188,14 @@ it("reports failed checks without discarding credentials, and supports replacing
       yield* connections.remove("first");
       yield* connections.configure({
         providerId: "first",
-        credential: credential("third-key-9012"),
+        configuration: configuration("third-key-9012"),
       });
-      expect((yield* connections.list)[0]?.state).toMatchObject({ keyHint: "••••9012" });
+      expect((yield* connections.list)[0]?.state).toMatchObject({ summary: "••••9012" });
       expect(
         yield* connections
-          .configure({ providerId: "first", credential: credential("bad\nsecret") })
+          .configure({ providerId: "first", configuration: configuration("bad\nsecret") })
           .pipe(Effect.flip),
-      ).toMatchObject({ code: "InvalidCredential" });
+      ).toMatchObject({ code: "InvalidConfiguration" });
       expect(yield* connections.remove("unknown").pipe(Effect.flip)).toMatchObject({
         code: "UnknownProvider",
       });
