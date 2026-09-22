@@ -44,37 +44,73 @@ type Highlight = {
 const emptyModels: ReadonlyArray<ModelOption> = [];
 const estimatedModelRowHeight = 58;
 
-export function ModelSelect({
-  ariaLabel,
-  catalogs,
-  disabled,
-  value,
-  onValueChange,
-}: {
+type ModelSelectProps = {
   ariaLabel: string;
   catalogs: ReadonlyArray<ProviderModelCatalog>;
   disabled: boolean;
   value: ModelReference | null;
   onValueChange: (model: ModelReference) => void;
-}) {
+};
+
+export function ModelSelect({ catalogs, value, ...props }: ModelSelectProps) {
   const options = useMemo(() => modelOptions(catalogs, value), [catalogs, value]);
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [sessionProviders, setSessionProviders] = useState<ReadonlyArray<ModelGroup> | null>(null);
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
-  const [highlight, setHighlight] = useState<Highlight>({ modelKey: null, reason: "none" });
+  const providers = sessionProviders ?? options.groups;
   const activeProvider =
-    options.groups.find((group) => group.id === activeProviderId) ??
-    options.groups.find((group) => group.id === value?.providerId) ??
-    options.groups[0];
+    providers.find((group) => group.id === activeProviderId) ??
+    providers.find((group) => group.id === value?.providerId) ??
+    providers[0];
+
+  return (
+    <ModelPicker
+      {...props}
+      key={activeProvider?.id}
+      providers={providers}
+      provider={activeProvider}
+      value={options.selected}
+      open={sessionProviders !== null}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setSessionProviders(null);
+          return;
+        }
+        setSessionProviders(options.groups);
+        setActiveProviderId(value?.providerId ?? null);
+      }}
+      onProviderChange={setActiveProviderId}
+    />
+  );
+}
+
+function ModelPicker({
+  ariaLabel,
+  disabled,
+  providers,
+  provider,
+  value,
+  open,
+  onOpenChange,
+  onProviderChange,
+  onValueChange,
+}: Pick<ModelSelectProps, "ariaLabel" | "disabled" | "onValueChange"> & {
+  providers: ReadonlyArray<ModelGroup>;
+  provider: ModelGroup | undefined;
+  value: ModelOption | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onProviderChange: (providerId: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState<Highlight>({ modelKey: null, reason: "none" });
 
   return (
     <Combobox.Root<ModelOption>
-      key={activeProvider?.id ?? "none"}
       disabled={disabled}
       open={open}
       inputValue={query}
-      items={activeProvider?.items ?? emptyModels}
-      value={options.selected}
+      items={provider?.items ?? emptyModels}
+      value={value}
       autoHighlight
       virtualized
       itemToStringLabel={modelLabel}
@@ -82,15 +118,14 @@ export function ModelSelect({
       isItemEqualToValue={equalModels}
       filter={filterModel}
       onInputValueChange={setQuery}
-      onItemHighlighted={(model, details) =>
-        setHighlight({ modelKey: model ? modelKey(model) : null, reason: details.reason })
-      }
+      onItemHighlighted={(model, details) => {
+        let key: string | null = null;
+        if (model) key = modelKey(model);
+        setHighlight({ modelKey: key, reason: details.reason });
+      }}
       onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
-        if (nextOpen) {
-          setQuery("");
-          setActiveProviderId(value?.providerId ?? null);
-        }
+        if (nextOpen) setQuery("");
+        onOpenChange(nextOpen);
       }}
       onValueChange={(model) => {
         if (model) onValueChange(model.reference);
@@ -114,18 +149,16 @@ export function ModelSelect({
       </Combobox.Trigger>
       <Combobox.Popup aria-label={ariaLabel} styles={styles.popup}>
         <Tabs.Root
-          value={activeProvider?.id ?? null}
+          value={provider?.id ?? null}
           orientation="vertical"
           onValueChange={(id) => {
-            if (typeof id !== "string" || id === activeProvider?.id) return;
-            setActiveProviderId(id);
-            setQuery("");
-            setHighlight({ modelKey: null, reason: "none" });
+            if (typeof id !== "string" || id === provider?.id) return;
+            onProviderChange(id);
           }}
           {...stylex.props(styles.tabLayout)}
         >
           <Tabs.List aria-label="Model providers" {...stylex.props(styles.rail)}>
-            {options.groups.map((group) => (
+            {providers.map((group) => (
               <Tooltip.Root key={group.id}>
                 <Tooltip.Trigger
                   render={
@@ -142,8 +175,8 @@ export function ModelSelect({
               </Tooltip.Root>
             ))}
           </Tabs.List>
-          {activeProvider && (
-            <Tabs.Panel value={activeProvider.id} {...stylex.props(styles.modelPane)}>
+          {provider && (
+            <Tabs.Panel value={provider.id} {...stylex.props(styles.modelPane)}>
               <Combobox.Input aria-label="Search models" placeholder="Search models…" autoFocus />
               <ModelList highlight={highlight} query={query} />
             </Tabs.Panel>
