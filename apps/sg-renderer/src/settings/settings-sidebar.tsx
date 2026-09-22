@@ -1,4 +1,12 @@
-import { AIIcon, AppearanceIcon, BackIcon, Button, SettingsIcon, Sidebar } from "@stargeist/ui";
+import {
+  AIIcon,
+  AppearanceIcon,
+  BackIcon,
+  Button,
+  SettingsIcon,
+  Sidebar,
+  Tooltip,
+} from "@stargeist/ui";
 import { Link } from "@tanstack/react-router";
 
 export function SettingsSidebar() {
@@ -22,14 +30,21 @@ export function SettingsSidebar() {
       </Sidebar.Content>
       <Sidebar.Footer>
         <Sidebar.Nav aria-label="Application">
-          <Button.Link
-            appearance="ghost"
-            shape="circle"
-            render={<Link to="/" />}
-            aria-label="Back to workspaces"
-          >
-            <BackIcon aria-hidden="true" />
-          </Button.Link>
+          <Tooltip.Root>
+            <Tooltip.Trigger
+              render={
+                <Button.Link
+                  appearance="ghost"
+                  shape="square"
+                  render={<Link to="/" />}
+                  aria-label="Back"
+                />
+              }
+            >
+              <BackIcon aria-hidden="true" />
+            </Tooltip.Trigger>
+            <Tooltip.Popup side="right">Back</Tooltip.Popup>
+          </Tooltip.Root>
         </Sidebar.Nav>
       </Sidebar.Footer>
     </Sidebar.Root>

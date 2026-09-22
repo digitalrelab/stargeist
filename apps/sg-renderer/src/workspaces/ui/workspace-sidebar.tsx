@@ -1,4 +1,4 @@
-import { Button, SettingsIcon, Sidebar, typography } from "@stargeist/ui";
+import { Button, SettingsIcon, Sidebar, Tooltip, typography } from "@stargeist/ui";
 import * as stylex from "@stylexjs/stylex";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import { Link, useParams } from "@tanstack/react-router";
@@ -30,14 +30,21 @@ export function WorkspaceSidebar() {
       </Sidebar.Content>
       <Sidebar.Footer>
         <Sidebar.Nav aria-label="Application">
-          <Button.Link
-            appearance="ghost"
-            shape="square"
-            render={<Link to="/settings" />}
-            aria-label="Settings"
-          >
-            <SettingsIcon aria-hidden="true" />
-          </Button.Link>
+          <Tooltip.Root>
+            <Tooltip.Trigger
+              render={
+                <Button.Link
+                  appearance="ghost"
+                  shape="square"
+                  render={<Link to="/settings" />}
+                  aria-label="Settings"
+                />
+              }
+            >
+              <SettingsIcon aria-hidden="true" />
+            </Tooltip.Trigger>
+            <Tooltip.Popup side="right">Settings</Tooltip.Popup>
+          </Tooltip.Root>
         </Sidebar.Nav>
       </Sidebar.Footer>
     </Sidebar.Root>
