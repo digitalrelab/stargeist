@@ -16,6 +16,7 @@ import {
   Minus,
   Pencil,
   Trash2,
+  Tags,
   X,
   type LucideProps,
 } from "lucide-react";
@@ -91,4 +92,8 @@ export function EditIcon(props: LucideProps) {
 
 export function ErrorIcon(props: LucideProps) {
   return <CircleAlert size={control.iconSize} {...props} />;
+}
+
+export function TagsIcon(props: LucideProps) {
+  return <Tags size={control.iconSize} {...props} />;
 }

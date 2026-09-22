@@ -2,6 +2,7 @@ export { Button, type ButtonProps, type ButtonLinkProps } from "./button";
 export * as Select from "./select";
 export * as Dialog from "./dialog";
 export * as ConfirmDialog from "./confirm-dialog";
+export * as CommandPalette from "./command-palette";
 export {
   BackIcon,
   SettingsIcon,
@@ -16,6 +17,7 @@ export {
   DeleteIcon,
   EditIcon,
   ErrorIcon,
+  TagsIcon,
 } from "./icons";
 export * as Sidebar from "./sidebar";
 export { ScrollArea } from "./scroll-area";
