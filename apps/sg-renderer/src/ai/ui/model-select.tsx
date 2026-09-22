@@ -58,6 +58,7 @@ export function ModelSelect({
   onValueChange: (model: ModelReference) => void;
 }) {
   const options = useMemo(() => modelOptions(catalogs, value), [catalogs, value]);
+  const [open, setOpen] = useState(false);
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<Highlight>({ model: undefined, reason: "none" });
   const activeProvider =
@@ -67,7 +68,9 @@ export function ModelSelect({
 
   return (
     <Combobox.Root<ModelOption>
+      key={activeProvider?.id ?? "none"}
       disabled={disabled}
+      open={open}
       items={activeProvider?.items ?? emptyModels}
       value={options.selected}
       autoHighlight
@@ -77,8 +80,9 @@ export function ModelSelect({
       isItemEqualToValue={equalModels}
       filter={filterModel}
       onItemHighlighted={(model, details) => setHighlight({ model, reason: details.reason })}
-      onOpenChange={(open) => {
-        if (open) setActiveProviderId(value?.providerId ?? null);
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) setActiveProviderId(value?.providerId ?? null);
       }}
       onValueChange={(model) => {
         if (model) onValueChange(model.reference);
@@ -105,11 +109,13 @@ export function ModelSelect({
           value={activeProvider?.id ?? null}
           orientation="vertical"
           onValueChange={(id) => {
-            if (typeof id === "string") setActiveProviderId(id);
+            if (typeof id !== "string" || id === activeProvider?.id) return;
+            setActiveProviderId(id);
+            setHighlight({ model: undefined, reason: "none" });
           }}
           {...stylex.props(styles.tabLayout)}
         >
-          <Tabs.List aria-label="Model providers" activateOnFocus {...stylex.props(styles.rail)}>
+          <Tabs.List aria-label="Model providers" {...stylex.props(styles.rail)}>
             {options.groups.map((group) => (
               <Tooltip.Root key={group.id}>
                 <Tooltip.Trigger
@@ -129,7 +135,7 @@ export function ModelSelect({
           </Tabs.List>
           {activeProvider && (
             <Tabs.Panel value={activeProvider.id} {...stylex.props(styles.modelPane)}>
-              <Combobox.Input aria-label="Search models" placeholder="Search models…" />
+              <Combobox.Input aria-label="Search models" placeholder="Search models…" autoFocus />
               <ModelList highlight={highlight} />
             </Tabs.Panel>
           )}
