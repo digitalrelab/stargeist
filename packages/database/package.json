@@ -5,9 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
     "./workspaces": "./src/workspaces/index.ts",
-    "./libraries": "./src/libraries/index.ts",
     "./filesystem": "./src/filesystem/index.ts"
   },
   "scripts": {

@@ -1,4 +1,4 @@
-import type { FileSystemEntry, LibraryId, ListingId } from "@stargeist/domain";
+import type { FileSystemEntry, WorkspaceId, ListingId } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Effect, HashSet } from "effect";
 import { Atom } from "effect/unstable/reactivity";
@@ -13,7 +13,7 @@ export interface FileInspection {
 
 export interface FileInspectionInput {
   readonly interaction: FileInteraction;
-  readonly libraryId: LibraryId;
+  readonly workspaceId: WorkspaceId;
   readonly folder: string | undefined;
   readonly total: number | undefined;
 }
@@ -23,7 +23,7 @@ type Command =
   | { readonly type: "close" | "cancel" };
 
 function resolveInspection(input: FileInspectionInput): FileInspection | undefined {
-  const { interaction, libraryId, folder, total } = input;
+  const { interaction, workspaceId, folder, total } = input;
   const entry = interaction.focused?.item;
   let members = interaction.selection;
 
@@ -45,7 +45,7 @@ function resolveInspection(input: FileInspectionInput): FileInspection | undefin
     detail = entry;
   }
 
-  return { files: { libraryId, folder, members }, total, entry: detail };
+  return { files: { workspaceId, folder, members }, total, entry: detail };
 }
 
 export function createFileInspection() {
@@ -87,7 +87,7 @@ export function createFileInspection() {
     },
   ).pipe(Atom.setIdleTTL(0));
 
-  function bind(listing: FileListing, location: Pick<FileSelection, "libraryId" | "folder">) {
+  function bind(listing: FileListing, location: Pick<FileSelection, "workspaceId" | "folder">) {
     return Atom.writable(
       () => undefined,
       (ctx, interaction: FileInteraction) => {

@@ -1,5 +1,6 @@
-import type { Connection } from "@stargeist/std/rpc";
-import { Effect } from "effect";
+import { serverProtocol, type Connection } from "@stargeist/std/rpc";
+import { Deferred, Effect } from "effect";
+import { RpcServer } from "effect/unstable/rpc";
 
 export interface NativePort {
   postMessage(message: unknown): void;
@@ -11,26 +12,42 @@ export interface NativePort {
   close(): void;
 }
 
-export const connectPort = (port: NativePort): Connection => ({
-  send: (message) => port.postMessage(message),
-  close: () => port.close(),
-  closed: Effect.callback<void>((resume) => {
-    const close = () => resume(Effect.void);
-    port.on("close", close);
+export const connectPort = (port: NativePort): Connection => {
+  const closed = Deferred.makeUnsafe<void>();
+  return {
+    send: (message) => port.postMessage(message),
+    close: () => {
+      if (Deferred.doneUnsafe(closed, Effect.void)) port.close();
+    },
+    closed: Deferred.await(closed),
+    listen: (message, onClose) => {
+      if (Deferred.isDoneUnsafe(closed)) {
+        onClose();
+        return () => {};
+      }
+      const receive = (event: { data: unknown }) => message(event.data);
+      const close = () => {
+        Deferred.doneUnsafe(closed, Effect.void);
+        onClose();
+      };
+      port.on("message", receive);
+      port.on("close", close);
+      port.start();
 
-    return Effect.sync(() => {
-      port.removeListener("close", close);
-    });
-  }),
-  listen: (message, closed) => {
-    const receive = (event: { data: unknown }) => message(event.data);
-    port.on("message", receive);
-    port.on("close", closed);
-    port.start();
+      return () => {
+        port.removeListener("message", receive);
+        port.removeListener("close", close);
+      };
+    },
+  };
+};
 
-    return () => {
-      port.removeListener("message", receive);
-      port.removeListener("close", closed);
-    };
-  },
-});
+export const servePort = <E, R>(program: Effect.Effect<void, E, R>) =>
+  Effect.fnUntraced(function* (port: NativePort) {
+    const connection = connectPort(port);
+    const protocol = yield* serverProtocol(connection);
+    yield* program.pipe(
+      Effect.provideService(RpcServer.Protocol, protocol),
+      Effect.raceFirst(connection.closed),
+    );
+  }, Effect.scoped);

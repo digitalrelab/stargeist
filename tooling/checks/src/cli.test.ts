@@ -3,55 +3,71 @@ import { join } from "node:path";
 import { expect, it } from "vite-plus/test";
 import { fixture } from "./fixture.test-support.ts";
 
-it("selects affected consumers, broadens shared changes, and rejects invalid bases", () => {
+it("selects affected consumers", () => {
   const repo = fixture();
-
   repo.write("packages/shared/src/index.ts", "export const value = 2;\n");
-  const affected = repo.run(["plan"], {
+  const result = repo.run(["plan"], {
     CHECKS_BASE: repo.base,
     NX_BASE: "ignored",
     NX_HEAD: "ignored",
   });
 
-  expect(affected.status, affected.stderr).toBe(0);
-  expect(JSON.parse(affected.stdout).packages.map((pkg: { name: string }) => pkg.name)).toEqual([
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout).packages.map((pkg: { name: string }) => pkg.name)).toEqual([
     "shared",
     "website",
   ]);
+}, 15000);
 
+it("broadens shared configuration changes", () => {
+  const repo = fixture();
   repo.write("vite.config.ts", "");
-  const shared = repo.run(["plan", "--base", repo.base]);
+  const result = repo.run(["plan", "--base", repo.base]);
 
-  expect(shared.status, shared.stderr).toBe(0);
-  expect(JSON.parse(shared.stdout).packages.map((pkg: { name: string }) => pkg.name)).toEqual([
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout).packages.map((pkg: { name: string }) => pkg.name)).toEqual([
     "shared",
     "unrelated",
     "website",
   ]);
+}, 15000);
+
+it("rejects invalid bases", () => {
+  const repo = fixture();
   expect(repo.run(["plan", "--base", "missing-ref"]).status).toBe(1);
 }, 15000);
 
-it("rejects missing project policy and broken Nx graphs", () => {
-  const repo = fixture();
+it.each([
+  {
+    name: "rejects missing project policy",
+    file: "packages/new/package.json",
+    content: { name: "new", scripts: { typecheck: 'node -e ""' } },
+    message: "platform tags",
+  },
+  {
+    name: "rejects missing typecheck targets",
+    file: "packages/new/package.json",
+    content: { name: "new", nx: { tags: ["platform:linux"] } },
+    message: "missing typecheck target",
+  },
+  {
+    name: "rejects broken Nx graphs",
+    file: "bun.lock",
+    content: "invalid lockfile",
+    message: "Command failed",
+  },
+])(
+  "$name",
+  ({ file, content, message }) => {
+    const repo = fixture();
+    repo.write(file, content);
+    const result = repo.run(["plan"]);
 
-  repo.write("packages/new/package.json", { name: "new", scripts: { typecheck: 'node -e ""' } });
-  const untagged = repo.run(["plan"]);
-
-  expect(untagged.status).toBe(1);
-  expect(untagged.stderr).toContain("platform tags");
-
-  repo.write("packages/new/package.json", { name: "new", nx: { tags: ["platform:linux"] } });
-  const missingTarget = repo.run(["plan"]);
-
-  expect(missingTarget.status).toBe(1);
-  expect(missingTarget.stderr).toContain("missing typecheck target");
-
-  repo.write("bun.lock", "invalid lockfile");
-  const invalid = repo.run(["plan"]);
-
-  expect(invalid.status).toBe(1);
-  expect(invalid.stderr).toContain("Command failed");
-}, 15000);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(message);
+  },
+  15000,
+);
 
 it("publishes the matrix and work requirement consumed by CI", () => {
   const repo = fixture();

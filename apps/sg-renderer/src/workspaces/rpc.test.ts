@@ -3,7 +3,6 @@ import { Schema } from "effect";
 import { clientProtocol } from "@stargeist/std/rpc";
 import { Effect } from "effect";
 import { expect, it } from "vite-plus/test";
-import { makeRpcLibrariesClient } from "../libraries/rpc";
 import { makeRpcWorkspacesClient } from "./rpc";
 
 const failingProtocol = (cause: Error) =>
@@ -27,21 +26,29 @@ it("uses the supplied backend and host protocols and preserves their failure dia
       const client = yield* makeRpcWorkspacesClient({ backend, host });
 
       const listError = yield* client.list.pipe(Effect.flip);
-      const createError = yield* client.createFromFolder().pipe(Effect.flip);
-      const libraries = yield* makeRpcLibrariesClient({ backend, host });
-      const addError = yield* libraries
-        .addFromFolder(Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001"))
+      const browseError = yield* client
+        .browse(Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001"))
+        .pipe(Effect.flip);
+      const openError = yield* client.openFromFolder().pipe(Effect.flip);
+      const reconnectError = yield* client
+        .reconnectFromFolder(
+          Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001"),
+        )
         .pipe(Effect.flip);
 
       expect(listError).toMatchObject({
         _tag: "ClientUnavailableError",
         cause: { _tag: "RpcClientError", reason: { cause: backendCause } },
       });
-      expect(createError).toMatchObject({
+      expect(browseError).toMatchObject({
+        _tag: "ClientUnavailableError",
+        cause: { _tag: "RpcClientError", reason: { cause: backendCause } },
+      });
+      expect(openError).toMatchObject({
         _tag: "ClientUnavailableError",
         cause: { _tag: "RpcClientError", reason: { cause: hostCause } },
       });
-      expect(addError).toMatchObject({
+      expect(reconnectError).toMatchObject({
         _tag: "ClientUnavailableError",
         cause: { _tag: "RpcClientError", reason: { cause: hostCause } },
       });

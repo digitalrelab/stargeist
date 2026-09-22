@@ -1,0 +1,3 @@
+[
+  "CREATE TABLE `workspaces` (\n\t`id` text PRIMARY KEY,\n\t`identity` text NOT NULL,\n\t`root` text NOT NULL UNIQUE\n);\n"
+]

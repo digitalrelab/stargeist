@@ -1,106 +1,107 @@
-import {
-  Library,
-  makeLibraryId,
-  Workspaces,
-  type CreateWorkspace,
-  Workspace,
-  WorkspaceError,
-  type WorkspaceId,
-  makeWorkspaceId,
-} from "@stargeist/domain";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
+import { WorkspaceError, WorkspaceId } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
-import { Clock, Effect, Layer, Schema } from "effect";
-import { desc, eq } from "drizzle-orm";
-import { Database } from "../sqlite";
-import { libraries } from "../libraries/schema";
+import { Effect, Schema } from "effect";
+import { eq } from "drizzle-orm";
+import { openDatabase } from "./sqlite/client";
 import { workspaces } from "./schema";
+
+const Record = Schema.Struct({
+  id: WorkspaceId,
+  identity: Schema.NonEmptyString,
+  root: Schema.NonEmptyString,
+});
+type WorkspaceRecord = typeof Record.Type;
+const decode = Schema.decodeUnknownEffect(Schema.Array(Record));
 
 const storageError = () =>
   new WorkspaceError({
     code: "StorageUnavailable",
-    message: "Workspace records could not be read or saved. Try again.",
+    message: "Recent workspaces could not be read or saved. Try again.",
   });
 
-const decodeWorkspaces = Schema.decodeUnknownEffect(Schema.Array(Workspace));
+const storage = <A, E, R>(operation: string, effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(
+    Effect.onError((cause) => reportFailure(operation, cause)),
+    Effect.mapError(storageError),
+  );
 
-const notFound = () =>
-  new WorkspaceError({ code: "NotFound", message: "This workspace is no longer available." });
-
-export const workspacesLayer = Layer.effect(
-  Workspaces,
-  Effect.gen(function* () {
-    const database = yield* Database;
-
-    const list = database
-      .select()
-      .from(workspaces)
-      .orderBy(desc(workspaces.createdAt), workspaces.id)
-      .all()
-      .pipe(
-        Effect.flatMap(decodeWorkspaces),
-        Effect.onError((cause) => reportFailure("workspaces.list", cause)),
-        Effect.mapError(storageError),
-      );
-
-    const get = Effect.fnUntraced(function* (id: WorkspaceId) {
-      const rows = yield* database
+export const openWorkspaceStore = Effect.fnUntraced(function* (filename: string) {
+  yield* storage(
+    "workspaces.store.open",
+    Effect.tryPromise(() => mkdir(dirname(filename), { recursive: true })),
+  );
+  const database = yield* storage("workspaces.store.open", openDatabase(filename));
+  const records = (session: Pick<typeof database, "select" | "insert" | "delete">) => ({
+    get: (id: WorkspaceId) =>
+      storage(
+        "workspaces.store.get",
+        session
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.id, id))
+          .all()
+          .pipe(
+            Effect.flatMap(decode),
+            Effect.map((rows) => rows[0]),
+          ),
+      ),
+    atRoot: (root: string) =>
+      storage(
+        "workspaces.store.find",
+        session
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.root, root))
+          .all()
+          .pipe(
+            Effect.flatMap(decode),
+            Effect.map((rows) => rows[0]),
+          ),
+      ),
+    put: (record: WorkspaceRecord) =>
+      storage(
+        "workspaces.store.put",
+        session
+          .insert(workspaces)
+          .values(record)
+          .onConflictDoUpdate({
+            target: workspaces.id,
+            set: { root: record.root, identity: record.identity },
+          })
+          .run()
+          .pipe(Effect.asVoid),
+      ),
+    remove: (id: WorkspaceId) =>
+      storage(
+        "workspaces.store.remove",
+        session.delete(workspaces).where(eq(workspaces.id, id)).run().pipe(Effect.asVoid),
+      ),
+  });
+  return {
+    list: storage(
+      "workspaces.store.list",
+      database
         .select()
         .from(workspaces)
-        .where(eq(workspaces.id, id))
+        .orderBy(workspaces.root)
         .all()
+        .pipe(Effect.flatMap(decode)),
+    ),
+    get: records(database).get,
+    modify: <A>(
+      operation: (session: ReturnType<typeof records>) => Effect.Effect<A, WorkspaceError>,
+    ) =>
+      database
+        .transaction((transaction) => operation(records(transaction)))
         .pipe(
-          Effect.flatMap(decodeWorkspaces),
-          Effect.onError((cause) => reportFailure("workspaces.get", cause)),
-          Effect.mapError(storageError),
-        );
-
-      const workspace = rows[0];
-
-      if (!workspace) {
-        return yield* Effect.fail(notFound());
-      }
-
-      return workspace;
-    });
-
-    const create = Effect.fnUntraced(
-      function* ({ displayName, source }: CreateWorkspace) {
-        const now = yield* Clock.currentTimeMillis;
-        const workspaceId = yield* makeWorkspaceId;
-        const libraryId = yield* makeLibraryId;
-        const workspace = new Workspace({ id: workspaceId, displayName, createdAt: now });
-        const library = new Library({
-          id: libraryId,
-          workspaceId,
-          displayName,
-          source,
-          createdAt: now,
-        });
-
-        yield* database.transaction((transaction) =>
-          Effect.gen(function* () {
-            yield* transaction.insert(workspaces).values(workspace).run();
-
-            yield* transaction
-              .insert(libraries)
-              .values({
-                id: library.id,
-                workspaceId,
-                displayName,
-                sourceKind: source.kind,
-                sourcePath: source.path,
-                createdAt: now,
-              })
-              .run();
+          Effect.catch((error) => {
+            if (error instanceof WorkspaceError) return Effect.fail(error);
+            return storage("workspaces.store.transaction", Effect.fail(error));
           }),
-        );
+        ),
+  };
+});
 
-        return { workspace, library };
-      },
-      Effect.onError((cause) => reportFailure("workspaces.create", cause)),
-      Effect.mapError(storageError),
-    );
-
-    return { list, get, create } satisfies Workspaces["Service"];
-  }),
-);
+export type WorkspaceStore = Effect.Success<ReturnType<typeof openWorkspaceStore>>;

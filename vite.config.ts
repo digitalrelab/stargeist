@@ -78,6 +78,65 @@ const boundaries = [
     patterns: [...appImports, iconImports],
   },
   {
+    files: ["apps/sg-desktop/src/backend/**"],
+    portable: false,
+    patterns: [
+      ...appImports,
+      iconImports,
+      {
+        group: ["../workspaces/*", "!../workspaces/host"],
+        message: "Compose workspaces through its public backend and host entry points.",
+      },
+    ],
+  },
+  {
+    files: [
+      "apps/sg-desktop/src/backend/host.ts",
+      "apps/sg-desktop/src/backend/process.ts",
+      "apps/sg-desktop/src/backend/renderer.ts",
+      "apps/sg-desktop/src/backend/port.ts",
+    ],
+    portable: false,
+    patterns: [
+      ...appImports,
+      ...featureImports,
+      iconImports,
+      {
+        group: [
+          "../workspaces",
+          "../workspaces/**",
+          "../user-preferences",
+          "../user-preferences/**",
+          "../window",
+          "../window/**",
+        ],
+        message:
+          "Register capabilities at application composition; hosting must not import feature implementations.",
+      },
+    ],
+  },
+  {
+    files: ["apps/sg-desktop/src/window/**"],
+    portable: false,
+    patterns: [
+      ...appImports,
+      iconImports,
+      {
+        group: ["../backend", "../backend/**"],
+        message: "Windows depend on their connection contract, not backend process management.",
+      },
+    ],
+  },
+  {
+    files: [
+      "apps/sg-desktop/src/workspaces/service.ts",
+      "apps/sg-desktop/src/workspaces/browser.ts",
+      "apps/sg-desktop/src/workspaces/host.ts",
+    ],
+    portable: false,
+    patterns: [...appImports, iconImports, "node:*", ...electronImports],
+  },
+  {
     files: ["packages/std/src/**"],
     portable: true,
     patterns: [
@@ -92,6 +151,11 @@ const boundaries = [
     files: ["packages/application/src/**"],
     portable: true,
     patterns: [...appImports, ...featureImports, ...protocolImports, iconImports],
+  },
+  {
+    files: ["packages/application/src/rpc.ts", "packages/application/src/rpc.test.ts"],
+    portable: true,
+    patterns: [...appImports, ...featureImports, iconImports],
   },
   {
     files: ["packages/ui/src/**"],

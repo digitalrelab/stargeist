@@ -39,8 +39,8 @@ export const connectRenderer = Effect.fnUntraced(function* (
     const backendChannel = new MessageChannelMain();
     const hostChannel = new MessageChannelMain();
 
-    current = { id, close: () => hostChannel.port1.close() };
-    run(serveHost(hostChannel.port1));
+    const session = run(serveHost(hostChannel.port1));
+    current = { id, close: () => session.interruptUnsafe() };
 
     child.postMessage({ type: "renderer", id }, [backendChannel.port2]);
     event.senderFrame.postMessage("stargeist:ports", nonce, [

@@ -1,1 +1,1 @@
-export { workspacesLayer } from "./service";
+export { openWorkspaceStore, type WorkspaceStore } from "./service";
