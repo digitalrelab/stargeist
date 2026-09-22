@@ -1,11 +1,12 @@
 import { useAtomValue } from "@effect/atom-react";
 import { Selection } from "@stargeist/std/selection";
-import { Button, CloseIcon, CommandIcon, SelectionBar } from "@stargeist/ui";
+import { Button, CloseIcon, CommandIcon, CommandPalette, SelectionBar } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { HashSet } from "effect";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { useFileBrowserContext } from "./context";
+import { FileActionsPalette } from "./actions-palette";
 
 export function FileSelectionBar() {
   const browser = useFileBrowserContext();
@@ -61,10 +62,15 @@ export function FileSelectionBar() {
       }}
     >
       <SelectionBar.Status>{label}</SelectionBar.Status>
-      <Button appearance="outlined" size="sm" shape="pill" disabled={!hasSelection}>
-        <CommandIcon aria-hidden="true" />
-        Actions
-      </Button>
+      <FileActionsPalette selectionLabel={label}>
+        <CommandPalette.Trigger
+          disabled={!hasSelection || selecting}
+          render={<Button appearance="outlined" size="sm" shape="pill" />}
+        >
+          <CommandIcon aria-hidden="true" />
+          Actions
+        </CommandPalette.Trigger>
+      </FileActionsPalette>
       {selecting && (
         <Button
           appearance="ghost"

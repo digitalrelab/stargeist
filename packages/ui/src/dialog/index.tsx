@@ -16,16 +16,18 @@ export function Trigger<Payload>(
   return <BaseDialog.Trigger render={<Button />} {...props} />;
 }
 
-export type PopupProps = Omit<BaseDialog.Popup.Props, "className" | "style">;
+export type PopupProps = Omit<BaseDialog.Popup.Props, "className" | "style"> & {
+  layout?: keyof typeof layouts;
+};
 
-export function Popup(props: PopupProps) {
+export function Popup({ layout = "content", ...props }: PopupProps) {
   return (
     <BaseDialog.Portal {...stylex.props(styles.portal)}>
       <BaseDialog.Backdrop {...stylex.props(styles.transition, styles.backdrop)} />
       <BaseDialog.Viewport {...stylex.props(styles.viewport)}>
         <BaseDialog.Popup
           {...props}
-          {...stylex.props(styles.transition, styles.popup, typography.body)}
+          {...stylex.props(styles.transition, styles.popup, layouts[layout], typography.body)}
         />
       </BaseDialog.Viewport>
     </BaseDialog.Portal>
@@ -93,14 +95,10 @@ const styles = stylex.create({
   popup: {
     display: "flex",
     flexDirection: "column",
-    gap: space[4],
     width: "100%",
-    maxWidth: "32rem",
     maxHeight: "100%",
     minWidth: 0,
-    overflowY: "auto",
     overscrollBehavior: "contain",
-    padding: space[5],
     borderWidth: "1px",
     borderStyle: "solid",
     borderColor: colors.border,
@@ -125,4 +123,17 @@ const styles = stylex.create({
   title: { fontWeight: fonts.semibold },
   description: { color: colors.textMuted },
   actions: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: space[2] },
+});
+
+const layouts = stylex.create({
+  content: {
+    gap: space[4],
+    maxWidth: "32rem",
+    overflowY: "auto",
+    padding: space[5],
+  },
+  command: {
+    maxWidth: "40rem",
+    overflow: "hidden",
+  },
 });
