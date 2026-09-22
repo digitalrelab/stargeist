@@ -1,5 +1,6 @@
 import { Context, Schema, type Effect } from "effect";
 import { File, FileReference } from "./file";
+import type { FileMetadata } from "./metadata";
 
 export class FileError extends Schema.Error<FileError>("FileError")({
   _tag: Schema.tag("FileError"),
@@ -10,6 +11,7 @@ export class FileError extends Schema.Error<FileError>("FileError")({
 export class Files extends Context.Service<
   Files,
   {
+    readonly metadata: FileMetadata;
     readonly ensure: (
       references: ReadonlyArray<FileReference>,
     ) => Effect.Effect<ReadonlyArray<File>, FileError>;
