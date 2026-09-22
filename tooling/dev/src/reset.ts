@@ -1,8 +1,8 @@
-import { existsSync, realpathSync, renameSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, realpathSync, renameSync, rmSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { databaseFilename } from "@stargeist/database";
 import { readWorkspaceRoots } from "@stargeist/database/workspaces";
-import { workspaceDirectoryName } from "@stargeist/domain";
+import { workspaceDirectoryName } from "@stargeist/workspace-storage";
 import {
   inspectProfile,
   validateProfilePaths,
@@ -12,7 +12,6 @@ import {
   requireOwnedProfile,
   ProfileError,
   validateDirectory,
-  validateFile,
 } from "./desktop/index";
 
 type WorkspaceTarget = {
@@ -25,8 +24,12 @@ type WorkspaceTarget = {
 
 function workspaceRoots(profile: DevelopmentProfile) {
   const filename = join(profile.data, databaseFilename);
-  if (!validateFile(filename)) {
+  const file = lstatSync(filename, { throwIfNoEntry: false });
+  if (!file) {
     return [];
+  }
+  if (!file.isFile()) {
+    throw new ProfileError("unsafe-path", `Expected an ordinary file: ${filename}`);
   }
 
   try {

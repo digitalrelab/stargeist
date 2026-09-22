@@ -5,8 +5,8 @@ import {
   type Workspaces,
   WorkspaceError,
   Files,
-  workspaceDirectoryName,
 } from "@stargeist/domain";
+import { workspaceDirectoryName } from "@stargeist/workspace-storage";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import { openListing } from "../filesystem";
 import { TemporaryStorage } from "../storage";

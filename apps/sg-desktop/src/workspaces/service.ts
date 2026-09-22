@@ -7,7 +7,7 @@ import {
 } from "@stargeist/domain";
 import type { WorkspaceStore } from "@stargeist/database/workspaces";
 import { Effect } from "effect";
-import type { WorkspaceRoot, WorkspaceRoots } from "./storage";
+import type { WorkspaceRoot, WorkspaceRoots } from "@stargeist/workspace-storage";
 
 const workspace = ({ id, root }: Pick<Workspace, "id" | "root">) => new Workspace({ id, root });
 const notFound = () =>

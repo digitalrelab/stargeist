@@ -17,7 +17,7 @@ import { expect, it, onTestFinished } from "vite-plus/test";
 import { pathsLayer, temporaryStorageLayer } from "../storage";
 import { openListing } from "../filesystem";
 import { BackendApplication } from "../backend/application";
-import { workspaceRoots } from "../workspaces/roots";
+import { workspaceRoots } from "@stargeist/workspace-storage";
 
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), "stargeist-file-identities-"));

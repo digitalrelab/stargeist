@@ -26,6 +26,9 @@
       "path": "./packages/database"
     },
     {
+      "path": "./packages/workspace-storage"
+    },
+    {
       "path": "./tsconfig.tools.json"
     },
     {

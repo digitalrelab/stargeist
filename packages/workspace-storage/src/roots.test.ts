@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { workspaceRoots as roots } from "./roots";
+import { workspaceRoots as roots } from "./index";
 
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "stargeist-roots-")));

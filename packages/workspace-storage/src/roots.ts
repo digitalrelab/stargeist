@@ -1,11 +1,13 @@
 import { constants } from "node:fs";
 import { lstat, mkdtemp, open, realpath, rename, rm, rmdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { WorkspaceError, workspaceDirectoryName } from "@stargeist/domain";
+import { WorkspaceError } from "@stargeist/domain";
 import * as Id from "@stargeist/std/id";
-import type { WorkspaceRoots } from "./storage";
+import type { WorkspaceRoots } from "./types";
 import { reportFailure } from "@stargeist/std/errors";
 import { Clock, Effect, Schema } from "effect";
+
+export const workspaceDirectoryName = ".stargeist";
 
 const manifestName = "workspace.json";
 const maximumManifestBytes = 65536;

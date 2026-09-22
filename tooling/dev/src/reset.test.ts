@@ -3,6 +3,7 @@ import { once } from "node:events";
 import {
   existsSync,
   chmodSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -154,6 +155,52 @@ it("cleans an interrupted detached reset before resetting new data", () => {
   expect(resetData(profile).status).toBe("reset-complete");
   expect(existsSync(profile.quarantine)).toBe(false);
   expect(existsSync(profile.data)).toBe(false);
+});
+
+it("resets after interrupted database publication without changing data through hard links", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const workspace = join(root, "workspace");
+  const metadata = join(workspace, ".stargeist");
+  mkdirSync(metadata, { recursive: true });
+  await rememberWorkspaces(profile, [workspace]);
+  const database = join(profile.data, "application.sqlite");
+  const staging = join(profile.data, ".application-database-interrupted");
+  mkdirSync(staging);
+  linkSync(database, join(staging, "application.sqlite"));
+  await rememberWorkspaces(profile, []);
+  const outside = join(root, "preserved.sqlite");
+  linkSync(database, outside);
+  const before = readFileSync(outside);
+
+  const preview = previewReset(profile);
+  expect(preview.workspaces).toEqual([{ root: workspace, path: metadata, status: "ready" }]);
+  expect(readFileSync(outside)).toEqual(before);
+  expect(existsSync(metadata)).toBe(true);
+  expect(resetData(profile, preview).status).toBe("reset-complete");
+  expect(existsSync(metadata)).toBe(false);
+  expect(existsSync(profile.data)).toBe(false);
+  expect(readFileSync(outside)).toEqual(before);
+});
+
+it("refuses a redirected workspace registry before deleting workspace or application data", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const workspace = join(root, "workspace");
+  const metadata = join(workspace, ".stargeist");
+  mkdirSync(metadata, { recursive: true });
+  await rememberWorkspaces(profile, [workspace]);
+  const database = join(profile.data, "application.sqlite");
+  const outside = join(root, "preserved.sqlite");
+  renameSync(database, outside);
+  symlinkSync(outside, database, "file");
+  const before = readFileSync(outside);
+
+  expect(() => previewReset(profile)).toThrow(/ordinary file/);
+  expect(() => resetData(profile)).toThrow(/ordinary file/);
+  expect(existsSync(metadata)).toBe(true);
+  expect(existsSync(profile.data)).toBe(true);
+  expect(readFileSync(outside)).toEqual(before);
 });
 
 it("previews and resets registered nested workspaces while preserving ordinary files and unknown workspaces", async () => {
