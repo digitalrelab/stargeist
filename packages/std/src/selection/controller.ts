@@ -14,7 +14,10 @@ interface State<A, Key, Scope> {
   readonly interaction: Interaction<A, Key, Scope> | undefined;
 }
 
-export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
+export function create<A, Key, E, Scope>(
+  source: Source<A, Key, E, Scope>,
+  onInteraction?: Atom.Writable<unknown, Interaction<A, Key, Scope>>,
+) {
   const state = Atom.make<State<A, Key, Scope>>({
     selection: Membership.empty<Key, Scope>(source.scope),
     active: undefined,
@@ -31,9 +34,14 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
     next: Omit<State<A, Key, Scope>, "interaction">,
     type: Interaction<A, Key, Scope>["type"],
   ) {
-    ctx.set(state, {
-      ...next,
-      interaction: { type, focused: next.current, selection: next.selection },
+    const interaction = { type, focused: next.current, selection: next.selection };
+
+    Atom.batch(() => {
+      ctx.set(state, { ...next, interaction });
+
+      if (onInteraction) {
+        ctx.set(onInteraction, interaction);
+      }
     });
   }
 
@@ -110,6 +118,10 @@ export function create<A, Key, E, Scope>(source: Source<A, Key, E, Scope>) {
       get.mount(state);
       get.mount(intent);
       get.mount(request);
+
+      if (onInteraction) {
+        get.mount(onInteraction);
+      }
     },
     (ctx, action: Command<A, Key>) => {
       const before = ctx.get(state);

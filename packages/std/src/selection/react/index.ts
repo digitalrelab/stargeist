@@ -1,19 +1,11 @@
-import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { Atom } from "effect/unstable/reactivity";
-import {
-  useContext,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  type KeyboardEvent,
-  type MouseEvent,
-} from "react";
-import type { Command, Controller, Interaction } from "../index";
+import { useRef, type KeyboardEvent, type MouseEvent } from "react";
+import type { Command, Controller } from "../index";
 
 function useController<A, Key, E, Scope>(
   controller: Controller<A, Key, E, Scope>,
   options: {
-    readonly onInteraction: (value: Interaction<A, Key, Scope>, element: HTMLElement) => void;
     readonly pageSize: (element: HTMLDivElement | null) => number;
   },
 ) {
@@ -21,18 +13,6 @@ function useController<A, Key, E, Scope>(
   const request = useAtomValue(controller.request);
   const send = useAtomSet(controller.command);
   const ref = useRef<HTMLDivElement>(null);
-  const registry = useContext(RegistryContext);
-
-  const onInteraction = useEffectEvent(options.onInteraction);
-  useEffect(() => {
-    registry.get(controller.interaction);
-
-    return registry.subscribe(controller.interaction, (interaction) => {
-      if (interaction && ref.current) {
-        onInteraction(interaction, ref.current);
-      }
-    });
-  }, [controller.interaction, registry]);
 
   const dispatch = (command: Command<A, Key>) => {
     send(command);

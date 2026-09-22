@@ -6,9 +6,10 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type FocusEvent,
   type RefObject,
 } from "react";
-import { createFileInspection, type FileInspectionInput } from "./state";
+import { createFileInspection } from "./state";
 
 const FileInspectionContext = createContext<ReturnType<typeof useInspection> | undefined>(
   undefined,
@@ -21,12 +22,12 @@ function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
 
   return useMemo(
     () => ({
+      command: inspection.command,
       target: inspection.target,
       isOpen: inspection.isOpen,
       inspectedName: inspection.inspectedName,
-      interact: (input: FileInspectionInput, trigger: HTMLElement) => {
-        origin.current = trigger;
-        dispatch({ type: "interact", input });
+      onFocus: (event: FocusEvent<HTMLElement>) => {
+        origin.current = event.currentTarget;
       },
       cancelNavigation: () => dispatch({ type: "cancel" }),
       close: () => {

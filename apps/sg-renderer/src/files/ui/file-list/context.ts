@@ -1,9 +1,16 @@
 import type { FileSystemEntry } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection/react";
 import type { Atom } from "effect/unstable/reactivity";
-import { createContext, useContext, useId, useState, type KeyboardEvent } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type KeyboardEvent,
+  type FocusEventHandler,
+} from "react";
 import { canRetryFailure } from "#src/client/index.ts";
-import type { FileInteraction, FileSelectionController } from "../../selection";
+import type { FileSelectionController } from "../../selection";
 import type { FileListing } from "../../state";
 import { rowHeight } from "./layout";
 
@@ -11,14 +18,13 @@ export interface FileListProps {
   listing: FileListing;
   selection: FileSelectionController;
   inspectedName: Atom.Atom<string | undefined>;
-  onInteraction: (interaction: FileInteraction, trigger: HTMLElement) => void;
+  onFocus: FocusEventHandler<HTMLDivElement>;
 }
 
-export function useFileList({ listing, selection, inspectedName, onInteraction }: FileListProps) {
+export function useFileList({ listing, selection, inspectedName, onFocus }: FileListProps) {
   const gridId = useId();
   const [column, setColumn] = useState(1);
   const navigation = Selection.useController(selection, {
-    onInteraction,
     pageSize: (element) => Math.floor((element?.clientHeight ?? rowHeight) / rowHeight),
   });
 
@@ -77,7 +83,7 @@ export function useFileList({ listing, selection, inspectedName, onInteraction }
     selection,
     inspectedName,
     rowProps: navigation.itemProps,
-    viewportProps: { ...navigation.props, onKeyDown },
+    viewportProps: { ...navigation.props, onKeyDown, onFocus },
     inspect: (index: number, entry: FileSystemEntry) => {
       setColumn(1);
       navigation.dispatch({ type: "activate", value: { index, item: entry } });

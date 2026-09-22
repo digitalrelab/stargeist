@@ -1,7 +1,7 @@
 import { LibraryId, ListingId } from "@stargeist/domain";
 import { Selection, type SelectionState } from "@stargeist/std/selection";
 import { Effect, HashSet, Schema } from "effect";
-import { AtomRegistry } from "effect/unstable/reactivity";
+import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 import { createFileSelectionController } from "../../selection";
 import { createFileListing } from "../../state";
@@ -212,8 +212,8 @@ it("describes the remaining selected file and closes when selection becomes empt
   expect(updates).toEqual(["file-0", undefined]);
 });
 
-it("clears a real multi-selection without reopening inspection and cancels pending navigation", async () => {
-  const { registry, send, interact, target } = setup();
+it("publishes selection and inspection together, then closes without changing membership", async () => {
+  const { registry, inspection, send, target, updates } = setup();
   const entries = Array.from({ length: 10 }, (_, index) => ({
     name: `file-${index}`,
     kind: "file" as const,
@@ -221,23 +221,42 @@ it("clears a real multi-selection without reopening inspection and cancels pendi
   const listing = createFileListing({ listingId, entries, offset: 0, hasMore: false }, () =>
     Effect.die("Selection must use the cached page"),
   );
-  const selection = createFileSelectionController(listing);
+  const onInteraction = Atom.writable(
+    () => undefined,
+    (ctx, interaction: FileInspectionInput["interaction"]) => {
+      ctx.set(inspection.command, {
+        type: "interact",
+        input: { libraryId, folder: "/files", total: 10, interaction },
+      });
+    },
+  );
+  const selection = createFileSelectionController(listing, onInteraction);
   registry.mount(selection.command);
-  registry.get(selection.interaction);
-  registry.subscribe(selection.interaction, (interaction) => {
-    if (interaction) {
-      interact({ libraryId, folder: "/files", total: 10, interaction });
-    }
+  const visibility: boolean[] = [];
+  const indicators: Array<string | undefined> = [];
+
+  registry.subscribe(inspection.isOpen, (open) => visibility.push(open), { immediate: true });
+  registry.subscribe(inspection.inspectedName(listingId), (name) => indicators.push(name), {
+    immediate: true,
   });
 
   registry.set(selection.command, { type: "toggle", value: { index: 0, item: entries[0]! } });
   registry.set(selection.command, { type: "range", index: 9 });
+  expect(updates).toEqual(["file-0", "10 files selected"]);
+  expect(visibility).toEqual([false, true]);
+  expect(indicators).toEqual([undefined, "file-0", undefined]);
   expect(describeFileInspection(target()!)).toEqual({
     type: "selection",
     label: "10 files selected",
   });
 
   send({ type: "close" });
+  expect(updates).toEqual(["file-0", "10 files selected", undefined]);
+  expect(visibility).toEqual([false, true, false]);
+  expect(target()).toBeUndefined();
+  expect(Selection.count(registry.get(selection.selection))).toBe(10);
+  await vi.advanceTimersByTimeAsync(300);
+  expect(target()).toBeUndefined();
   registry.set(selection.command, { type: "clear" });
   expect(target()).toBeUndefined();
   expect(Selection.count(registry.get(selection.selection))).toBe(0);

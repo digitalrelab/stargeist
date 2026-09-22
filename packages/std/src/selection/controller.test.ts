@@ -5,27 +5,33 @@ import type { Extent } from "../pagination";
 
 import { Selection, type Command, type Interaction, type Source } from "./index";
 
-function setup(overrides: Partial<Source<string, string, Error, string>> = {}) {
+function setup(
+  overrides: Partial<Source<string, string, Error, string>> = {},
+  onInteraction?: Atom.Writable<unknown, Interaction<string, string, string>>,
+) {
   const reads: number[] = [];
   const ranges: Array<readonly [number, number]> = [];
   const registry = AtomRegistry.make();
   onTestFinished(() => registry.dispose());
-  const collection = Selection.create({
-    scope: "listing-a",
-    extent: Atom.make<Extent>({ count: 5_000, hasMore: false }),
-    keyOf: (item: string) => item,
-    read: (index: number) =>
-      Effect.sync(() => {
-        reads.push(index);
-        return `file-${index}`;
-      }),
-    readRange: (from: number, to: number) =>
-      Effect.sync(() => {
-        ranges.push([from, to]);
-        return Array.from({ length: to - from + 1 }, (_, i) => `file-${from + i}`);
-      }),
-    ...overrides,
-  });
+  const collection = Selection.create(
+    {
+      scope: "listing-a",
+      extent: Atom.make<Extent>({ count: 5_000, hasMore: false }),
+      keyOf: (item: string) => item,
+      read: (index: number) =>
+        Effect.sync(() => {
+          reads.push(index);
+          return `file-${index}`;
+        }),
+      readRange: (from: number, to: number) =>
+        Effect.sync(() => {
+          ranges.push([from, to]);
+          return Array.from({ length: to - from + 1 }, (_, i) => `file-${from + i}`);
+        }),
+      ...overrides,
+    },
+    onInteraction,
+  );
   const unmount = registry.mount(collection.command);
   const send = (command: Command<string, string>) => registry.set(collection.command, command);
   const selected = () => registry.get(collection.selection);
@@ -179,11 +185,14 @@ describe("Collection navigation and selection", () => {
 
   it("publishes each committed selection intent with one consistent focus and membership snapshot", async () => {
     const pending = Effect.runSync(Deferred.make<ReadonlyArray<string>>());
-    const { registry, collection, send } = setup({ readRange: () => Deferred.await(pending) });
+    const received = Atom.make<Interaction<string, string, string> | undefined>(undefined);
+    const { registry, collection, send } = setup(
+      { readRange: () => Deferred.await(pending) },
+      received,
+    );
     const interactions: Array<Interaction<string, string, string>> = [];
-    registry.get(collection.interaction);
     onTestFinished(
-      registry.subscribe(collection.interaction, (value) => {
+      registry.subscribe(received, (value) => {
         if (value) {
           interactions.push(value);
         }
