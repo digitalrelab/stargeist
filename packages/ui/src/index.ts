@@ -9,9 +9,11 @@ export {
   LinkIcon,
   UnknownFileIcon,
   CloseIcon,
+  CommandIcon,
 } from "./icons";
 export * as Sidebar from "./sidebar";
 export { ScrollArea } from "./scroll-area";
 export { Checkbox } from "./checkbox";
 export { typography } from "./typography";
 export { Skeleton } from "./skeleton";
+export { SelectionBar } from "./selection-bar";

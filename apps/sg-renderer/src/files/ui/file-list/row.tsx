@@ -1,32 +1,33 @@
+import { useAtomValue } from "@effect/atom-react";
 import { Selection } from "@stargeist/std/selection/react";
 import type { FileSystemEntry } from "@stargeist/domain";
 import { Checkbox, typography } from "@stargeist/ui";
 import { colors, focusRing, fonts, radii } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
+import { useCallback } from "react";
+import { useFileBrowserContext } from "../file-browser";
 import { FileKind } from "../file-kind";
 import { useFileListContext } from "./context";
 import { layout } from "./layout";
 
 export function FileRow({ entry, index }: { entry: FileSystemEntry; index: number }) {
   const list = useFileListContext();
-  const selected = Selection.useSelected(list.selection, entry.name);
-  const active = list.focused && index === list.active;
+  const browser = useFileBrowserContext();
+  const selected = Selection.useSelected(browser.selection, entry.name);
+  const matchesEntry = useCallback((name: string | undefined) => name === entry.name, [entry.name]);
+  const inspected = useAtomValue(browser.inspectedName, matchesEntry);
+  const active = index === list.active;
   const id = `${list.gridId}-${index}`;
 
   return (
     <div
       {...list.rowProps}
-      {...stylex.props(
-        stylex.defaultMarker(),
-        layout.row,
-        styles.row,
-        selected && styles.selected,
-        active && styles.active,
-      )}
+      {...stylex.props(stylex.defaultMarker(), layout.row, styles.row)}
       role="row"
       aria-rowindex={index + 1}
       aria-selected={selected}
       data-selected={selected}
+      data-inspected={inspected}
       data-active={active}
       onClick={(event) => {
         if (event.shiftKey) {
@@ -87,28 +88,27 @@ const styles = stylex.create({
       backgroundColor: {
         default: "transparent",
         ":hover": colors.surfaceRaised,
-      },
-    },
-  },
-  selected: {
-    "::before": {
-      backgroundColor: {
-        default: `color-mix(in srgb, ${colors.text} 6%, transparent)`,
-        ":hover": `color-mix(in srgb, ${colors.text} 8%, transparent)`,
-      },
-    },
-  },
-  active: {
-    "::before": {
-      backgroundColor: {
-        default: `color-mix(in srgb, ${colors.text} 10%, transparent)`,
-        ":hover": `color-mix(in srgb, ${colors.text} 12%, transparent)`,
+        ':is([data-selected="true"], [data-inspected="true"])': {
+          default: `color-mix(in srgb, ${colors.text} 6%, transparent)`,
+          ":hover": `color-mix(in srgb, ${colors.text} 8%, transparent)`,
+        },
+        '[data-active="true"]': {
+          [stylex.when.ancestor(':is([role="grid"]):focus-visible')]:
+            `color-mix(in srgb, ${colors.text} 10%, transparent)`,
+        },
       },
     },
     outlineColor: "Highlight",
     outlineWidth: 1,
     outlineOffset: -1,
-    outlineStyle: { default: "none", "@media (forced-colors: active)": "solid" },
+    outlineStyle: {
+      default: "none",
+      "@media (forced-colors: active)": {
+        '[data-active="true"]': {
+          [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: "solid",
+        },
+      },
+    },
   },
   selection: {
     display: "grid",
@@ -117,9 +117,11 @@ const styles = stylex.create({
     height: "100%",
     opacity: {
       default: 0,
-      [stylex.when.ancestor(
-        ':is(:hover, :focus-within, [data-selected="true"], [data-active="true"])',
-      )]: 1,
+      [stylex.when.ancestor(':is([role="row"]):is(:hover, :focus-within, [data-selected="true"])')]:
+        1,
+      [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: {
+        [stylex.when.ancestor(':is([role="row"])[data-active="true"]')]: 1,
+      },
       "@media (hover: none)": 1,
     },
   },

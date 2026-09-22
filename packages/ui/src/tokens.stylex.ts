@@ -15,6 +15,7 @@ export const radii = stylex.defineVars({
   sm: "4px",
   md: "8px",
   lg: "12px",
+  full: "999px",
 });
 
 export const fonts = stylex.defineVars({
@@ -84,8 +85,22 @@ export const colors = stylex.defineVars({
   controlPressed: slateDark.slate5,
   controlSelected: slateDark.slate5,
   controlDisabled: slateDark.slate3,
+  controlOutlined: slateDark.slate4,
+  controlOutlinedHovered: `color-mix(in srgb, ${slateDark.slate4} 92%, white)`,
+  controlOutlinedPressed: `color-mix(in srgb, ${slateDark.slate4} 88%, white)`,
   onControl: slateDark.slate12,
   onControlMuted: slateDark.slate11,
   onControlDisabled: slateDark.slate10,
   focusRing: "oklch(77.429% 0.12152 287.46)",
+});
+
+export const raisedSurface = stylex.createTheme(colors, {
+  control: slateDark.slate4,
+  controlHovered: slateDark.slate5,
+  controlPressed: slateDark.slate6,
+  controlSelected: slateDark.slate6,
+  controlDisabled: slateDark.slate4,
+  controlOutlined: slateDark.slate5,
+  controlOutlinedHovered: `color-mix(in srgb, ${slateDark.slate5} 92%, white)`,
+  controlOutlinedPressed: `color-mix(in srgb, ${slateDark.slate5} 88%, white)`,
 });

@@ -59,7 +59,7 @@ function setup() {
 }
 
 it("opens inspection from arrow navigation without changing checkbox selection", async () => {
-  const { registry, inspection, send, interact, target } = setup();
+  const { registry, inspection, send, target } = setup();
   const listing = createFileListing(
     {
       listingId,
@@ -69,17 +69,16 @@ it("opens inspection from arrow navigation without changing checkbox selection",
     },
     () => Effect.die("Navigation must use the cached page"),
   );
-  const selection = createFileSelectionController(listing);
+  const selection = createFileSelectionController(
+    listing,
+    inspection.bind(listing, { libraryId, folder: "/files" }),
+  );
   registry.mount(selection.command);
   registry.set(selection.command, { type: "replace", keys: ["file-2"] });
   const membership = registry.get(selection.selection);
+  send({ type: "close" });
   const navigate = (by: number) => {
     registry.set(selection.command, { type: "move", by });
-    const interaction = registry.get(selection.interaction);
-    if (!interaction) {
-      throw new Error("Expected committed navigation intent");
-    }
-    interact({ ...input("focus", undefined), interaction });
   };
   expect(registry.get(inspection.isOpen)).toBe(false);
   navigate(1);
@@ -94,14 +93,11 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   expect(target()?.entry?.name).toBe("file-1");
   expect(registry.get(selection.selection)).toBe(membership);
   expect(Selection.count(membership)).toBe(1);
-  expect(registry.get(selection.interaction)?.type).toBe("focus");
   send({ type: "close" });
   navigate(-1);
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.entry?.name).toBe("file-0");
   registry.set(selection.command, { type: "all" });
-  const all = registry.get(selection.interaction)!;
-  interact({ ...input("select", undefined), total: 3, interaction: all });
   expect(describeFileInspection(target()!)).toEqual({
     type: "selection",
     label: "3 files selected",
@@ -197,7 +193,7 @@ it("selection supersedes pending navigation, and activation explicitly inspects 
   expect(Selection.count(members)).toBe(2);
 });
 
-it("describes the remaining selected file after deselecting the focused file, then falls back to focus on clear", () => {
+it("describes the remaining selected file and closes when selection becomes empty", () => {
   const { interact, target, updates } = setup();
   interact(input("select", 1, Selection.replace(listingId, ["file-0"])));
   expect(describeFileInspection(target()!)).toEqual({
@@ -206,10 +202,66 @@ it("describes the remaining selected file after deselecting the focused file, th
     kind: undefined,
   });
   interact(input("select", 1));
-  expect(target()?.entry?.name).toBe("file-1");
+  expect(target()).toBeUndefined();
   interact(input("select", undefined));
   expect(target()).toBeUndefined();
-  expect(updates).toEqual(["file-0", "file-1", undefined]);
+  expect(updates).toEqual(["file-0", undefined]);
+});
+
+it("publishes selection and inspection together, then closes without changing membership", async () => {
+  const { registry, inspection, send, target, updates } = setup();
+  const entries = Array.from({ length: 10 }, (_, index) => ({
+    name: `file-${index}`,
+    kind: "file" as const,
+  }));
+  const listing = createFileListing({ listingId, entries, offset: 0, hasMore: false }, () =>
+    Effect.die("Selection must use the cached page"),
+  );
+  const selection = createFileSelectionController(
+    listing,
+    inspection.bind(listing, { libraryId, folder: "/files" }),
+  );
+  registry.mount(selection.command);
+  const visibility: boolean[] = [];
+  const indicators: Array<string | undefined> = [];
+
+  registry.subscribe(inspection.isOpen, (open) => visibility.push(open), { immediate: true });
+  registry.subscribe(inspection.inspectedName(listingId), (name) => indicators.push(name), {
+    immediate: true,
+  });
+
+  registry.set(selection.command, { type: "toggle", value: { index: 0, item: entries[0]! } });
+  registry.set(selection.command, { type: "range", index: 9 });
+  expect(updates).toEqual(["file-0", "10 files selected"]);
+  expect(visibility).toEqual([false, true]);
+  expect(indicators).toEqual([undefined, "file-0", undefined]);
+  expect(describeFileInspection(target()!)).toEqual({
+    type: "selection",
+    label: "10 files selected",
+  });
+
+  send({ type: "close" });
+  expect(updates).toEqual(["file-0", "10 files selected", undefined]);
+  expect(visibility).toEqual([false, true, false]);
+  expect(target()).toBeUndefined();
+  expect(Selection.count(registry.get(selection.selection))).toBe(10);
+  await vi.advanceTimersByTimeAsync(300);
+  expect(target()).toBeUndefined();
+  registry.set(selection.command, { type: "clear" });
+  expect(target()).toBeUndefined();
+  expect(Selection.count(registry.get(selection.selection))).toBe(0);
+  expect(registry.get(selection.active)).toBe(9);
+
+  registry.set(selection.command, { type: "activate" });
+  expect(target()?.entry?.name).toBe("file-9");
+  registry.set(selection.command, { type: "all" });
+  registry.set(selection.command, { type: "move", by: -1 });
+  registry.set(selection.command, { type: "clear" });
+  expect(target()).toBeUndefined();
+
+  await vi.advanceTimersByTimeAsync(300);
+  expect(target()).toBeUndefined();
+  expect(registry.get(selection.active)).toBe(8);
 });
 
 it("closing cancels queued navigation and remains closed until a new intent", async () => {
@@ -223,6 +275,38 @@ it("closing cancels queued navigation and remains closed until a new intent", as
   interact(input("focus", 2));
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.entry?.name).toBe("file-2");
+});
+
+it("derives a listing-scoped row indicator from the displayed inspection", async () => {
+  const { registry, inspection, send, interact } = setup();
+  const otherScope = Schema.decodeUnknownSync(ListingId)("other-listing");
+  const inspected = inspection.inspectedName(listingId);
+  const updates: Array<string | undefined> = [];
+  registry.get(inspected);
+  registry.subscribe(inspected, (name) => updates.push(name));
+
+  interact(input("activate", 0));
+  expect(registry.get(inspected)).toBe("file-0");
+  expect(registry.get(inspection.inspectedName(otherScope))).toBeUndefined();
+
+  interact(input("activate", 0));
+  expect(updates).toEqual(["file-0"]);
+  interact(input("focus", 1));
+  await vi.advanceTimersByTimeAsync(249);
+  expect(registry.get(inspected)).toBe("file-0");
+  await vi.advanceTimersByTimeAsync(1);
+  expect(registry.get(inspected)).toBe("file-1");
+
+  interact(input("select", 1, Selection.replace(listingId, ["file-0", "file-1"])));
+  expect(registry.get(inspected)).toBeUndefined();
+  interact(input("select", 1, Selection.replace(listingId, ["file-0"])));
+  expect(registry.get(inspected)).toBe("file-0");
+  send({ type: "close" });
+  expect(registry.get(inspected)).toBeUndefined();
+
+  interact(input("activate", 0, Selection.empty(otherScope)));
+  expect(registry.get(inspected)).toBeUndefined();
+  expect(registry.get(inspection.inspectedName(otherScope))).toBe("file-0");
 });
 
 it("cancels pending navigation on departure and disposal while preserving displayed inspection", async () => {

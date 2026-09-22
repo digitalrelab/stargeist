@@ -2,12 +2,13 @@ import { Button as BaseButton } from "@base-ui/react/button";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import * as stylex from "@stylexjs/stylex";
-import { colors, control, focusRing, fonts, space } from "../tokens.stylex";
+import { colors, control, focusRing, fonts, radii, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
 type ButtonStyleProps = {
   appearance?: keyof typeof appearances;
   size?: keyof typeof sizes;
+  shape?: keyof typeof shapes;
   styles?: stylex.StyleXStyles<
     Partial<
       Pick<
@@ -41,15 +42,18 @@ export type ButtonProps = Omit<BaseButton.Props, "className" | "style"> & Button
 export type ButtonLinkProps = Omit<useRender.ComponentProps<"a">, "className" | "style"> &
   ButtonStyleProps;
 
-function ButtonRoot({ appearance, size, styles: customStyles, ...props }: ButtonProps) {
+function ButtonRoot({ appearance, size, shape, styles: customStyles, ...props }: ButtonProps) {
   return (
-    <BaseButton {...mergeProps<"button">(props, buttonStyles(appearance, size, customStyles))} />
+    <BaseButton
+      {...mergeProps<"button">(props, buttonStyles(appearance, size, shape, customStyles))}
+    />
   );
 }
 
 function ButtonLink({
   appearance,
   size,
+  shape,
   styles: customStyles,
   render,
   ref,
@@ -59,7 +63,7 @@ function ButtonLink({
     defaultTagName: "a",
     render,
     ref,
-    props: mergeProps<"a">(props, buttonStyles(appearance, size, customStyles)),
+    props: mergeProps<"a">(props, buttonStyles(appearance, size, shape, customStyles)),
   });
 }
 
@@ -68,6 +72,7 @@ export const Button = Object.assign(ButtonRoot, { Link: ButtonLink });
 function buttonStyles(
   appearance: ButtonStyleProps["appearance"] = "solid",
   size: ButtonStyleProps["size"] = "md",
+  shape: ButtonStyleProps["shape"] = "default",
   customStyles?: ButtonStyleProps["styles"],
 ) {
   return stylex.props(
@@ -75,6 +80,7 @@ function buttonStyles(
     styles.button,
     sizes[size],
     appearances[appearance],
+    shapes[shape],
     customStyles,
   );
 }
@@ -84,7 +90,6 @@ const styles = stylex.create({
     alignItems: "center",
     appearance: "none",
     borderWidth: 0,
-    borderRadius: control.radius,
     display: "inline-flex",
     fontWeight: fonts.semibold,
     gap: space[2],
@@ -131,6 +136,23 @@ const appearances = stylex.create({
       [states.disabled]: colors.onControlDisabled,
     },
   },
+  outlined: {
+    backgroundColor: {
+      default: colors.controlOutlined,
+      [states.hovered]: colors.controlOutlinedHovered,
+      [states.pressed]: colors.controlOutlinedPressed,
+      [states.disabled]: colors.controlDisabled,
+    },
+    color: {
+      default: colors.onControl,
+      [states.disabled]: colors.onControlDisabled,
+    },
+    boxShadow: {
+      default: `inset 0 0 0 1px ${colors.border}`,
+      [states.interacting]: `inset 0 0 0 1px ${colors.borderStrong}`,
+      [states.disabled]: `inset 0 0 0 1px ${colors.borderSubtle}`,
+    },
+  },
   ghost: {
     backgroundColor: {
       default: "oklch(0% 0 0 / 0)",
@@ -148,6 +170,12 @@ const appearances = stylex.create({
 });
 
 const sizes = stylex.create({
+  iconSm: {
+    inlineSize: control.heightSm,
+    blockSize: control.heightSm,
+    flexShrink: 0,
+    padding: 0,
+  },
   icon: {
     inlineSize: control.heightMd,
     blockSize: control.heightMd,
@@ -164,4 +192,9 @@ const sizes = stylex.create({
     paddingBlock: space[2],
     paddingInline: control.paddingInlineMd,
   },
+});
+
+const shapes = stylex.create({
+  default: { borderRadius: control.radius },
+  pill: { borderRadius: radii.full },
 });

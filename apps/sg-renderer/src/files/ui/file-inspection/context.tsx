@@ -8,7 +8,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { createFileInspection, type FileInspectionInput } from "./state";
+import { createFileInspection } from "./state";
 
 const FileInspectionContext = createContext<ReturnType<typeof useInspection> | undefined>(
   undefined,
@@ -17,19 +17,20 @@ const FileInspectionContext = createContext<ReturnType<typeof useInspection> | u
 function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
   const [inspection] = useState(createFileInspection);
   const dispatch = useAtomSet(inspection.command);
-  const origin = useRef<HTMLElement>(null);
+  const origin = useRef<RefObject<HTMLElement | null>>(null);
 
   return useMemo(
     () => ({
+      bind: inspection.bind,
       target: inspection.target,
       isOpen: inspection.isOpen,
-      interact: (input: FileInspectionInput, trigger: HTMLElement) => {
-        origin.current = trigger;
-        dispatch({ type: "interact", input });
+      inspectedName: inspection.inspectedName,
+      rememberFocus: (target: RefObject<HTMLElement | null>) => {
+        origin.current = target;
       },
       cancelNavigation: () => dispatch({ type: "cancel" }),
       close: () => {
-        const trigger = origin.current;
+        const trigger = origin.current?.current;
         origin.current = null;
         dispatch({ type: "close" });
 
