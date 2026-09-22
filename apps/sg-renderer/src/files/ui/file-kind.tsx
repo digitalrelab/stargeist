@@ -31,7 +31,7 @@ const kinds = {
   },
   archive: { label: "Archive", Icon: ArchiveFileIcon, color: colors.accentAmber },
   code: { label: "Code", Icon: CodeFileIcon, color: colors.accentBlue },
-  folder: { label: "Folder", Icon: FolderIcon, color: colors.accentAmber },
+  folder: { label: "Folder", Icon: FolderIcon, color: colors.accentCyan },
   file: { label: "File", Icon: FileIcon, color: colors.textMuted },
   link: { label: "Link", Icon: LinkIcon, color: colors.textMuted },
   other: { label: "Other", Icon: UnknownFileIcon, color: colors.textMuted },

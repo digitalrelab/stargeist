@@ -120,6 +120,7 @@ export const colors = stylex.defineVars({
   statusNegativeBorder: "oklch(55% 0.055 25)",
   statusNegative: "oklch(72% 0.09 25)",
   accentBlue: "oklch(78% 0.08 245)",
+  accentCyan: "oklch(78% 0.12 205)",
   accentGreen: "oklch(78% 0.10 155)",
   accentPurple: "oklch(78% 0.10 285)",
   accentOrange: "oklch(78% 0.10 55)",
