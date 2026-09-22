@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WorkspaceError, makeWorkspaceId } from "@stargeist/domain";
+import { sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { AppDatabase, openDatabase } from "../app/database";
@@ -59,6 +60,67 @@ it("participates in a transaction owned by the shared database", async () => {
         )
         .pipe(Effect.flip);
       expect(yield* store.list).toEqual([]);
+    }).pipe(
+      Effect.provide(Layer.effect(AppDatabase, openDatabase(join(folder, "application.sqlite")))),
+    ),
+  );
+});
+
+it("moves file references with a workspace without touching sibling paths or losing IDs", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "stargeist-store-"));
+  onTestFinished(() => rm(folder, { recursive: true, force: true }));
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const database = yield* AppDatabase;
+      const store = yield* makeWorkspaceStore;
+      const record = { id: yield* makeWorkspaceId, identity: "workspace", root: "/original-🚀" };
+      yield* store.modify((records) => records.put(record));
+      yield* database.run(sql`
+        INSERT INTO files (id, source, key) VALUES
+          ('file-1', 'local', '/original-🚀/notes.txt'),
+          ('file-2', 'local', '/original-🚀-copy/notes.txt'),
+          ('file-3', 'remote', '/original-🚀/notes.txt')
+      `);
+      yield* store.modify((records) => records.relocate(record, "/moved-🌟"));
+      expect(yield* store.get(record.id)).toEqual({ ...record, root: "/moved-🌟" });
+      expect(
+        yield* database.all<{ id: string; key: string }>(
+          sql`SELECT id, key FROM files ORDER BY id`,
+        ),
+      ).toEqual([
+        { id: "file-1", key: "/moved-🌟/notes.txt" },
+        { id: "file-2", key: "/original-🚀-copy/notes.txt" },
+        { id: "file-3", key: "/original-🚀/notes.txt" },
+      ]);
+    }).pipe(
+      Effect.provide(Layer.effect(AppDatabase, openDatabase(join(folder, "application.sqlite")))),
+    ),
+  );
+});
+
+it("keeps both workspace and file references unchanged when the new path is occupied", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "stargeist-store-"));
+  onTestFinished(() => rm(folder, { recursive: true, force: true }));
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const database = yield* AppDatabase;
+      const store = yield* makeWorkspaceStore;
+      const record = { id: yield* makeWorkspaceId, identity: "workspace", root: "/original" };
+      yield* store.modify((records) => records.put(record));
+      yield* database.run(sql`
+        INSERT INTO files (id, source, key) VALUES
+          ('file-1', 'local', '/original/notes.txt'),
+          ('file-2', 'local', '/moved/notes.txt')
+      `);
+      expect(
+        (yield* store.modify((records) => records.relocate(record, "/moved")).pipe(Effect.flip))
+          .code,
+      ).toBe("RootConflict");
+      expect(yield* store.get(record.id)).toEqual(record);
+      expect(yield* database.all<{ key: string }>(sql`SELECT key FROM files ORDER BY id`)).toEqual([
+        { key: "/original/notes.txt" },
+        { key: "/moved/notes.txt" },
+      ]);
     }).pipe(
       Effect.provide(Layer.effect(AppDatabase, openDatabase(join(folder, "application.sqlite")))),
     ),

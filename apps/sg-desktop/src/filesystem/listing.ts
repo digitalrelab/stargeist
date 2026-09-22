@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { opendir } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { opendir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type DirectoryListingPage,
-  type FileError,
+  type FileType,
   ListingId,
   DirectoryError,
   directoryPageSize,
@@ -12,9 +13,8 @@ import {
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema, Semaphore } from "effect";
 import { TemporaryStorage } from "@stargeist/storage";
+import mime from "mime";
 import { openDirectoryCache } from "./directory-cache";
-import { observeFile } from "./observation";
-import { verifyFileIdentities } from "./identity";
 
 const expired = () =>
   new DirectoryError({
@@ -28,9 +28,11 @@ const unavailable = () =>
     message: "The folder could not be read. Check its location and permissions, then refresh.",
   });
 
-function listingError(error: FileError) {
-  if (error.code === "ObservationExpired") return expired();
-  return new DirectoryError({ code: error.code, message: error.message });
+function fileType(entry: Dirent): FileType {
+  if (entry.isDirectory()) return "folder";
+  if (entry.isFile()) return "file";
+  if (entry.isSymbolicLink()) return "link";
+  return "other";
 }
 
 export const openListing = Effect.fnUntraced(function* (
@@ -38,34 +40,28 @@ export const openListing = Effect.fnUntraced(function* (
   options?: { readonly exclude: ReadonlySet<string> },
 ) {
   const temporaryStorage = yield* TemporaryStorage;
-  const fileService = yield* Files;
+  const files = yield* Files;
   const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
   const filename = join(temporaryStorage.directory, `directory-listing-${listingId}.sqlite`);
   const cache = yield* openDirectoryCache(filename);
-  const initialRoot = yield* observeFile(rootPath, ".");
-  if (initialRoot?.type !== "folder") return yield* unavailable();
-  let root = initialRoot;
+  const root = yield* Effect.tryPromise(() => realpath(rootPath)).pipe(
+    Effect.mapError(unavailable),
+  );
+  const initial = yield* Effect.tryPromise(() => stat(root, { bigint: true })).pipe(
+    Effect.mapError(unavailable),
+  );
+  if (!initial.isDirectory()) return yield* unavailable();
 
-  let invalidated = false;
-  const validateRoot = Effect.gen(function* () {
-    if (invalidated) return yield* expired();
-    const current = yield* observeFile(rootPath, ".");
-    if (current?.objectKey !== root.objectKey) {
-      invalidated = true;
-      return yield* expired();
-    }
-    const [identity] = yield* verifyFileIdentities([{ previous: root, current }]).pipe(
-      Effect.mapError(listingError),
-    );
-    if (identity !== "same") {
-      invalidated = true;
-      return yield* expired();
-    }
-    root = current;
-  });
+  const validateRoot = Effect.tryPromise(() => stat(root, { bigint: true })).pipe(
+    Effect.mapError(expired),
+    Effect.flatMap((current) => {
+      if (current.dev !== initial.dev || current.ino !== initial.ino) return Effect.fail(expired());
+      return Effect.void;
+    }),
+  );
 
   const directory = yield* Effect.acquireRelease(
-    Effect.tryPromise(() => opendir(rootPath, { bufferSize: directoryPageSize })).pipe(
+    Effect.tryPromise(() => opendir(root, { bufferSize: directoryPageSize })).pipe(
       Effect.onError((cause) => reportFailure("directories.open", cause)),
       Effect.mapError(unavailable),
     ),
@@ -73,22 +69,18 @@ export const openListing = Effect.fnUntraced(function* (
   );
 
   let complete = false;
-  let pendingNames: string[] = [];
+  let pending: Dirent[] = [];
 
   const readNext = Effect.gen(function* () {
-    const file = yield* Effect.tryPromise(() => directory.read()).pipe(
+    const entry = yield* Effect.tryPromise(() => directory.read()).pipe(
       Effect.onError((cause) => reportFailure("directories.read", cause)),
       Effect.mapError(unavailable),
     );
-
-    if (!file) {
+    if (!entry) {
       complete = true;
       return;
     }
-
-    if (!options?.exclude.has(file.name)) {
-      pendingNames.push(file.name);
-    }
+    if (!options?.exclude.has(entry.name)) pending.push(entry);
   }).pipe(Effect.uninterruptible);
 
   const read = Effect.fnUntraced(function* (offset: number) {
@@ -97,40 +89,39 @@ export const openListing = Effect.fnUntraced(function* (
     }
 
     const lookahead = offset + directoryPageSize + 1;
-
-    while ((!complete || pendingNames.length > 0) && cache.totalCount < lookahead) {
+    while ((!complete || pending.length > 0) && cache.totalCount < lookahead) {
       yield* validateRoot;
-      while (!complete && pendingNames.length < lookahead - cache.totalCount) {
-        yield* readNext;
+      while (!complete && pending.length < lookahead - cache.totalCount) yield* readNext;
+
+      const identities = yield* files
+        .ensure(pending.map((entry) => ({ source: "local", key: join(root, entry.name) })))
+        .pipe(
+          Effect.mapError(
+            (error) => new DirectoryError({ code: error.code, message: error.message }),
+          ),
+        );
+      yield* validateRoot;
+      for (const [index, entry] of pending.entries()) {
+        const type = fileType(entry);
+        let mediaType: string | null = null;
+        if (type === "file" && entry.name.lastIndexOf(".") > 0) {
+          mediaType = mime.getType(entry.name);
+        }
+        cache.append({ id: identities[index]!.id, name: entry.name, type, mediaType });
       }
-
-      const observations = yield* Effect.forEach(
-        pendingNames,
-        (name) => observeFile(rootPath, name),
-        { concurrency: 8 },
-      );
-      const present = observations.filter((file) => file !== null);
-      yield* validateRoot;
-
-      yield* Effect.gen(function* () {
-        const files = yield* fileService.remember(present).pipe(Effect.mapError(listingError));
-        for (const file of files) cache.append(file);
-        pendingNames = [];
-      }).pipe(Effect.uninterruptible);
+      pending = [];
     }
 
-    const files = yield* cache.read(offset);
-
+    const page = yield* cache.read(offset);
     return {
       listingId,
       offset,
-      files,
-      hasMore: !complete || cache.committedCount > offset + files.length,
+      files: page,
+      hasMore: !complete || cache.committedCount > offset + page.length,
     } satisfies DirectoryListingPage;
   });
 
   const lock = yield* Semaphore.make(1);
   const firstPage = yield* read(0);
-
   return { listingId, firstPage, read: (offset: number) => lock.withPermit(read(offset)) };
 });

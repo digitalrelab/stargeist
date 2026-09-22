@@ -1,5 +1,5 @@
 import { useAtomSet } from "@effect/atom-react";
-import type { File, WorkspaceId } from "@stargeist/domain";
+import type { FileSnapshot, WorkspaceId } from "@stargeist/domain";
 import type { Command } from "@stargeist/std/selection";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { createFileSelectionController } from "../../selection";
@@ -29,7 +29,7 @@ export function useFileBrowser({ listing, workspaceId, folder }: FileBrowserProp
       selection,
       inspectedIndex: inspection.inspectedIndex(listing.id),
       viewProps: { ref: view },
-      dispatch: (command: Command<File, number>) => {
+      dispatch: (command: Command<FileSnapshot, number>) => {
         send(command);
         view.current?.focus({ preventScroll: true });
       },

@@ -169,6 +169,12 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       });
       expect(reconnected.id).toBe(child.id);
       expect(reconnected.root).toBe(moved);
+      const movedView = yield* client["workspaces.browse"]({ id: child.id }).pipe(
+        Stream.toPull,
+        Effect.flatMap((pull) => pull),
+        Effect.map((views) => views[0]),
+      );
+      expect(movedView.directory.files[0]!.id).toBe(reopened.directory.files[0]!.id);
       yield* client["workspaces.forget"]({ id: parent.id });
       const remembered = yield* host["workspaces.open"]({ path: archive });
       expect(remembered.root).toBe(parent.root);

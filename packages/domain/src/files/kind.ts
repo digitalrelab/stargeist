@@ -1,4 +1,4 @@
-import type { File } from "@stargeist/domain";
+import type { FileSnapshot } from "./file";
 
 export type FileKind =
   | "image"
@@ -57,7 +57,7 @@ const mediaFamilies: ReadonlyArray<readonly [string, FileKind]> = [
   ["text/", "text"],
 ];
 
-export function classifyFileKind(file: Pick<File, "type" | "mediaType">): FileKind {
+export function classifyFileKind(file: Pick<FileSnapshot, "type" | "mediaType">): FileKind {
   if (file.type !== "file") return file.type;
   if (file.mediaType === null) return "file";
 

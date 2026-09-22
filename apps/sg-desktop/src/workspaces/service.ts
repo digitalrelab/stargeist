@@ -77,9 +77,8 @@ export function makeWorkspaces(
               code: "RootConflict",
               message: "This folder is already in your workspace list. Open it from there.",
             });
-          const moved = { ...current, root: root.root };
-          yield* records.put(moved);
-          return workspace(moved);
+          yield* records.relocate(current, root.root);
+          return workspace({ ...current, root: root.root });
         }),
       );
     }),

@@ -1,4 +1,4 @@
-import type { File, WorkspaceId, ListingId } from "@stargeist/domain";
+import type { FileSnapshot, WorkspaceId, ListingId } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Effect, HashSet } from "effect";
 import { AsyncResult, Atom, type AtomRegistry } from "effect/unstable/reactivity";
@@ -7,12 +7,12 @@ import type { FileListing } from "../../state";
 
 type ReadFile = (
   index: number,
-) => Effect.Effect<File | undefined, unknown, AtomRegistry.AtomRegistry>;
+) => Effect.Effect<FileSnapshot | undefined, unknown, AtomRegistry.AtomRegistry>;
 
 export interface FileInspection {
   readonly selection: FileSelection;
   readonly total: number | undefined;
-  readonly file: File | undefined;
+  readonly file: FileSnapshot | undefined;
   readonly index: number | undefined;
   readonly read: ReadFile;
 }

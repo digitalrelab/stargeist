@@ -1,4 +1,4 @@
-import type { File } from "@stargeist/domain";
+import { classifyFileKind, type FileKind as Kind, type FileSnapshot } from "@stargeist/domain";
 import {
   FileIcon,
   FolderIcon,
@@ -16,7 +16,6 @@ import {
 } from "@stargeist/ui";
 import { colors } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
-import { classifyFileKind, type FileKind as Kind } from "../kind";
 
 const kinds = {
   image: { label: "Image", Icon: ImageFileIcon, color: colors.accentGreen },
@@ -38,7 +37,7 @@ const kinds = {
   other: { label: "Other", Icon: UnknownFileIcon, color: colors.textMuted },
 } satisfies Record<Kind, { label: string; Icon: typeof FileIcon; color: string }>;
 
-type Props = { file: File };
+type Props = { file: FileSnapshot };
 
 function Icon({ file, decorative = false }: Props & { decorative?: boolean }) {
   const { Icon: KindIcon, label, color } = kinds[classifyFileKind(file)];

@@ -12,7 +12,6 @@ export class WorkspaceError extends Schema.Error<WorkspaceError>("WorkspaceError
     "WorkspaceChanged",
     "RootConflict",
     "ListingExpired",
-    "IdentityUnavailable",
   ]),
   message: Schema.String,
 }) {}

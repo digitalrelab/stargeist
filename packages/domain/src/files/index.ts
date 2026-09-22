@@ -1,8 +1,3 @@
-export { File, FileId, FileType, makeFileId } from "./file";
-export {
-  FileError,
-  FileObservation,
-  Files,
-  type FileIdentityComparison,
-  type FileIdentityVerifier,
-} from "./service";
+export { File, FileId, FileReference, FileSnapshot, FileType, makeFileId } from "./file";
+export { classifyFileKind, type FileKind } from "./kind";
+export { FileError, Files } from "./service";

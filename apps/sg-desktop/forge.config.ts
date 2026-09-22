@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import { cp } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,16 +23,6 @@ const linuxPackageOptions = {
 
 export default {
   hooks: {
-    packageAfterPrune: async (_config, buildPath, _version, platform, arch) => {
-      const require = createRequire(import.meta.url);
-      const koffi = require.resolve("koffi");
-      const nativePackage = `@koromix/koffi-${platform}-${arch}`;
-      const native = createRequire(koffi).resolve(nativePackage);
-      await Promise.all([
-        cp(dirname(koffi), join(buildPath, "node_modules", "koffi"), { recursive: true }),
-        cp(dirname(native), join(buildPath, "node_modules", nativePackage), { recursive: true }),
-      ]);
-    },
     preStart: async () => {
       if (process.platform !== "darwin") return;
 
@@ -50,7 +39,6 @@ export default {
     },
   },
   packagerConfig: {
-    asar: { unpack: "**/*.node" },
     name: executableName,
     executableName,
     appBundleId: "com.digitalrelab.stargeist",

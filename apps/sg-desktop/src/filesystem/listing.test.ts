@@ -7,11 +7,10 @@ import {
   AppStorage,
   temporaryStorageLayer,
 } from "@stargeist/storage";
-import { directoryPageSize, FileError, Files } from "@stargeist/domain";
+import { directoryPageSize } from "@stargeist/domain";
 import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { openListing } from "./index";
-import { verifyFileIdentities } from "./identity";
 
 async function createFixture(names: string[] = []) {
   const root = await mkdtemp(join(tmpdir(), "stargeist-directory-test-"));
@@ -25,7 +24,7 @@ async function createFixture(names: string[] = []) {
     content,
     open: () => openListing(content),
     layer: Layer.merge(
-      filesLayer(verifyFileIdentities).pipe(Layer.provide(AppStorage.database)),
+      filesLayer.pipe(Layer.provide(AppStorage.database)),
       temporaryStorageLayer,
     ).pipe(Layer.provide(AppStorage.layer(join(root, "profile")))),
   };
@@ -136,32 +135,6 @@ it("continues paging after the directory's timestamps change", async () => {
       expect(second.files).toHaveLength(1);
       expect(second.hasMore).toBe(false);
       expect(yield* listing.read(0)).toEqual(listing.firstPage);
-    }).pipe(Effect.scoped, Effect.provide(layer)),
-  );
-});
-
-it("expires a stale observation without changing saved files and allows reopening", async () => {
-  const { layer, open } = await createFixture(["file.txt"]);
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const files = yield* Files;
-      const original = yield* open();
-      const expired = yield* open().pipe(
-        Effect.provideService(Files, {
-          ...files,
-          remember: () =>
-            Effect.fail(
-              new FileError({
-                code: "ObservationExpired",
-                message: "The file changed while it was being checked.",
-              }),
-            ),
-        }),
-        Effect.flip,
-      );
-      expect(expired.code).toBe("ListingExpired");
-      const reopened = yield* open();
-      expect(reopened.firstPage.files).toEqual(original.firstPage.files);
     }).pipe(Effect.scoped, Effect.provide(layer)),
   );
 });

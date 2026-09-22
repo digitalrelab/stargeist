@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FileObservation, Files } from "@stargeist/domain";
+import { FileReference, Files } from "@stargeist/domain";
 import { Effect, Layer } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { AppStorage, filesLayer } from "../index";
@@ -38,20 +38,16 @@ it("keeps persistent file identities isolated between profiles and stable when r
     Effect.runPromise(
       Effect.gen(function* () {
         const files = yield* Files;
-        const [file] = yield* files.remember([
-          FileObservation.make({
+        const [file] = yield* files.ensure([
+          FileReference.make({
             source: "source",
-            objectKey: "object",
-            evidence: null,
-            name: "file.txt",
-            type: "file",
-            mediaType: "text/plain",
+            key: "object",
           }),
         ]);
         return file!.id;
       }).pipe(
         Effect.provide(
-          filesLayer().pipe(
+          filesLayer.pipe(
             Layer.provide(AppStorage.database),
             Layer.provide(AppStorage.layer(profile)),
           ),

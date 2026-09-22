@@ -1,4 +1,4 @@
-import type { File, WorkspaceId, ListingId } from "@stargeist/domain";
+import type { FileSnapshot, WorkspaceId, ListingId } from "@stargeist/domain";
 import { Selection, type Interaction, type SelectionState } from "@stargeist/std/selection";
 import { Effect } from "effect";
 import type { Atom } from "effect/unstable/reactivity";
@@ -56,4 +56,4 @@ export interface FileSelection {
   readonly members: SelectionState<number, ListingId>;
 }
 
-export type FileInteraction = Interaction<File, number, ListingId>;
+export type FileInteraction = Interaction<FileSnapshot, number, ListingId>;

@@ -9,8 +9,19 @@ export type FileType = typeof FileType.Type;
 
 export const File = Schema.Struct({
   id: FileId,
+});
+export type File = typeof File.Type;
+
+export const FileReference = Schema.Struct({
+  source: Schema.NonEmptyString,
+  key: Schema.NonEmptyString,
+});
+export type FileReference = typeof FileReference.Type;
+
+export const FileSnapshot = Schema.Struct({
+  ...File.fields,
   name: Schema.String,
   type: FileType,
   mediaType: Schema.NullOr(Schema.String),
 });
-export type File = typeof File.Type;
+export type FileSnapshot = typeof FileSnapshot.Type;
