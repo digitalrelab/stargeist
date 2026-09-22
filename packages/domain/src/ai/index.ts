@@ -28,6 +28,7 @@ export class AgentModelCatalog extends Context.Service<
                   models: provider.state.models.filter(
                     (model) =>
                       model.capabilities.toolCalling &&
+                      model.capabilities.inputModalities?.includes("text") === true &&
                       model.capabilities.outputModalities.includes("text"),
                   ),
                 },

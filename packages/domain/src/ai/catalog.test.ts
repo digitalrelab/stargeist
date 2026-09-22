@@ -51,11 +51,24 @@ it("limits agent choices to tool-capable text models without changing the generi
       outputModalities: ["image", "text"],
     },
   };
+  const imageInputOnly: Model = {
+    ...text,
+    reference: { providerId: "example", modelId: "image-input-only" },
+    capabilities: { ...text.capabilities, inputModalities: ["image"] },
+  };
+  const unknownInput: Model = {
+    ...text,
+    reference: { providerId: "example", modelId: "unknown-input" },
+    capabilities: { ...text.capabilities, inputModalities: null },
+  };
   const catalogs: ReadonlyArray<ProviderModelCatalog> = [
     {
       providerId: "example",
       displayName: "Example",
-      state: { status: "available", models: [text, textOnly, image, multimodal] },
+      state: {
+        status: "available",
+        models: [text, textOnly, image, multimodal, imageInputOnly, unknownInput],
+      },
     },
     {
       providerId: "empty",
@@ -103,6 +116,6 @@ it("limits agent choices to tool-capable text models without changing the generi
   ]);
   expect(catalogs[0]?.state).toEqual({
     status: "available",
-    models: [text, textOnly, image, multimodal],
+    models: [text, textOnly, image, multimodal, imageInputOnly, unknownInput],
   });
 });
