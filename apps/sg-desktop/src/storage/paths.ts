@@ -7,6 +7,7 @@ export class StoragePaths extends Context.Service<
     readonly profile: string;
     readonly database: string;
     readonly userPreferences: string;
+    readonly credentials: string;
     readonly temporary: string;
   }
 >()("@stargeist/desktop/StoragePaths") {}
@@ -16,5 +17,6 @@ export const pathsLayer = (profile: string) =>
     profile,
     database: join(profile, "data", "workspaces.sqlite"),
     userPreferences: join(profile, "data", "user-preferences.json"),
+    credentials: join(profile, "data", "credentials"),
     temporary: join(profile, "temporary"),
   });

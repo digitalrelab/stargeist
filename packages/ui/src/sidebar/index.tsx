@@ -29,7 +29,7 @@ export function Link({
   icon,
   children,
   ...props
-}: Omit<ButtonLinkProps, "appearance" | "size" | "styles"> & { icon?: ReactNode }) {
+}: Omit<ButtonLinkProps, "appearance" | "size" | "shape" | "styles"> & { icon?: ReactNode }) {
   return (
     <Button.Link {...props} appearance="ghost" styles={styles.link}>
       {icon && (

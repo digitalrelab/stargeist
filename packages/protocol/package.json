@@ -5,6 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
+    "./ai": "./src/ai.ts",
     "./workspaces": "./src/workspaces.ts"
   },
   "scripts": {

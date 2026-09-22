@@ -24,7 +24,7 @@ export function FileInspector() {
         <h2 id={headingId} {...stylex.props(typography.label, styles.heading)}>
           File details
         </h2>
-        <Button appearance="ghost" size="icon" aria-label="Close file inspector" onClick={close}>
+        <Button appearance="ghost" shape="square" aria-label="Close file inspector" onClick={close}>
           <CloseIcon aria-hidden="true" />
         </Button>
       </SecondarySidebar.Header>

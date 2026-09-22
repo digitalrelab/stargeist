@@ -5,37 +5,45 @@ import * as stylex from "@stylexjs/stylex";
 import { colors, control, focusRing, fonts, radii, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
+type ButtonLayout = Partial<
+  Pick<
+    stylex.CSSProperties,
+    | "alignSelf"
+    | "justifySelf"
+    | "order"
+    | "gridArea"
+    | "gridColumn"
+    | "gridRow"
+    | "margin"
+    | "marginBlock"
+    | "marginBlockStart"
+    | "marginBlockEnd"
+    | "marginInline"
+    | "marginInlineStart"
+    | "marginInlineEnd"
+  >
+>;
+
+type ButtonSizing = Partial<
+  Pick<
+    stylex.CSSProperties,
+    "flexGrow" | "flexShrink" | "flexBasis" | "inlineSize" | "minInlineSize" | "maxInlineSize"
+  >
+>;
+
 type ButtonStyleProps = {
   appearance?: keyof typeof appearances;
   size?: keyof typeof sizes;
-  shape?: keyof typeof shapes;
-  styles?: stylex.StyleXStyles<
-    Partial<
-      Pick<
-        stylex.CSSProperties,
-        | "alignSelf"
-        | "justifySelf"
-        | "flexGrow"
-        | "flexShrink"
-        | "flexBasis"
-        | "order"
-        | "gridArea"
-        | "gridColumn"
-        | "gridRow"
-        | "inlineSize"
-        | "minInlineSize"
-        | "maxInlineSize"
-        | "margin"
-        | "marginBlock"
-        | "marginBlockStart"
-        | "marginBlockEnd"
-        | "marginInline"
-        | "marginInlineStart"
-        | "marginInlineEnd"
-      >
-    >
-  >;
-};
+} & (
+  | {
+      shape?: "rectangle" | "pill";
+      styles?: stylex.StyleXStyles<ButtonLayout & ButtonSizing>;
+    }
+  | {
+      shape: "square" | "circle";
+      styles?: stylex.StyleXStyles<ButtonLayout>;
+    }
+);
 
 export type ButtonProps = Omit<BaseButton.Props, "className" | "style"> & ButtonStyleProps;
 
@@ -71,21 +79,26 @@ export const Button = Object.assign(ButtonRoot, { Link: ButtonLink });
 
 function buttonStyles(
   appearance: ButtonStyleProps["appearance"] = "solid",
-  size: ButtonStyleProps["size"] = "md",
-  shape: ButtonStyleProps["shape"] = "default",
+  size: ButtonStyleProps["size"] = "sm",
+  shape: ButtonStyleProps["shape"] = "rectangle",
   customStyles?: ButtonStyleProps["styles"],
 ) {
+  const equalSides = shape === "square" || shape === "circle";
+
   return stylex.props(
     typography.label,
     styles.button,
-    sizes[size],
+    !equalSides && sizes[size],
     appearances[appearance],
     shapes[shape],
     customStyles,
+    equalSides && styles.equalSides,
+    equalSides && equalSideSizes[size],
   );
 }
 
 const styles = stylex.create({
+  equalSides: { padding: 0, flex: "none" },
   button: {
     alignItems: "center",
     appearance: "none",
@@ -112,6 +125,30 @@ const states = {
 };
 
 const appearances = stylex.create({
+  danger: {
+    backgroundColor: {
+      default: colors.danger,
+      [states.hovered]: colors.dangerHovered,
+      [states.pressed]: colors.dangerPressed,
+      [states.disabled]: colors.controlDisabled,
+    },
+    color: {
+      default: colors.onDanger,
+      [states.disabled]: colors.onControlDisabled,
+    },
+  },
+  dangerGhost: {
+    backgroundColor: {
+      default: "oklch(0% 0 0 / 0)",
+      [states.hovered]: colors.controlHovered,
+      [states.pressed]: colors.controlPressed,
+    },
+    color: {
+      default: colors.statusNegativeBorder,
+      [states.interacting]: colors.statusNegative,
+      [states.disabled]: colors.onControlDisabled,
+    },
+  },
   solid: {
     backgroundColor: {
       default: colors.action,
@@ -170,31 +207,32 @@ const appearances = stylex.create({
 });
 
 const sizes = stylex.create({
-  iconSm: {
-    inlineSize: control.heightSm,
-    blockSize: control.heightSm,
-    flexShrink: 0,
-    padding: 0,
-  },
-  icon: {
-    inlineSize: control.heightMd,
-    blockSize: control.heightMd,
-    flexShrink: 0,
-    padding: 0,
+  xs: {
+    minBlockSize: control.heightXs,
+    paddingBlock: space[0.5],
+    paddingInline: space[2],
   },
   sm: {
-    minHeight: control.heightSm,
+    minBlockSize: control.heightSm,
     paddingBlock: space[1],
-    paddingInline: space[3],
+    paddingInline: control.paddingInlineSm,
   },
   md: {
-    minHeight: control.heightMd,
+    minBlockSize: control.heightMd,
     paddingBlock: space[2],
     paddingInline: control.paddingInlineMd,
   },
 });
 
+const equalSideSizes = stylex.create({
+  xs: { inlineSize: control.heightXs, blockSize: control.heightXs },
+  sm: { inlineSize: control.heightSm, blockSize: control.heightSm },
+  md: { inlineSize: control.heightMd, blockSize: control.heightMd },
+});
+
 const shapes = stylex.create({
-  default: { borderRadius: control.radius },
+  rectangle: { borderRadius: control.radius },
+  square: { borderRadius: control.radius },
   pill: { borderRadius: radii.full },
+  circle: { borderRadius: radii.full },
 });

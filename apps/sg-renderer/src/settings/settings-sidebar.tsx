@@ -1,4 +1,12 @@
-import { Button, BackIcon, SettingsIcon, AppearanceIcon, Sidebar, typography } from "@stargeist/ui";
+import {
+  Button,
+  BackIcon,
+  SettingsIcon,
+  AppearanceIcon,
+  AIIcon,
+  Sidebar,
+  typography,
+} from "@stargeist/ui";
 import { space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
@@ -10,7 +18,7 @@ export function SettingsSidebar() {
         <div {...stylex.props(styles.header)}>
           <Button.Link
             appearance="ghost"
-            size="icon"
+            shape="square"
             render={<Link to="/" />}
             aria-label="Back to workspaces"
           >
@@ -29,6 +37,9 @@ export function SettingsSidebar() {
           </Sidebar.Link>
           <Sidebar.Link icon={<AppearanceIcon />} render={<Link to="/settings/appearance" />}>
             Appearance
+          </Sidebar.Link>
+          <Sidebar.Link icon={<AIIcon />} render={<Link to="/settings/ai" />}>
+            AI
           </Sidebar.Link>
         </Sidebar.Nav>
       </Sidebar.Content>

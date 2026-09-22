@@ -87,14 +87,13 @@ const styles = stylex.create({
       borderRadius: radii.md,
       backgroundColor: {
         default: "transparent",
-        ":hover": colors.surfaceRaised,
+        ":hover": colors.control,
         ':is([data-selected="true"], [data-inspected="true"])': {
-          default: `color-mix(in srgb, ${colors.text} 6%, transparent)`,
-          ":hover": `color-mix(in srgb, ${colors.text} 8%, transparent)`,
+          default: colors.control,
+          ":hover": colors.controlHovered,
         },
         '[data-active="true"]': {
-          [stylex.when.ancestor(':is([role="grid"]):focus-visible')]:
-            `color-mix(in srgb, ${colors.text} 10%, transparent)`,
+          [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: colors.controlPressed,
         },
       },
     },

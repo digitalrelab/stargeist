@@ -16,6 +16,7 @@ it("resolves product paths without creating storage or acquiring a temporary ses
     profile,
     database: join(profile, "data", "workspaces.sqlite"),
     userPreferences: join(profile, "data", "user-preferences.json"),
+    credentials: join(profile, "data", "credentials"),
     temporary: join(profile, "temporary"),
   });
   expect(await readdir(root)).toEqual([]);

@@ -77,8 +77,8 @@ export function FileSelectionBar() {
       )}
       <Button
         appearance="ghost"
-        size="iconSm"
-        shape="pill"
+        size="sm"
+        shape="circle"
         aria-label="Clear selection"
         onClick={() => browser.dispatch({ type: "clear" })}
       >

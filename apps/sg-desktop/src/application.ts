@@ -2,13 +2,21 @@ import { Application } from "@stargeist/application";
 import { reportFailure } from "@stargeist/std/errors";
 import { app } from "electron";
 import { Effect, Layer } from "effect";
-import { RpcClient } from "effect/unstable/rpc";
+import { RpcClient, RpcServer } from "effect/unstable/rpc";
+import { aiProviderConnectionsLayer, ProviderConnectionsEndpoint } from "./ai";
 import { openBackend, servePort } from "./backend";
 import { folderPickerLayer } from "./filesystem/host";
 import { pathsLayer } from "./storage";
 import { WindowsModule, WindowConnections, runWindows } from "./window";
 import { userPreferencesLayer } from "./user-preferences";
 import { workspaceCommandsLayer, WorkspaceDialogsEndpoint } from "./workspaces/host";
+
+const HostRpcs = WorkspaceDialogsEndpoint.rpcs.merge(ProviderConnectionsEndpoint.rpcs);
+const serveHost = RpcServer.make(HostRpcs, { concurrency: 1 }).pipe(
+  Effect.provide(WorkspaceDialogsEndpoint.layer),
+  Effect.provide(ProviderConnectionsEndpoint.layer),
+  Effect.scoped,
+);
 
 export const DesktopApplication = Application.define({
   modules: { windows: WindowsModule },
@@ -17,6 +25,7 @@ export const DesktopApplication = Application.define({
 
 export const desktopProgram = Effect.gen(function* () {
   const backend = yield* openBackend;
+  const providerConnections = yield* Layer.build(aiProviderConnectionsLayer);
   yield* Effect.all(
     [
       Effect.gen(function* () {
@@ -30,9 +39,10 @@ export const desktopProgram = Effect.gen(function* () {
             backend.connect(
               contents,
               servePort(
-                WorkspaceDialogsEndpoint.serve.pipe(
+                serveHost.pipe(
                   Effect.provide(folderPickerLayer(contents)),
                   Effect.provide(commands),
+                  Effect.provide(providerConnections),
                   Effect.catchCause((cause) => reportFailure("desktop.connection", cause)),
                 ),
               ),

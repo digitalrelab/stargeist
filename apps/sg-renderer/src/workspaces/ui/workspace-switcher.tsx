@@ -66,7 +66,7 @@ export function WorkspaceSwitcher({ workspaceId }: { workspaceId: WorkspaceId | 
             {failureMessage(list.cause)}
           </p>
           {canRetryFailure(list.cause) && (
-            <Button appearance="ghost" size="sm" onClick={refresh} disabled={list.waiting}>
+            <Button appearance="ghost" onClick={refresh} disabled={list.waiting}>
               Retry
             </Button>
           )}

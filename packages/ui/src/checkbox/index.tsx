@@ -68,8 +68,7 @@ const styles = stylex.create({
     borderRadius: radii.sm,
     backgroundColor: {
       default: "transparent",
-      [stylex.when.ancestor(":is([data-checked], [data-indeterminate])")]:
-        `color-mix(in oklab, ${colors.text} 10%, transparent)`,
+      [stylex.when.ancestor(":is([data-checked], [data-indeterminate])")]: colors.controlPressed,
     },
     outlineColor: colors.focusRing,
     outlineWidth: focusRing.width,

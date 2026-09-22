@@ -165,7 +165,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
         >
           <span role="alert">{failureMessage(result.cause)}</span>
           {canRetryFailure(result.cause) && (
-            <Button appearance="soft" size="sm" onClick={retry} disabled={result.waiting}>
+            <Button appearance="soft" onClick={retry} disabled={result.waiting}>
               Retry
             </Button>
           )}
@@ -209,8 +209,7 @@ const styles = stylex.create({
   },
   activeStatus: {
     backgroundColor: {
-      [stylex.when.ancestor(':is([role="grid"]):focus-visible')]:
-        `color-mix(in srgb, ${colors.text} 10%, transparent)`,
+      [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: colors.controlPressed,
     },
     borderRadius: radii.md,
     outlineColor: "Highlight",

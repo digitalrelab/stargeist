@@ -15,6 +15,7 @@ const native = vi.hoisted(() => ({
   failure: vi.fn<() => Effect.Effect<never, Error>>(),
   quit: vi.fn(),
   exit: vi.fn(),
+  encryptionAvailable: vi.fn(),
 }));
 
 vi.mock("electron", async () => {
@@ -27,7 +28,12 @@ vi.mock("electron", async () => {
     quit: native.quit,
     exit: native.exit,
   });
-  const electron = { app, ipcMain: new EventEmitter(), BrowserWindow: { getAllWindows: () => [] } };
+  const electron = {
+    app,
+    ipcMain: new EventEmitter(),
+    BrowserWindow: { getAllWindows: () => [] },
+    safeStorage: { isAsyncEncryptionAvailable: native.encryptionAvailable },
+  };
   return { ...electron, default: electron };
 });
 
@@ -112,6 +118,7 @@ it.each([true, false])(
     expect(native.stopBackend).toHaveBeenCalledOnce();
     expect(await readFile(filename, "utf8")).toBe(contents);
     expect(app.eventNames()).toEqual([]);
+    expect(native.encryptionAvailable).not.toHaveBeenCalled();
   },
 );
 

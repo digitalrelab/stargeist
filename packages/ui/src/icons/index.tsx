@@ -7,11 +7,15 @@ import {
   ChevronsUpDown,
   Settings2,
   Palette,
+  Astroid,
+  CircleAlert,
   File,
   FileQuestionMark,
   Folder,
   Link,
   Minus,
+  Pencil,
+  Trash2,
   X,
   type LucideProps,
 } from "lucide-react";
@@ -49,6 +53,10 @@ export function AppearanceIcon(props: LucideProps) {
   return <Palette size={control.iconSize} {...props} />;
 }
 
+export function AIIcon(props: LucideProps) {
+  return <Astroid size={control.iconSize} {...props} />;
+}
+
 export function CheckIcon(props: LucideProps) {
   return <Check size={control.iconSize} {...props} />;
 }
@@ -71,4 +79,16 @@ export function ChevronsUpDownIcon(props: LucideProps) {
 
 export function CommandIcon(props: LucideProps) {
   return <Command size={control.iconSize} {...props} />;
+}
+
+export function DeleteIcon(props: LucideProps) {
+  return <Trash2 size={control.iconSize} {...props} />;
+}
+
+export function EditIcon(props: LucideProps) {
+  return <Pencil size={control.iconSize} {...props} />;
+}
+
+export function ErrorIcon(props: LucideProps) {
+  return <CircleAlert size={control.iconSize} {...props} />;
 }
