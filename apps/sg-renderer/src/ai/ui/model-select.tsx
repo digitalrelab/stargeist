@@ -38,7 +38,7 @@ type ModelGroup = {
 };
 
 type Highlight = {
-  readonly model: ModelOption | undefined;
+  readonly modelKey: string | null;
   readonly reason: "keyboard" | "pointer" | "none";
 };
 const emptyModels: ReadonlyArray<ModelOption> = [];
@@ -59,8 +59,9 @@ export function ModelSelect({
 }) {
   const options = useMemo(() => modelOptions(catalogs, value), [catalogs, value]);
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
-  const [highlight, setHighlight] = useState<Highlight>({ model: undefined, reason: "none" });
+  const [highlight, setHighlight] = useState<Highlight>({ modelKey: null, reason: "none" });
   const activeProvider =
     options.groups.find((group) => group.id === activeProviderId) ??
     options.groups.find((group) => group.id === value?.providerId) ??
@@ -71,6 +72,7 @@ export function ModelSelect({
       key={activeProvider?.id ?? "none"}
       disabled={disabled}
       open={open}
+      inputValue={query}
       items={activeProvider?.items ?? emptyModels}
       value={options.selected}
       autoHighlight
@@ -79,10 +81,16 @@ export function ModelSelect({
       itemToStringValue={modelKey}
       isItemEqualToValue={equalModels}
       filter={filterModel}
-      onItemHighlighted={(model, details) => setHighlight({ model, reason: details.reason })}
+      onInputValueChange={setQuery}
+      onItemHighlighted={(model, details) =>
+        setHighlight({ modelKey: model ? modelKey(model) : null, reason: details.reason })
+      }
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (nextOpen) setActiveProviderId(value?.providerId ?? null);
+        if (nextOpen) {
+          setQuery("");
+          setActiveProviderId(value?.providerId ?? null);
+        }
       }}
       onValueChange={(model) => {
         if (model) onValueChange(model.reference);
@@ -111,7 +119,8 @@ export function ModelSelect({
           onValueChange={(id) => {
             if (typeof id !== "string" || id === activeProvider?.id) return;
             setActiveProviderId(id);
-            setHighlight({ model: undefined, reason: "none" });
+            setQuery("");
+            setHighlight({ modelKey: null, reason: "none" });
           }}
           {...stylex.props(styles.tabLayout)}
         >
@@ -136,7 +145,7 @@ export function ModelSelect({
           {activeProvider && (
             <Tabs.Panel value={activeProvider.id} {...stylex.props(styles.modelPane)}>
               <Combobox.Input aria-label="Search models" placeholder="Search models…" autoFocus />
-              <ModelList highlight={highlight} />
+              <ModelList highlight={highlight} query={query} />
             </Tabs.Panel>
           )}
         </Tabs.Root>
@@ -145,10 +154,10 @@ export function ModelSelect({
   );
 }
 
-function ModelList({ highlight }: { highlight: Highlight }) {
+function ModelList({ highlight, query }: { highlight: Highlight; query: string }) {
   const viewport = useRef<HTMLDivElement>(null);
   const models = Combobox.useFilteredItems<ModelOption>();
-  const highlightedIndex = models.findIndex((model) => model === highlight.model);
+  const highlightedIndex = models.findIndex((model) => modelKey(model) === highlight.modelKey);
   const rangeExtractor = useCallback(
     (range: Range) => {
       const indexes = defaultRangeExtractor(range);
@@ -174,14 +183,14 @@ function ModelList({ highlight }: { highlight: Highlight }) {
 
   useLayoutEffect(() => {
     virtualizer.scrollToOffset(0);
-  }, [models, virtualizer]);
+  }, [query, virtualizer]);
 
   useLayoutEffect(() => {
     if (highlightedIndex < 0 || highlight.reason === "pointer") return;
     let align: "auto" | "center" = "auto";
     if (highlight.reason === "none") align = "center";
     virtualizer.scrollToIndex(highlightedIndex, { align });
-  }, [highlightedIndex, highlight.reason, models, virtualizer]);
+  }, [highlightedIndex, highlight.reason, virtualizer]);
 
   return (
     <ScrollArea.Root>
