@@ -4,5 +4,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/preload.ts", "src/**/*.test.ts"]
+  "exclude": ["src/preload.ts"]
 }

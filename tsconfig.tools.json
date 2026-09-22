@@ -8,7 +8,6 @@
     "apps/*/*.config.ts",
     "apps/*/src/**/*.d.ts",
     "packages/**/*.test.ts",
-    "apps/sg-desktop/src/**/*.test.ts",
     "tooling/*/src/**/*.test.ts"
   ]
 }
