@@ -16,8 +16,6 @@ const platformImports = [
   ...electronImports,
   "@stargeist/database",
   "@stargeist/database/*",
-  "@stargeist/workspace-storage",
-  "@stargeist/workspace-storage/*",
   "@effect/sql-*",
   "effect/unstable/sql",
   "effect/unstable/sql/*",
@@ -205,7 +203,7 @@ const boundaries = [
     patterns: [...appImports, ...protocolImports, iconImports],
   },
   {
-    files: ["packages/database/src/**", "packages/workspace-storage/src/**"],
+    files: ["packages/database/src/**"],
     portable: false,
     patterns: [
       ...appImports,

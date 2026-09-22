@@ -2,7 +2,6 @@ import { existsSync, lstatSync, realpathSync, renameSync, rmSync } from "node:fs
 import { isAbsolute, join, resolve } from "node:path";
 import { databaseFilename } from "@stargeist/database";
 import { readWorkspaceRoots } from "@stargeist/database/workspaces";
-import { workspaceDirectoryName } from "@stargeist/workspace-storage";
 import {
   inspectProfile,
   validateProfilePaths,
@@ -44,7 +43,7 @@ function workspaceRoots(profile: DevelopmentProfile) {
 }
 
 function inspectWorkspace(root: string): WorkspaceTarget {
-  const path = join(root, workspaceDirectoryName);
+  const path = join(root, ".stargeist");
   try {
     if (!isAbsolute(root) || resolve(root) !== root) {
       throw new ProfileError("unsafe-path", `Expected an absolute workspace path: ${root}`);

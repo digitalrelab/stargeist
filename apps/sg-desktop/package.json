@@ -28,7 +28,6 @@
     "@stargeist/protocol": "workspace:*",
     "@stargeist/renderer": "workspace:*",
     "@stargeist/std": "workspace:*",
-    "@stargeist/workspace-storage": "workspace:*",
     "@types/electron-squirrel-startup": "1.0.2",
     "effect": "catalog:",
     "electron": "44.4.3",

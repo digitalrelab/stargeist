@@ -2,7 +2,7 @@ import { Module } from "@stargeist/application";
 import { Workspaces } from "@stargeist/domain";
 import { makeWorkspaceStore } from "@stargeist/database/workspaces";
 import { Effect, Layer } from "effect";
-import { workspaceRoots } from "@stargeist/workspace-storage";
+import { workspaceRoots } from "./roots";
 import { makeWorkspaces } from "./service";
 
 const workspacesLayer = Layer.effect(

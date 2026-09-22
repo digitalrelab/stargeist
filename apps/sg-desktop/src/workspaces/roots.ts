@@ -3,7 +3,7 @@ import { lstat, mkdtemp, open, realpath, rename, rm, rmdir, stat } from "node:fs
 import { dirname, join } from "node:path";
 import { WorkspaceError } from "@stargeist/domain";
 import * as Id from "@stargeist/std/id";
-import type { WorkspaceRoots } from "./types";
+import type { WorkspaceRoots } from "./storage";
 import { reportFailure } from "@stargeist/std/errors";
 import { Clock, Effect, Schema } from "effect";
 

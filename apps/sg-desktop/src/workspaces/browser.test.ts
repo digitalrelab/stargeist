@@ -6,7 +6,7 @@ import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { BackendApplication } from "../backend/application";
-import { workspaceRoots } from "@stargeist/workspace-storage";
+import { workspaceRoots } from "./roots";
 import { makeWorkspaceBrowser } from "./browser";
 
 async function createFixture() {
