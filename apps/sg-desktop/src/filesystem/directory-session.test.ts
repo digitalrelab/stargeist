@@ -10,7 +10,7 @@ import {
 import { directoryPageSize } from "@stargeist/domain";
 import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { openListing } from "./index";
+import { openDirectorySession } from "./index";
 
 async function createFixture(names: string[] = []) {
   const root = await mkdtemp(join(tmpdir(), "stargeist-directory-test-"));
@@ -22,7 +22,7 @@ async function createFixture(names: string[] = []) {
 
   return {
     content,
-    open: () => openListing(content),
+    open: () => openDirectorySession(content),
     layer: Layer.merge(
       filesLayer.pipe(Layer.provide(AppStorage.database)),
       temporaryStorageLayer,
@@ -30,16 +30,18 @@ async function createFixture(names: string[] = []) {
   };
 }
 
-describe("directory listings", () => {
+describe("directory sessions", () => {
   it("rejects negative, unaligned, and unread page positions", async () => {
     const { layer, open } = await createFixture(["file.txt"]);
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        const listing = yield* open();
+        const session = yield* open();
 
         for (const offset of [-directoryPageSize, 1, directoryPageSize]) {
-          expect((yield* listing.read(offset).pipe(Effect.flip)).code).toBe("ListingExpired");
+          expect((yield* session.read(offset).pipe(Effect.flip)).code).toBe(
+            "DirectorySessionExpired",
+          );
         }
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
@@ -53,9 +55,9 @@ describe("directory listings", () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        const listing = yield* open();
-        const first = listing.firstPage;
-        const second = yield* listing.read(directoryPageSize);
+        const session = yield* open();
+        const first = session.firstPage;
+        const second = yield* session.read(directoryPageSize);
 
         expect(first.files).toHaveLength(directoryPageSize);
         expect(first.hasMore).toBe(true);
@@ -67,12 +69,12 @@ describe("directory listings", () => {
         expect([...first.files, ...second.files].find((file) => file.name === "nested")?.type).toBe(
           "folder",
         );
-        expect(yield* listing.read(0)).toEqual(first);
+        expect(yield* session.read(0)).toEqual(first);
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
   });
 
-  it("keeps concurrent listings independent and releases each with its own scope", async () => {
+  it("keeps concurrent directory sessions independent and releases each with its own scope", async () => {
     const { layer, open } = await createFixture(["file.txt"]);
 
     await Effect.runPromise(
@@ -83,7 +85,7 @@ describe("directory listings", () => {
         const first = yield* open().pipe(Scope.provide(firstScope));
         const second = yield* open().pipe(Scope.provide(secondScope));
 
-        expect(first.listingId).not.toBe(second.listingId);
+        expect(first.directorySessionId).not.toBe(second.directorySessionId);
         expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(2);
 
         yield* Scope.close(firstScope, Exit.void);
@@ -105,21 +107,21 @@ describe("directory listings", () => {
   });
 });
 
-it("expires a listing when its root is moved and replaced instead of mixing directory objects", async () => {
+it("expires a session when its root is moved and replaced instead of mixing directory objects", async () => {
   const names = Array.from({ length: directoryPageSize + 4 }, (_, index) => `file-${index}.txt`);
   const { content, layer, open } = await createFixture(names);
   await Effect.runPromise(
     Effect.gen(function* () {
-      const listing = yield* open();
+      const session = yield* open();
       yield* Effect.promise(async () => {
         await rename(content, `${content}-moved`);
         await mkdir(content);
         await Promise.all(names.map((name) => writeFile(join(content, name), "replacement")));
       });
-      expect(yield* listing.read(directoryPageSize).pipe(Effect.flip)).toMatchObject({
-        code: "ListingExpired",
+      expect(yield* session.read(directoryPageSize).pipe(Effect.flip)).toMatchObject({
+        code: "DirectorySessionExpired",
       });
-      expect(yield* listing.read(0)).toEqual(listing.firstPage);
+      expect(yield* session.read(0)).toEqual(session.firstPage);
     }).pipe(Effect.scoped, Effect.provide(layer)),
   );
 });
@@ -129,12 +131,12 @@ it("continues paging after the directory's timestamps change", async () => {
   const { content, layer, open } = await createFixture(names);
   await Effect.runPromise(
     Effect.gen(function* () {
-      const listing = yield* open();
+      const session = yield* open();
       yield* Effect.promise(() => utimes(content, new Date("2000-01-01"), new Date("2000-01-01")));
-      const second = yield* listing.read(directoryPageSize);
+      const second = yield* session.read(directoryPageSize);
       expect(second.files).toHaveLength(1);
       expect(second.hasMore).toBe(false);
-      expect(yield* listing.read(0)).toEqual(listing.firstPage);
+      expect(yield* session.read(0)).toEqual(session.firstPage);
     }).pipe(Effect.scoped, Effect.provide(layer)),
   );
 });

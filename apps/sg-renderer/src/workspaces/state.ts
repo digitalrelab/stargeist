@@ -2,12 +2,12 @@ import type { WorkspaceId, Workspace } from "@stargeist/domain";
 import { Effect } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 import { workspaceRecovery, type WorkspaceRecovery } from "./recovery";
-import { createFileListing, type FileListing } from "#src/files/index.ts";
+import { createDirectoryContents, type DirectoryContents } from "#src/files/index.ts";
 import type { WorkspacesClient } from "./client";
 
-export interface WorkspaceListing {
+export interface WorkspaceContents {
   readonly workspace: Workspace;
-  readonly listing: FileListing;
+  readonly contents: DirectoryContents;
 }
 
 export const createWorkspaceState = (client: WorkspacesClient) => {
@@ -15,10 +15,10 @@ export const createWorkspaceState = (client: WorkspacesClient) => {
   const detail = Atom.family((id: WorkspaceId) => {
     const view = Atom.make(
       Effect.suspend(() => client.browse(id)).pipe(
-        Effect.map(({ workspace, directory }): WorkspaceListing => ({
+        Effect.map(({ workspace, directory }): WorkspaceContents => ({
           workspace,
-          listing: createFileListing(directory, (offset) =>
-            client.readDirectory({ listingId: directory.listingId, offset }),
+          contents: createDirectoryContents(directory, (offset) =>
+            client.readDirectory({ directorySessionId: directory.directorySessionId, offset }),
           ),
         })),
       ),

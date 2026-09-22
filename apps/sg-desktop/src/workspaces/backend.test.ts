@@ -87,17 +87,17 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       ]);
       expect(
         yield* client["workspaces.readDirectory"]({
-          listingId: first.directory.listingId,
+          directorySessionId: first.directory.directorySessionId,
           offset: 0,
         }).pipe(Effect.flip),
-      ).toMatchObject({ code: "ListingExpired" });
+      ).toMatchObject({ code: "DirectorySessionExpired" });
       yield* Scope.close(secondScope, Exit.void);
       expect(
         yield* client["workspaces.readDirectory"]({
-          listingId: second.directory.listingId,
+          directorySessionId: second.directory.directorySessionId,
           offset: 0,
         }).pipe(Effect.flip),
-      ).toMatchObject({ code: "ListingExpired" });
+      ).toMatchObject({ code: "DirectorySessionExpired" });
       const reopened = yield* client["workspaces.browse"]({ id: child.id }).pipe(
         Stream.toPull,
         Effect.flatMap((pull) => pull),
@@ -134,16 +134,16 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       expect(independent.directory.files[0]!.id).not.toBe(reopened.directory.files[0]!.id);
       expect(
         yield* client["workspaces.readDirectory"]({
-          listingId: reopened.directory.listingId,
+          directorySessionId: reopened.directory.directorySessionId,
           offset: 0,
         }),
       ).toEqual(reopened.directory);
       expect(
         yield* otherRenderer["workspaces.readDirectory"]({
-          listingId: reopened.directory.listingId,
+          directorySessionId: reopened.directory.directorySessionId,
           offset: 0,
         }).pipe(Effect.flip),
-      ).toMatchObject({ code: "ListingExpired" });
+      ).toMatchObject({ code: "DirectorySessionExpired" });
       expect(
         yield* host["workspaces.reconnect"]({ id: child.id, path: copyPath }).pipe(Effect.flip),
       ).toMatchObject({ code: "RootConflict" });

@@ -3,9 +3,9 @@ import type { Dirent } from "node:fs";
 import { opendir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  type DirectoryListingPage,
+  type DirectoryPage,
   type FileType,
-  ListingId,
+  DirectorySessionId,
   DirectoryError,
   directoryPageSize,
   Files,
@@ -18,7 +18,7 @@ import { openDirectoryCache } from "./directory-cache";
 
 const expired = () =>
   new DirectoryError({
-    code: "ListingExpired",
+    code: "DirectorySessionExpired",
     message: "This folder view has expired. Refresh to reopen it.",
   });
 
@@ -35,14 +35,17 @@ function fileType(entry: Dirent): FileType {
   return "other";
 }
 
-export const openListing = Effect.fnUntraced(function* (
+export const openDirectorySession = Effect.fnUntraced(function* (
   rootPath: string,
   options?: { readonly exclude: ReadonlySet<string> },
 ) {
   const temporaryStorage = yield* TemporaryStorage;
   const files = yield* Files;
-  const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
-  const filename = join(temporaryStorage.directory, `directory-listing-${listingId}.sqlite`);
+  const directorySessionId = Schema.decodeUnknownSync(DirectorySessionId)(randomUUID());
+  const filename = join(
+    temporaryStorage.directory,
+    `directory-session-${directorySessionId}.sqlite`,
+  );
   const cache = yield* openDirectoryCache(filename);
   const root = yield* Effect.tryPromise(() => realpath(rootPath)).pipe(
     Effect.mapError(unavailable),
@@ -114,14 +117,14 @@ export const openListing = Effect.fnUntraced(function* (
 
     const page = yield* cache.read(offset);
     return {
-      listingId,
+      directorySessionId,
       offset,
       files: page,
       hasMore: !complete || cache.committedCount > offset + page.length,
-    } satisfies DirectoryListingPage;
+    } satisfies DirectoryPage;
   });
 
   const lock = yield* Semaphore.make(1);
   const firstPage = yield* read(0);
-  return { listingId, firstPage, read: (offset: number) => lock.withPermit(read(offset)) };
+  return { directorySessionId, firstPage, read: (offset: number) => lock.withPermit(read(offset)) };
 });

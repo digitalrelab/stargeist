@@ -14,7 +14,7 @@ import { BackendApplication } from "../backend/application";
 import { makeWorkspaceBrowser } from "./browser";
 
 async function createFixture() {
-  const root = await mkdtemp(join(tmpdir(), "stargeist-workspace-listing-test-"));
+  const root = await mkdtemp(join(tmpdir(), "stargeist-workspace-browser-test-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
   await Effect.runPromise(WorkspaceStorage.at(root).initialize);
@@ -28,18 +28,18 @@ async function createFixture() {
   };
 }
 
-describe("active workspace listing", () => {
+describe("active workspace browser", () => {
   it("releases failed acquisitions without leaving temporary files", async () => {
     const { root, workspace, layer } = await createFixture();
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const paths = yield* TemporaryStorage;
-        const listing = yield* makeWorkspaceBrowser({
+        const browser = yield* makeWorkspaceBrowser({
           get: () =>
             Effect.succeed(new Workspace({ id: workspace.id, root: join(root, "missing") })),
         });
-        const error = yield* listing.browse(workspace.id).pipe(Effect.flip);
+        const error = yield* browser.browse(workspace.id).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(WorkspaceError);
         expect(error.code).toBe("FolderUnavailable");
@@ -55,22 +55,22 @@ describe("active workspace listing", () => {
       Effect.gen(function* () {
         const paths = yield* TemporaryStorage;
         const scope = yield* Scope.fork(yield* Effect.scope);
-        const listing = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) }).pipe(
+        const browser = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) }).pipe(
           Scope.provide(scope),
         );
         const firstScope = yield* Scope.fork(yield* Effect.scope);
-        const first = (yield* listing.browse(workspace.id).pipe(Scope.provide(firstScope)))
+        const first = (yield* browser.browse(workspace.id).pipe(Scope.provide(firstScope)))
           .directory;
-        const second = (yield* listing.browse(workspace.id)).directory;
+        const second = (yield* browser.browse(workspace.id)).directory;
 
-        expect(second.listingId).not.toBe(first.listingId);
+        expect(second.directorySessionId).not.toBe(first.directorySessionId);
         expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(1);
-        expect((yield* listing.read(first.listingId, 0).pipe(Effect.flip)).code).toBe(
-          "ListingExpired",
+        expect((yield* browser.read(first.directorySessionId, 0).pipe(Effect.flip)).code).toBe(
+          "DirectorySessionExpired",
         );
 
         yield* Scope.close(firstScope, Exit.void);
-        expect(yield* listing.read(second.listingId, 0)).toEqual(second);
+        expect(yield* browser.read(second.directorySessionId, 0)).toEqual(second);
 
         yield* Scope.close(scope, Exit.void);
         expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
@@ -84,14 +84,14 @@ describe("active workspace listing", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const paths = yield* TemporaryStorage;
-        const listing = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) });
+        const browser = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) });
         const viewScope = yield* Scope.fork(yield* Effect.scope);
-        const page = (yield* listing.browse(workspace.id).pipe(Scope.provide(viewScope))).directory;
+        const page = (yield* browser.browse(workspace.id).pipe(Scope.provide(viewScope))).directory;
 
         yield* Scope.close(viewScope, Exit.void);
 
-        expect((yield* listing.read(page.listingId, 0).pipe(Effect.flip)).code).toBe(
-          "ListingExpired",
+        expect((yield* browser.read(page.directorySessionId, 0).pipe(Effect.flip)).code).toBe(
+          "DirectorySessionExpired",
         );
         expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
       }).pipe(Effect.scoped, Effect.provide(layer)),

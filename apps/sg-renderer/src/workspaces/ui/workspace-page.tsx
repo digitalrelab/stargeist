@@ -10,7 +10,7 @@ import { failureMessage } from "#src/client/index.ts";
 import { FileBrowser, FileList, FileListSkeleton } from "#src/files/views.ts";
 import { WorkArea } from "#src/shell/index.ts";
 import type { WorkspaceRecovery } from "../recovery";
-import type { WorkspaceListing } from "../state";
+import type { WorkspaceContents } from "../state";
 import { useWorkspaceState } from "./use-state";
 
 export function WorkspacePage({ workspaceId }: { workspaceId: WorkspaceId }) {
@@ -69,7 +69,7 @@ function WorkspaceFiles({
   workspaceId,
   recovery,
 }: {
-  view: AsyncResult.AsyncResult<WorkspaceListing, unknown>;
+  view: AsyncResult.AsyncResult<WorkspaceContents, unknown>;
   retry: (() => void) | undefined;
   workspaceId: WorkspaceId;
   recovery: ReadonlyArray<WorkspaceRecovery>;
@@ -77,8 +77,8 @@ function WorkspaceFiles({
   if (view._tag === "Success" && !view.waiting) {
     return (
       <FileBrowser.Root
-        key={view.value.listing.id}
-        listing={view.value.listing}
+        key={view.value.contents.sessionId}
+        contents={view.value.contents}
         folder={view.value.workspace.root}
       >
         <FileList />

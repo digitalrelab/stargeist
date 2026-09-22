@@ -4,18 +4,18 @@ import { Selection } from "./index";
 
 describe("Selection membership", () => {
   it("replaces and toggles stable keys without mutating previous values", () => {
-    const initial = Selection.replace("listing-a", ["a", "b", "a"]);
+    const initial = Selection.replace("scope-a", ["a", "b", "a"]);
     const changed = Selection.toggle(initial, "a");
     expect(Selection.count(initial)).toBe(2);
     expect(Selection.contains(initial, "a")).toBe(true);
     expect(Selection.contains(changed, "a")).toBe(false);
     expect(Selection.contains(changed, "b")).toBe(true);
-    expect(changed.scope).toBe("listing-a");
-    expect(Selection.count(Selection.empty("listing-a"))).toBe(0);
+    expect(changed.scope).toBe("scope-a");
+    expect(Selection.count(Selection.empty("scope-a"))).toBe(0);
   });
 
   it("represents all 5,000 entries with exceptions, without materializing their keys", () => {
-    const all = Selection.all<string, string>("listing-a");
+    const all = Selection.all<string, string>("scope-a");
     const except = Selection.toggle(Selection.toggle(all, "a"), "b");
     expect(all.mode).toBe("all");
     if (all.mode !== "all" || except.mode !== "all") {

@@ -1,9 +1,9 @@
-import type { FileSnapshot, ListingId } from "@stargeist/domain";
+import type { FileSnapshot, DirectorySessionId } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Effect, HashSet } from "effect";
 import { AsyncResult, Atom, type AtomRegistry } from "effect/unstable/reactivity";
 import type { FileInteraction, FileSelection } from "../../selection";
-import type { FileListing } from "../../state";
+import type { DirectoryContents } from "../../state";
 
 type ReadFile = (
   index: number,
@@ -20,13 +20,13 @@ export interface FileInspection {
 export interface FileInspectionInput {
   readonly interaction: FileInteraction;
   readonly folder: string | undefined;
-  readonly extent: FileListing["extent"];
+  readonly extent: DirectoryContents["extent"];
   readonly read: ReadFile;
 }
 
 type Command =
   | { readonly type: "interact"; readonly input: FileInspectionInput }
-  | { readonly type: "clear"; readonly scope: ListingId };
+  | { readonly type: "clear"; readonly scope: DirectorySessionId };
 
 function resolveInspection(
   input: FileInspectionInput,
@@ -75,7 +75,7 @@ function resolveInspection(
 
 export function createFileInspection() {
   const input = Atom.make<FileInspectionInput | undefined>(undefined);
-  const scope = Atom.make<ListingId | undefined>(undefined);
+  const scope = Atom.make<DirectorySessionId | undefined>(undefined);
   const target = Atom.make((get) => {
     const current = get(input);
     if (!current) return undefined;
@@ -126,7 +126,7 @@ export function createFileInspection() {
     },
   ).pipe(Atom.setIdleTTL(0));
 
-  function bind(listing: FileListing, folder: string | undefined) {
+  function bind(contents: DirectoryContents, folder: string | undefined) {
     return Atom.writable(
       () => undefined,
       (ctx, interaction: FileInteraction) => {
@@ -135,10 +135,10 @@ export function createFileInspection() {
           input: {
             interaction,
             folder,
-            extent: listing.extent,
+            extent: contents.extent,
             read: (index) =>
-              listing.read(listing.pageOffset(index), { retry: true }).pipe(
-                Effect.map((page) => page.items[index - listing.pageOffset(index)]),
+              contents.read(contents.pageOffset(index), { retry: true }).pipe(
+                Effect.map((page) => page.items[index - contents.pageOffset(index)]),
                 Effect.scoped,
               ),
           },
@@ -157,7 +157,7 @@ export function createFileInspection() {
       return current;
     }),
     detail,
-    inspectedIndex: Atom.family((scope: ListingId) =>
+    inspectedIndex: Atom.family((scope: DirectorySessionId) =>
       Atom.map(target, (value) => {
         if (!value || value.selection.members.scope !== scope) {
           return undefined;

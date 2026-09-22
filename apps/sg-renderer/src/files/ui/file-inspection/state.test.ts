@@ -1,20 +1,20 @@
 import { fileAt } from "../../file.test-support";
-import { ListingId, directoryPageSize } from "@stargeist/domain";
+import { DirectorySessionId, directoryPageSize } from "@stargeist/domain";
 import { Selection, type SelectionState } from "@stargeist/std/selection";
 import { Deferred, Effect, HashSet, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 import { createFileSelectionController } from "../../selection";
-import { createFileListing } from "../../state";
+import { createDirectoryContents } from "../../state";
 import { createFileInspection, describeFileInspection, type FileInspectionInput } from "./state";
 
-const listingId = Schema.decodeUnknownSync(ListingId)("inspection");
-const empty = Selection.empty<number, typeof listingId>(listingId);
+const directorySessionId = Schema.decodeUnknownSync(DirectorySessionId)("inspection");
+const empty = Selection.empty<number, typeof directorySessionId>(directorySessionId);
 
 function input(
   type: "focus" | "select" | "activate",
   index: number | undefined,
-  selection: SelectionState<number, typeof listingId> = empty,
+  selection: SelectionState<number, typeof directorySessionId> = empty,
 ): FileInspectionInput {
   let focused;
   if (index !== undefined) {
@@ -65,16 +65,16 @@ function setup() {
 
 it("shows inspection from arrow navigation without changing checkbox selection", async () => {
   const { registry, inspection, target } = setup();
-  const listing = createFileListing(
+  const contents = createDirectoryContents(
     {
-      listingId,
+      directorySessionId,
       files: [0, 1, 2].map((index) => fileAt(index)),
       offset: 0,
       hasMore: false,
     },
     () => Effect.die("Navigation must use the cached page"),
   );
-  const selection = createFileSelectionController(listing, inspection.bind(listing, "/files"));
+  const selection = createFileSelectionController(contents, inspection.bind(contents, "/files"));
   registry.mount(selection.command);
   const navigate = (by: number) => {
     registry.set(selection.command, { type: "move", by });
@@ -117,7 +117,7 @@ it("shows inspection from arrow navigation without changing checkbox selection",
 
 it("inspects the navigated file inside or outside a group without changing its selection", async () => {
   const { interact, target, updates } = setup();
-  const members = Selection.replace(listingId, [0, 1]);
+  const members = Selection.replace(directorySessionId, [0, 1]);
   interact(input("select", 1, members));
   const group = target();
   expect(group?.selection.members).toBe(members);
@@ -139,7 +139,11 @@ it("inspects the navigated file inside or outside a group without changing its s
 
 it("keeps select-all and exceptions compact, including an unknown total", async () => {
   const { interact, target, updates } = setup();
-  const members = Selection.set(Selection.all<number, typeof listingId>(listingId), 5, false);
+  const members = Selection.set(
+    Selection.all<number, typeof directorySessionId>(directorySessionId),
+    5,
+    false,
+  );
   interact(input("select", 5, members));
   expect(target()?.selection.members).toBe(members);
   expect(members.mode).toBe("all");
@@ -180,7 +184,7 @@ it("selection supersedes pending navigation, and activation explicitly inspects 
   const { interact, target, updates } = setup();
   interact(input("activate", 0));
   interact(input("focus", 1));
-  const members = Selection.replace(listingId, [2, 3]);
+  const members = Selection.replace(directorySessionId, [2, 3]);
   interact(input("select", 3, members));
   expect(target()?.selection.members).toBe(members);
   await vi.advanceTimersByTimeAsync(300);
@@ -193,7 +197,7 @@ it("selection supersedes pending navigation, and activation explicitly inspects 
 
 it("describes the remaining selected file and clears inspection when selection becomes empty", () => {
   const { interact, target, updates } = setup();
-  interact(input("select", 1, Selection.replace(listingId, [0])));
+  interact(input("select", 1, Selection.replace(directorySessionId, [0])));
   expect(describeFileInspection(target()!)).toEqual({
     type: "file",
     name: "file-0",
@@ -207,7 +211,7 @@ it("describes the remaining selected file and clears inspection when selection b
 
 it("resolves the remaining select-all occurrence when the focused row is excluded", () => {
   const { registry, inspection, interact, target } = setup();
-  let members = Selection.all<number, typeof listingId>(listingId);
+  let members = Selection.all<number, typeof directorySessionId>(directorySessionId);
   for (const index of [0, 1, 3]) {
     members = Selection.set(members, index, false);
   }
@@ -226,16 +230,16 @@ it("resolves the remaining select-all occurrence when the focused row is exclude
     type: "file",
     name: "file-2",
   });
-  expect(registry.get(inspection.inspectedIndex(listingId))).toBe(2);
+  expect(registry.get(inspection.inspectedIndex(directorySessionId))).toBe(2);
   expect(reads).toEqual([2]);
 });
 
 it("resolves the remaining select-all occurrence when the final page arrives", async () => {
   const { registry, inspection, target } = setup();
   const requests: number[] = [];
-  const listing = createFileListing(
+  const contents = createDirectoryContents(
     {
-      listingId,
+      directorySessionId,
       files: Array.from({ length: directoryPageSize }, (_, index) => fileAt(index)),
       offset: 0,
       hasMore: true,
@@ -244,31 +248,31 @@ it("resolves the remaining select-all occurrence when the final page arrives", a
       Effect.sync(() => {
         requests.push(offset);
         return {
-          listingId,
+          directorySessionId,
           files: [fileAt(directoryPageSize, "remaining.txt")],
           offset,
           hasMore: false,
         };
       }),
   );
-  registry.mount(listing.extent);
-  let members = Selection.all<number, typeof listingId>(listingId);
+  registry.mount(contents.extent);
+  let members = Selection.all<number, typeof directorySessionId>(directorySessionId);
   for (let index = 0; index < directoryPageSize; index++) {
     members = Selection.set(members, index, false);
   }
   registry.set(
-    inspection.bind(listing, "/files"),
+    inspection.bind(contents, "/files"),
     input("select", directoryPageSize - 1, members).interaction,
   );
   expect(target()?.index).toBeUndefined();
   expect(requests).toEqual([]);
-  registry.mount(listing.pages(directoryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
+  registry.mount(contents.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, contents.pages(directoryPageSize)));
   expect(target()?.selection.members).toBe(members);
   expect(target()?.total).toBe(directoryPageSize + 1);
   expect(target()?.index).toBe(directoryPageSize);
   expect(target()?.file?.name).toBe("remaining.txt");
-  expect(registry.get(inspection.inspectedIndex(listingId))).toBe(directoryPageSize);
+  expect(registry.get(inspection.inspectedIndex(directorySessionId))).toBe(directoryPageSize);
   expect(requests).toEqual([directoryPageSize]);
 });
 
@@ -277,7 +281,7 @@ it("loads a selected occurrence without interpreting its key as a name and disca
   const pending = Effect.runSync(Deferred.make<ReturnType<typeof fileAt>>());
   const reads: number[] = [];
   interact({
-    ...input("select", 1, Selection.replace(listingId, [0])),
+    ...input("select", 1, Selection.replace(directorySessionId, [0])),
     read: (position) => {
       reads.push(position);
       return Deferred.await(pending);
@@ -296,9 +300,9 @@ it("loads a selected occurrence without interpreting its key as a name and disca
 it("exposes detail read failures and retries the selected occurrence", async () => {
   const { registry, inspection, target } = setup();
   let available = false;
-  const listing = createFileListing(
+  const contents = createDirectoryContents(
     {
-      listingId,
+      directorySessionId,
       files: Array.from({ length: directoryPageSize }, (_, index) => fileAt(index)),
       offset: 0,
       hasMore: true,
@@ -307,17 +311,17 @@ it("exposes detail read failures and retries the selected occurrence", async () 
       Effect.suspend(() => {
         if (!available) return Effect.fail(new Error("Unavailable"));
         return Effect.succeed({
-          listingId,
+          directorySessionId,
           files: [fileAt(directoryPageSize, "remaining.txt")],
           offset: directoryPageSize,
           hasMore: false,
         });
       }),
   );
-  registry.mount(listing.pages(directoryPageSize));
+  registry.mount(contents.pages(directoryPageSize));
   registry.set(
-    inspection.bind(listing, "/files"),
-    input("select", 0, Selection.replace(listingId, [directoryPageSize])).interaction,
+    inspection.bind(contents, "/files"),
+    input("select", 0, Selection.replace(directorySessionId, [directoryPageSize])).interaction,
   );
   expect(registry.get(inspection.detail)._tag).toBe("Failure");
   expect(target()?.file).toBeUndefined();
@@ -332,16 +336,21 @@ it("exposes detail read failures and retries the selected occurrence", async () 
 it("publishes selection and inspection together and cancels queued navigation when selection clears", async () => {
   const { registry, inspection, target, updates } = setup();
   const files = Array.from({ length: 10 }, (_, index) => fileAt(index));
-  const listing = createFileListing({ listingId, files, offset: 0, hasMore: false }, () =>
-    Effect.die("Selection must use the cached page"),
+  const contents = createDirectoryContents(
+    { directorySessionId, files, offset: 0, hasMore: false },
+    () => Effect.die("Selection must use the cached page"),
   );
-  const selection = createFileSelectionController(listing, inspection.bind(listing, "/files"));
+  const selection = createFileSelectionController(contents, inspection.bind(contents, "/files"));
   registry.mount(selection.command);
   const indicators: Array<number | undefined> = [];
 
-  registry.subscribe(inspection.inspectedIndex(listingId), (name) => indicators.push(name), {
-    immediate: true,
-  });
+  registry.subscribe(
+    inspection.inspectedIndex(directorySessionId),
+    (name) => indicators.push(name),
+    {
+      immediate: true,
+    },
+  );
 
   registry.set(selection.command, { type: "toggle", value: { index: 0, item: fileAt(0) } });
   registry.set(selection.command, { type: "range", index: 9 });
@@ -371,10 +380,10 @@ it("publishes selection and inspection together and cancels queued navigation wh
   expect(registry.get(selection.active)).toBe(8);
 });
 
-it("derives a listing-scoped row indicator from the displayed inspection", async () => {
+it("derives a session-scoped row indicator from the displayed inspection", async () => {
   const { registry, inspection, interact } = setup();
-  const otherScope = Schema.decodeUnknownSync(ListingId)("other-listing");
-  const inspected = inspection.inspectedIndex(listingId);
+  const otherScope = Schema.decodeUnknownSync(DirectorySessionId)("other-session");
+  const inspected = inspection.inspectedIndex(directorySessionId);
   const updates: Array<number | undefined> = [];
   registry.get(inspected);
   registry.subscribe(inspected, (name) => updates.push(name));
@@ -391,9 +400,9 @@ it("derives a listing-scoped row indicator from the displayed inspection", async
   await vi.advanceTimersByTimeAsync(1);
   expect(registry.get(inspected)).toBe(1);
 
-  interact(input("select", 1, Selection.replace(listingId, [0, 1])));
+  interact(input("select", 1, Selection.replace(directorySessionId, [0, 1])));
   expect(registry.get(inspected)).toBeUndefined();
-  interact(input("select", 1, Selection.replace(listingId, [0])));
+  interact(input("select", 1, Selection.replace(directorySessionId, [0])));
   expect(registry.get(inspected)).toBe(0);
   interact(input("select", undefined));
   expect(registry.get(inspected)).toBeUndefined();
@@ -403,11 +412,11 @@ it("derives a listing-scoped row indicator from the displayed inspection", async
   expect(registry.get(inspection.inspectedIndex(otherScope))).toBe(0);
 });
 
-it("clears inspection and pending navigation when leaving a listing", async () => {
+it("clears inspection and pending navigation when leaving a directory session", async () => {
   const { send, interact, target, updates, unmount } = setup();
   interact(input("activate", 0));
   interact(input("focus", 1));
-  send({ type: "clear", scope: listingId });
+  send({ type: "clear", scope: directorySessionId });
   await vi.advanceTimersByTimeAsync(300);
   expect(target()).toBeUndefined();
   interact(input("activate", 2));
@@ -417,26 +426,26 @@ it("clears inspection and pending navigation when leaving a listing", async () =
   expect(updates).toEqual(["file-0", undefined, "file-2"]);
 });
 
-it("ignores an old listing cleanup after a new listing starts navigation", async () => {
+it("ignores old session cleanup after a new session starts navigation", async () => {
   const { send, interact, target } = setup();
-  const nextScope = Schema.decodeUnknownSync(ListingId)("next-listing");
+  const nextScope = Schema.decodeUnknownSync(DirectorySessionId)("next-session");
   interact(input("activate", 0));
   interact(input("focus", 1, Selection.empty(nextScope)));
-  send({ type: "clear", scope: listingId });
+  send({ type: "clear", scope: directorySessionId });
 
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.file?.name).toBe("file-1");
   expect(target()?.selection.members.scope).toBe(nextScope);
 });
 
-it("retains only the latest target and distinguishes identical names across listing scopes", async () => {
+it("retains only the latest target and distinguishes identical names across session scopes", async () => {
   const { interact, target, updates } = setup();
   interact(input("activate", 0));
   interact(input("focus", 1));
   interact(input("focus", 0));
   await vi.advanceTimersByTimeAsync(250);
   expect(updates).toEqual(["file-0", "file-0"]);
-  const nextScope = Schema.decodeUnknownSync(ListingId)("refreshed");
+  const nextScope = Schema.decodeUnknownSync(DirectorySessionId)("refreshed");
   interact(input("focus", 0, Selection.empty(nextScope)));
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.selection.members.scope).toBe(nextScope);

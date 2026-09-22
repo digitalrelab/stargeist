@@ -1,13 +1,17 @@
 import { fileAt } from "./file.test-support";
-import { directoryPageSize, ListingId, type DirectoryListingPage } from "@stargeist/domain";
+import { directoryPageSize, DirectorySessionId, type DirectoryPage } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Deferred, Effect, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { createFileListing, createFileSelectionController, type FileInteraction } from "./index";
+import {
+  createDirectoryContents,
+  createFileSelectionController,
+  type FileInteraction,
+} from "./index";
 
-const initial: DirectoryListingPage = {
-  listingId: Schema.decodeUnknownSync(ListingId)("selection"),
+const initial: DirectoryPage = {
+  directorySessionId: Schema.decodeUnknownSync(DirectorySessionId)("selection"),
   files: Array.from({ length: directoryPageSize }, (_, index) => fileAt(index)),
   offset: 0,
   hasMore: true,
@@ -19,16 +23,16 @@ function registryForTest() {
   return registry;
 }
 
-it("selects listing occurrences independently when file IDs or display names repeat", () => {
+it("selects file occurrences independently when file IDs or display names repeat", () => {
   const registry = registryForTest();
   const first = fileAt(0, "same.txt");
   const alias = { ...fileAt(1, "alias.txt"), id: first.id };
   const duplicateName = fileAt(2, "same.txt");
-  const listing = createFileListing(
+  const contents = createDirectoryContents(
     { ...initial, files: [first, alias, duplicateName], hasMore: false },
     () => Effect.die("Unexpected read"),
   );
-  const selection = createFileSelectionController(listing);
+  const selection = createFileSelectionController(contents);
   registry.mount(selection.command);
   registry.set(selection.command, { type: "toggle", value: { index: 0, item: first } });
   expect(registry.get(selection.isSelected(0))).toBe(true);
@@ -41,11 +45,11 @@ it("selects listing occurrences independently when file IDs or display names rep
 it("crosses a cached page boundary without changing membership and distinguishes focus from activation", async () => {
   const registry = registryForTest();
   const requests: number[] = [];
-  const listing = createFileListing(initial, (offset) =>
+  const contents = createDirectoryContents(initial, (offset) =>
     Effect.sync(() => {
       requests.push(offset);
       return {
-        listingId: initial.listingId,
+        directorySessionId: initial.directorySessionId,
         offset,
         files: [fileAt(directoryPageSize, "next"), fileAt(directoryPageSize + 1, "last")],
         hasMore: false,
@@ -53,10 +57,10 @@ it("crosses a cached page boundary without changing membership and distinguishes
     }),
   );
   const received = Atom.make<FileInteraction | undefined>(undefined);
-  const selection = createFileSelectionController(listing, received);
+  const selection = createFileSelectionController(contents, received);
   registry.mount(selection.command);
-  registry.mount(listing.pages(directoryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
+  registry.mount(contents.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, contents.pages(directoryPageSize)));
   registry.set(selection.command, {
     type: "focus",
     value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
@@ -83,9 +87,9 @@ it("crosses a cached page boundary without changing membership and distinguishes
 
 it("cancels a cross-page range without committing a placeholder or late selection", async () => {
   const registry = registryForTest();
-  const pending = Effect.runSync(Deferred.make<DirectoryListingPage>());
-  const listing = createFileListing(initial, () => Deferred.await(pending));
-  const selection = createFileSelectionController(listing);
+  const pending = Effect.runSync(Deferred.make<DirectoryPage>());
+  const contents = createDirectoryContents(initial, () => Deferred.await(pending));
+  const selection = createFileSelectionController(contents);
   registry.mount(selection.command);
   registry.set(selection.command, {
     type: "toggle",
@@ -97,7 +101,7 @@ it("cancels a cross-page range without committing a placeholder or late selectio
   registry.set(selection.command, { type: "clear" });
   await Effect.runPromise(
     Deferred.succeed(pending, {
-      listingId: initial.listingId,
+      directorySessionId: initial.directorySessionId,
       offset: directoryPageSize,
       files: [fileAt(directoryPageSize, "late")],
       hasMore: false,
@@ -110,24 +114,24 @@ it("cancels a cross-page range without committing a placeholder or late selectio
 it("selects all without fetching and applies membership to subsequently loaded pages", async () => {
   const registry = registryForTest();
   const requests: number[] = [];
-  const listing = createFileListing(initial, (offset) =>
+  const contents = createDirectoryContents(initial, (offset) =>
     Effect.sync(() => {
       requests.push(offset);
       return {
-        listingId: initial.listingId,
+        directorySessionId: initial.directorySessionId,
         offset,
         files: [fileAt(directoryPageSize, "unloaded")],
         hasMore: false,
       };
     }),
   );
-  const selection = createFileSelectionController(listing);
+  const selection = createFileSelectionController(contents);
   registry.mount(selection.command);
   registry.set(selection.command, { type: "all" });
   expect(requests).toEqual([]);
-  expect(registry.get(selection.selection).scope).toBe(initial.listingId);
-  registry.mount(listing.pages(directoryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
+  expect(registry.get(selection.selection).scope).toBe(initial.directorySessionId);
+  registry.mount(contents.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, contents.pages(directoryPageSize)));
   expect(registry.get(selection.isSelected(directoryPageSize))).toBe(true);
   registry.set(selection.command, {
     type: "toggle",
@@ -142,23 +146,23 @@ it("selects all without fetching and applies membership to subsequently loaded p
 it("retries a failed range page once and reuses it to resolve focus and membership", async () => {
   const registry = registryForTest();
   const requests: number[] = [];
-  const listing = createFileListing(initial, (offset) =>
+  const contents = createDirectoryContents(initial, (offset) =>
     Effect.suspend(() => {
       requests.push(offset);
       if (requests.length === 1) {
         return Effect.fail(new Error("Unavailable"));
       }
       return Effect.succeed({
-        listingId: initial.listingId,
+        directorySessionId: initial.directorySessionId,
         offset,
         files: [fileAt(directoryPageSize, "next")],
         hasMore: false,
       });
     }),
   );
-  const selection = createFileSelectionController(listing);
+  const selection = createFileSelectionController(contents);
   registry.mount(selection.command);
-  registry.mount(listing.pages(directoryPageSize));
+  registry.mount(contents.pages(directoryPageSize));
   registry.set(selection.command, {
     type: "focus",
     value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
@@ -177,11 +181,11 @@ it("retries a failed range page once and reuses it to resolve focus and membersh
 it("selects a multi-page range without rereading intermediate pages", async () => {
   const registry = registryForTest();
   const requests: number[] = [];
-  const listing = createFileListing(initial, (offset) =>
+  const contents = createDirectoryContents(initial, (offset) =>
     Effect.sync(() => {
       requests.push(offset);
       return {
-        listingId: initial.listingId,
+        directorySessionId: initial.directorySessionId,
         offset,
         files: Array.from({ length: directoryPageSize }, (_, i) => fileAt(offset + i)),
         hasMore: offset === directoryPageSize,
@@ -190,17 +194,17 @@ it("selects a multi-page range without rereading intermediate pages", async () =
   );
   const reads: number[] = [];
   const selection = createFileSelectionController({
-    ...listing,
+    ...contents,
     read: (offset, options) => {
       reads.push(offset);
-      return listing.read(offset, options);
+      return contents.read(offset, options);
     },
   });
   registry.mount(selection.command);
-  registry.mount(listing.pages(directoryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
-  registry.mount(listing.pages(directoryPageSize * 2));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize * 2)));
+  registry.mount(contents.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, contents.pages(directoryPageSize)));
+  registry.mount(contents.pages(directoryPageSize * 2));
+  await Effect.runPromise(AtomRegistry.getResult(registry, contents.pages(directoryPageSize * 2)));
   registry.set(selection.command, {
     type: "focus",
     value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
@@ -221,10 +225,10 @@ it("selects a multi-page range without rereading intermediate pages", async () =
 
 it("finishes a range across an unloaded page without activating the newly focused file", async () => {
   const registry = registryForTest();
-  const pending = Effect.runSync(Deferred.make<DirectoryListingPage>());
-  const listing = createFileListing(initial, () => Deferred.await(pending));
+  const pending = Effect.runSync(Deferred.make<DirectoryPage>());
+  const contents = createDirectoryContents(initial, () => Deferred.await(pending));
   const received = Atom.make<FileInteraction | undefined>(undefined);
-  const selection = createFileSelectionController(listing, received);
+  const selection = createFileSelectionController(contents, received);
   registry.mount(selection.command);
   registry.set(selection.command, {
     type: "focus",
@@ -235,7 +239,7 @@ it("finishes a range across an unloaded page without activating the newly focuse
   expect(Selection.count(registry.get(selection.selection))).toBe(0);
   await Effect.runPromise(
     Deferred.succeed(pending, {
-      listingId: initial.listingId,
+      directorySessionId: initial.directorySessionId,
       offset: directoryPageSize,
       files: [fileAt(directoryPageSize, "arrived")],
       hasMore: false,

@@ -1,5 +1,5 @@
 import { useAtomSet } from "@effect/atom-react";
-import type { ListingId } from "@stargeist/domain";
+import type { DirectorySessionId } from "@stargeist/domain";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { createFileInspection } from "./state";
 
@@ -17,7 +17,7 @@ function useInspection() {
       target: inspection.target,
       inspectedIndex: inspection.inspectedIndex,
       detail: inspection.detail,
-      clear: (scope: ListingId) => dispatch({ type: "clear", scope }),
+      clear: (scope: DirectorySessionId) => dispatch({ type: "clear", scope }),
     }),
     [inspection, dispatch],
   );

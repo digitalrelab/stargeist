@@ -13,9 +13,9 @@ import { useFileBrowserContext } from "../file-browser";
 
 export function FileList() {
   const list = useFileList();
-  const { listing } = useFileBrowserContext();
+  const { contents } = useFileBrowserContext();
   const { gridId, active, column } = list;
-  const extent = useAtomValue(listing.extent);
+  const extent = useAtomValue(contents.extent);
   let count = extent.count;
   let total = extent.count;
 
@@ -56,7 +56,7 @@ export function FileList() {
   const groups = new Map<number, VirtualItem[]>();
 
   for (const item of virtualizer.getVirtualItems()) {
-    const offset = listing.pageOffset(item.index);
+    const offset = contents.pageOffset(item.index);
     const group = groups.get(offset) ?? [];
     group.push(item);
     groups.set(offset, group);
@@ -97,8 +97,8 @@ export function FileList() {
 
 function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
   const { gridId, active } = useFileListContext();
-  const { listing, selection, dispatch } = useFileBrowserContext();
-  const atom = listing.pages(offset);
+  const { contents, selection, dispatch } = useFileBrowserContext();
+  const atom = contents.pages(offset);
   const result = useAtomValue(atom);
   const request = useAtomValue(selection.request);
   const refresh = useAtomRefresh(atom);
@@ -141,7 +141,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
     if (
       request._tag === "Failure" &&
       active !== undefined &&
-      listing.pageOffset(active) === offset
+      contents.pageOffset(active) === offset
     ) {
       retry = () => dispatch({ type: "retry" });
     }

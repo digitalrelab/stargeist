@@ -5,7 +5,7 @@ import { Effect, Layer } from "effect";
 import { directoryPageSize } from "@stargeist/domain";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { AppStorage, temporaryStorageLayer, WorkspaceStorage } from "@stargeist/storage";
-import { openListing } from "../filesystem";
+import { openDirectorySession } from "../filesystem";
 import { BackendApplication } from "../backend/application";
 
 async function fixture() {
@@ -17,13 +17,13 @@ async function fixture() {
   const layer = Layer.merge(BackendApplication.layer, temporaryStorageLayer).pipe(
     Layer.provide(AppStorage.layer(join(base, "profile"))),
   );
-  const listing = (path = root) =>
-    openListing(path, { exclude: new Set([".stargeist"]) }).pipe(
-      Effect.map((listing) => listing.firstPage.files),
+  const readFiles = (path = root) =>
+    openDirectorySession(path, { exclude: new Set([".stargeist"]) }).pipe(
+      Effect.map((readFiles) => readFiles.firstPage.files),
       Effect.scoped,
       Effect.provide(layer),
     );
-  return { base, root, layer, list: (path = root) => Effect.runPromise(listing(path)) };
+  return { base, root, layer, list: (path = root) => Effect.runPromise(readFiles(path)) };
 }
 
 it("keeps a path's ID through replacement and gives copies and moved paths new IDs", async () => {
@@ -84,8 +84,8 @@ it("assigns matching IDs when full initial pages open concurrently", async () =>
   const [first, second] = await Effect.runPromise(
     Effect.all(
       [
-        openListing(root, { exclude: new Set([".stargeist"]) }),
-        openListing(root, { exclude: new Set([".stargeist"]) }),
+        openDirectorySession(root, { exclude: new Set([".stargeist"]) }),
+        openDirectorySession(root, { exclude: new Set([".stargeist"]) }),
       ],
       { concurrency: 2 },
     ).pipe(

@@ -35,7 +35,7 @@ it("keeps IDs stable for a reference and separates references from different sou
   expect(first[0]!.id).not.toBe(first[2]!.id);
 });
 
-it("keeps IDs consistent across SQL batches and concurrent listings", async () => {
+it("keeps IDs consistent across SQL batches and concurrent requests", async () => {
   const { run } = await fixture();
   const references = Array.from({ length: 300 }, (_, index) =>
     reference("local", `/folder/file-${index}`),

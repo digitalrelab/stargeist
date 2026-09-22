@@ -31,7 +31,8 @@ export const WorkspaceEndpoint = RpcEndpoint.define(WorkspaceRpcs)({
             .browse(id)
             .pipe(Effect.map((view) => Stream.concat(Stream.succeed(view), Stream.never))),
         ),
-      "workspaces.readDirectory": ({ listingId, offset }) => browser.read(listingId, offset),
+      "workspaces.readDirectory": ({ directorySessionId, offset }) =>
+        browser.read(directorySessionId, offset),
     };
   }),
 });

@@ -22,7 +22,7 @@ export function workspaceRecovery(cause: Cause.Cause<unknown>): ReadonlyArray<Wo
       return [];
     case "FolderPickerUnavailable":
     case "StorageUnavailable":
-    case "ListingExpired":
+    case "DirectorySessionExpired":
       return ["retry"];
   }
 }

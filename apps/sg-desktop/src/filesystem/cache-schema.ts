@@ -1,7 +1,7 @@
 import { FileType } from "@stargeist/domain";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const listingFiles = sqliteTable("listing_files", {
+export const cachedFiles = sqliteTable("cached_files", {
   position: integer().primaryKey(),
   fileId: text("file_id").notNull(),
   name: text().notNull(),

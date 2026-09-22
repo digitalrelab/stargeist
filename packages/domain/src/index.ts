@@ -9,8 +9,8 @@ export {
 } from "./ai";
 export * from "./workspaces";
 export {
-  DirectoryListingPage,
-  ListingId,
+  DirectoryPage,
+  DirectorySessionId,
   PageOffset,
   directoryPageSize,
   DirectoryError,

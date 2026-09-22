@@ -6,7 +6,7 @@ import { FileSnapshot, DirectoryError, directoryPageSize } from "@stargeist/doma
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema } from "effect";
 import { Reactivity } from "effect/unstable/reactivity";
-import { listingFiles } from "./cache-schema";
+import { cachedFiles } from "./cache-schema";
 import initialSchema from "./cache-schema.json";
 
 const storageUnavailable = () =>
@@ -45,7 +45,7 @@ export const openDirectoryCache = Effect.fnUntraced(
       }
 
       yield* database
-        .insert(listingFiles)
+        .insert(cachedFiles)
         .values(
           pending.map(({ id, ...file }, index) => ({
             position: count + index,
@@ -65,14 +65,14 @@ export const openDirectoryCache = Effect.fnUntraced(
 
         const rows = yield* database
           .select({
-            id: listingFiles.fileId,
-            name: listingFiles.name,
-            type: listingFiles.type,
-            mediaType: listingFiles.mediaType,
+            id: cachedFiles.fileId,
+            name: cachedFiles.name,
+            type: cachedFiles.type,
+            mediaType: cachedFiles.mediaType,
           })
-          .from(listingFiles)
-          .where(gte(listingFiles.position, offset))
-          .orderBy(listingFiles.position)
+          .from(cachedFiles)
+          .where(gte(cachedFiles.position, offset))
+          .orderBy(cachedFiles.position)
           .limit(directoryPageSize);
 
         return yield* decodeFiles(rows);

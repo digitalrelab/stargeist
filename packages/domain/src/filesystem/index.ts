@@ -1,2 +1,2 @@
-export { DirectoryListingPage, ListingId, PageOffset, directoryPageSize } from "./listing";
+export { DirectoryPage, DirectorySessionId, PageOffset, directoryPageSize } from "./directory";
 export { DirectoryError } from "./errors";

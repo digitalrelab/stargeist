@@ -1,8 +1,8 @@
 import type { WorkspacesClient } from "./client";
 import {
-  ListingId,
+  DirectorySessionId,
   makeFileId,
-  type DirectoryListingPage,
+  type DirectoryPage,
   WorkspaceId,
   Workspace,
   WorkspaceError,
@@ -83,10 +83,10 @@ describe("Workspace state", () => {
     );
   });
 
-  it("refreshes the whole detail and closes each listing on refresh and unsubscribe", async () => {
+  it("refreshes the whole detail and closes each directory session on refresh and unsubscribe", async () => {
     const registry = createRegistry();
-    const first: DirectoryListingPage = {
-      listingId: Schema.decodeUnknownSync(ListingId)("first"),
+    const first: DirectoryPage = {
+      directorySessionId: Schema.decodeUnknownSync(DirectorySessionId)("first"),
       offset: 0,
       files: Array.from({ length: directoryPageSize }, (_, index) => ({
         name: `file-${index}`,
@@ -96,63 +96,66 @@ describe("Workspace state", () => {
       })),
       hasMore: true,
     };
-    const second = { ...first, listingId: Schema.decodeUnknownSync(ListingId)("second") };
+    const second = {
+      ...first,
+      directorySessionId: Schema.decodeUnknownSync(DirectorySessionId)("second"),
+    };
     const renamed = new Workspace({ id: workspace.id, root: "/renamed" });
 
     const firstClosed = Effect.runSync(Deferred.make<void>());
     const secondClosed = Effect.runSync(Deferred.make<void>());
     let currentWorkspace = workspace;
-    let currentListing = first;
-    const reads: ListingId[] = [];
+    let currentPage = first;
+    const reads: DirectorySessionId[] = [];
     const state = createWorkspaceState(
       createClient({
         browse: () =>
           Effect.acquireRelease(
-            Effect.sync(() => ({ workspace: currentWorkspace, directory: currentListing })),
+            Effect.sync(() => ({ workspace: currentWorkspace, directory: currentPage })),
             ({ directory }) => {
-              if (directory.listingId === first.listingId) {
+              if (directory.directorySessionId === first.directorySessionId) {
                 return Deferred.succeed(firstClosed, undefined);
               }
               return Deferred.succeed(secondClosed, undefined);
             },
           ),
-        readDirectory: ({ listingId, offset }) =>
+        readDirectory: ({ directorySessionId, offset }) =>
           Effect.sync(() => {
-            reads.push(listingId);
-            return { listingId, offset, files: [], hasMore: false };
+            reads.push(directorySessionId);
+            return { directorySessionId, offset, files: [], hasMore: false };
           }),
       }),
     );
 
     const detail = state.detail(workspace.id);
-    const listing = Atom.map(detail, (value) => value.view);
+    const view = Atom.map(detail, (value) => value.view);
     const unsubscribe = registry.mount(detail);
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        const initial = yield* AtomRegistry.getResult(registry, listing);
-        expect(initial.listing.id).toBe(first.listingId);
-        registry.mount(initial.listing.extent);
-        expect(yield* AtomRegistry.getResult(registry, initial.listing.pages(0))).toEqual({
+        const initial = yield* AtomRegistry.getResult(registry, view);
+        expect(initial.contents.sessionId).toBe(first.directorySessionId);
+        registry.mount(initial.contents.extent);
+        expect(yield* AtomRegistry.getResult(registry, initial.contents.pages(0))).toEqual({
           items: first.files,
           next: directoryPageSize,
         });
-        yield* AtomRegistry.getResult(registry, initial.listing.pages(directoryPageSize));
+        yield* AtomRegistry.getResult(registry, initial.contents.pages(directoryPageSize));
         expect(initial.workspace).toEqual(workspace);
         expect(registry.get(detail).canRefresh).toBe(true);
 
         currentWorkspace = renamed;
-        currentListing = second;
+        currentPage = second;
         registry.refresh(detail);
 
-        const reopened = yield* AtomRegistry.getResult(registry, listing, {
+        const reopened = yield* AtomRegistry.getResult(registry, view, {
           suspendOnWaiting: true,
         });
-        expect(reopened.listing.id).toBe(second.listingId);
-        expect(reopened.listing).not.toBe(initial.listing);
-        registry.mount(reopened.listing.extent);
-        yield* AtomRegistry.getResult(registry, reopened.listing.pages(directoryPageSize));
-        expect(reads).toEqual([first.listingId, second.listingId]);
+        expect(reopened.contents.sessionId).toBe(second.directorySessionId);
+        expect(reopened.contents).not.toBe(initial.contents);
+        registry.mount(reopened.contents.extent);
+        yield* AtomRegistry.getResult(registry, reopened.contents.pages(directoryPageSize));
+        expect(reads).toEqual([first.directorySessionId, second.directorySessionId]);
         expect(reopened.workspace).toEqual(renamed);
         yield* Deferred.await(firstClosed);
 

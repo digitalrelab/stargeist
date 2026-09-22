@@ -52,13 +52,13 @@ it("cleans a failed session without deleting another session or persistent data"
   await Effect.runPromise(
     Effect.gen(function* () {
       const first = yield* TemporaryStorage;
-      const firstFile = join(first.directory, "listing.sqlite");
-      yield* Effect.promise(() => writeFile(firstFile, "active listing"));
+      const firstFile = join(first.directory, "cache.sqlite");
+      yield* Effect.promise(() => writeFile(firstFile, "active cache"));
 
       const error = yield* Effect.gen(function* () {
         const second = yield* TemporaryStorage;
         expect(second.directory).not.toBe(first.directory);
-        yield* Effect.promise(() => writeFile(join(second.directory, "listing.sqlite"), "cache"));
+        yield* Effect.promise(() => writeFile(join(second.directory, "cache.sqlite"), "cache"));
         expect(yield* Effect.promise(() => readdir(join(profile, "temporary")))).toHaveLength(2);
         return yield* Effect.fail(failure);
       }).pipe(Effect.provide(Layer.fresh(layer)), Effect.flip);
@@ -67,7 +67,7 @@ it("cleans a failed session without deleting another session or persistent data"
       expect(yield* Effect.promise(() => readdir(join(profile, "temporary")))).toEqual([
         basename(first.directory),
       ]);
-      expect(yield* Effect.promise(() => readFile(firstFile, "utf8"))).toBe("active listing");
+      expect(yield* Effect.promise(() => readFile(firstFile, "utf8"))).toBe("active cache");
     }).pipe(Effect.provide(layer)),
   );
 

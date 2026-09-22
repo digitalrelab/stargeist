@@ -10,7 +10,7 @@ it("reports unavailable temporary storage without masking the failure during cle
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
   const error = await Effect.runPromise(
-    openDirectoryCache(join(root, "missing", "listing.sqlite")).pipe(Effect.flip, Effect.scoped),
+    openDirectoryCache(join(root, "missing", "cache.sqlite")).pipe(Effect.flip, Effect.scoped),
   );
 
   expect(error).toMatchObject({

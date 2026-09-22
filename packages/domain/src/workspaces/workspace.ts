@@ -1,5 +1,5 @@
 import * as Id from "@stargeist/std/id";
-import { DirectoryListingPage } from "../filesystem";
+import { DirectoryPage } from "../filesystem";
 import { Schema } from "effect";
 
 export const { schema: WorkspaceId, generate: makeWorkspaceId } = Id.define("wsp");
@@ -12,6 +12,6 @@ export class Workspace extends Schema.Class<Workspace>("Workspace")({
 
 export const WorkspaceView = Schema.Struct({
   workspace: Workspace,
-  directory: DirectoryListingPage,
+  directory: DirectoryPage,
 });
 export type WorkspaceView = typeof WorkspaceView.Type;

@@ -11,7 +11,7 @@ export class WorkspaceError extends Schema.Error<WorkspaceError>("WorkspaceError
     "InvalidWorkspace",
     "WorkspaceChanged",
     "RootConflict",
-    "ListingExpired",
+    "DirectorySessionExpired",
   ]),
   message: Schema.String,
 }) {}

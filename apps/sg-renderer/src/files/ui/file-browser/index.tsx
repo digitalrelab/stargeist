@@ -23,8 +23,8 @@ function Root({ children, ...props }: FileBrowserProps & { children: ReactNode }
 }
 
 function Content({ children }: { children: ReactNode }) {
-  const { listing } = useFileBrowserContext();
-  const extent = useAtomValue(listing.extent);
+  const { contents } = useFileBrowserContext();
+  const extent = useAtomValue(contents.extent);
   let content = children;
 
   if (extent.count === 0 && !extent.hasMore) {
@@ -42,8 +42,8 @@ function Content({ children }: { children: ReactNode }) {
 }
 
 function Footer() {
-  const { listing } = useFileBrowserContext();
-  const extent = useAtomValue(listing.extent);
+  const { contents } = useFileBrowserContext();
+  const extent = useAtomValue(contents.extent);
   let label = `${extent.count.toLocaleString()} files`;
 
   if (extent.count === 1) {

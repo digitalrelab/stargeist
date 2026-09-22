@@ -13,7 +13,7 @@ function setup(overrides: Partial<Source<string, string, Error, string>> = {}) {
   onTestFinished(() => registry.dispose());
   const collection = Selection.create(
     {
-      scope: "listing-a",
+      scope: "scope-a",
       extent: Atom.make<Extent>({ count: 5_000, hasMore: false }),
       keyOf: ({ item }: { item: string }) => item,
       read: (index: number) =>
@@ -85,7 +85,7 @@ describe("Collection navigation and selection", () => {
     expect(registry.get(received)?.type).toBe("select");
   });
 
-  it("selects an unknown collection without reading any pages and isolates listing scopes", () => {
+  it("selects an unknown collection without reading any pages and isolates collection scopes", () => {
     const first = setup({ extent: Atom.make<Extent>({ count: 256, hasMore: true }) });
     first.send({ type: "all" });
     expect(first.reads).toEqual([]);
@@ -94,9 +94,9 @@ describe("Collection navigation and selection", () => {
     first.send({ type: "toggle", value: { index: 2, item: "file-2" } });
     expect(Selection.contains(first.selected(), "file-2")).toBe(false);
     expect(Selection.count(first.selected(), 5_000)).toBe(4_999);
-    const second = setup({ scope: "listing-b" });
+    const second = setup({ scope: "scope-b" });
     expect(Selection.contains(second.selected(), "file-4999")).toBe(false);
-    expect(second.selected().scope).toBe("listing-b");
+    expect(second.selected().scope).toBe("scope-b");
   });
 
   it("extends, shrinks, and reverses a range around its anchor using only added keys", () => {
