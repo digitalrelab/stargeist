@@ -1,8 +1,9 @@
-import type { FileSystemEntry, LibraryId } from "@stargeist/domain";
+import type { FileSystemEntry, LibraryId, ListingId } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Effect, HashSet } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 import type { FileInteraction, FileSelection } from "../../selection";
+import type { FileListing } from "../../state";
 
 export interface FileInspection {
   readonly files: FileSelection;
@@ -26,7 +27,11 @@ function resolveInspection(input: FileInspectionInput): FileInspection | undefin
   const entry = interaction.focused?.item;
   let members = interaction.selection;
 
-  if (interaction.type !== "select" || Selection.count(members, total) === 0) {
+  if (interaction.type === "select") {
+    if (Selection.count(members, total) === 0) {
+      return undefined;
+    }
+  } else {
     if (!entry) {
       return undefined;
     }
@@ -82,27 +87,49 @@ export function createFileInspection() {
     },
   ).pipe(Atom.setIdleTTL(0));
 
+  function bind(listing: FileListing, location: Pick<FileSelection, "libraryId" | "folder">) {
+    return Atom.writable(
+      () => undefined,
+      (ctx, interaction: FileInteraction) => {
+        const extent = ctx.get(listing.extent);
+        let total: number | undefined;
+
+        if (!extent.hasMore) {
+          total = extent.count;
+        }
+
+        ctx.set(command, {
+          type: "interact",
+          input: { interaction, ...location, total },
+        });
+      },
+    );
+  }
+
   return {
     target: Atom.readable((get) => get(target)),
     isOpen: Atom.map(target, (value) => value !== undefined),
+    inspectedName: Atom.family((scope: ListingId) =>
+      Atom.map(target, (value) => {
+        if (!value || value.files.members.scope !== scope) {
+          return undefined;
+        }
+
+        return singleFileName(value);
+      }),
+    ),
     command,
+    bind,
   };
 }
 
 export function describeFileInspection(target: FileInspection) {
   const { members } = target.files;
   const count = Selection.count(members, target.total);
+  const name = singleFileName(target);
 
-  if (count === 1) {
-    let name = target.entry?.name;
-
-    if (members.mode === "explicit") {
-      name = members.keys[Symbol.iterator]().next().value;
-    }
-
-    if (name) {
-      return { type: "file" as const, name, kind: target.entry?.kind };
-    }
+  if (name !== undefined) {
+    return { type: "file" as const, name, kind: target.entry?.kind };
   }
 
   if (count !== undefined) {
@@ -126,4 +153,18 @@ export function describeFileInspection(target: FileInspection) {
   }
 
   return { type: "selection" as const, label };
+}
+
+function singleFileName(target: FileInspection): string | undefined {
+  const { members } = target.files;
+
+  if (Selection.count(members, target.total) !== 1) {
+    return undefined;
+  }
+
+  if (members.mode === "explicit") {
+    return members.keys[Symbol.iterator]().next().value;
+  }
+
+  return target.entry?.name;
 }

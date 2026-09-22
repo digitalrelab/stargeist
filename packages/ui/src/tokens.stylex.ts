@@ -16,6 +16,7 @@ export const radii = stylex.defineVars({
   sm: "4px",
   md: "8px",
   lg: "12px",
+  full: "999px",
 });
 
 export const fonts = stylex.defineVars({
@@ -73,6 +74,7 @@ const neutralLayer = {
   resting: `color-mix(in srgb, ${slateDark.slate12} 6%, transparent)`,
   emphasized: `color-mix(in srgb, ${slateDark.slate12} 8%, transparent)`,
   strong: `color-mix(in srgb, ${slateDark.slate12} 10%, transparent)`,
+  intense: `color-mix(in srgb, ${slateDark.slate12} 12%, transparent)`,
 };
 
 export const colors = stylex.defineVars({
@@ -99,6 +101,9 @@ export const colors = stylex.defineVars({
   controlPressed: neutralLayer.strong,
   controlSelected: neutralLayer.emphasized,
   controlDisabled: neutralLayer.subtle,
+  controlOutlined: neutralLayer.emphasized,
+  controlOutlinedHovered: neutralLayer.strong,
+  controlOutlinedPressed: neutralLayer.intense,
   onControl: slateDark.slate12,
   onControlMuted: slateDark.slate11,
   onControlDisabled: slateDark.slate10,

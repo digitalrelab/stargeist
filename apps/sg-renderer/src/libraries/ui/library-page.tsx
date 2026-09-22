@@ -6,7 +6,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { AsyncResult } from "effect/unstable/reactivity";
 import type { ReactNode } from "react";
 import { failureMessage } from "#src/client/index.ts";
-import { FileBrowser, FileListSkeleton } from "#src/files/views.ts";
+import { FileBrowser, FileList, FileListSkeleton } from "#src/files/views.ts";
 import { WorkArea } from "#src/shell/index.ts";
 import type { LibraryListing } from "../state";
 import { useLibraryState } from "./use-state";
@@ -85,12 +85,14 @@ function LibraryEntries({
 }) {
   if (entries._tag === "Success" && !entries.waiting) {
     return (
-      <FileBrowser
+      <FileBrowser.Root
         key={entries.value.id}
         listing={entries.value.files}
         libraryId={libraryId}
         folder={folder}
-      />
+      >
+        <FileList />
+      </FileBrowser.Root>
     );
   }
 
@@ -107,7 +109,11 @@ function LibraryEntries({
     );
   }
 
-  return <FileListSkeleton />;
+  return (
+    <FileBrowser.Loading>
+      <FileListSkeleton />
+    </FileBrowser.Loading>
+  );
 }
 
 const styles = stylex.create({

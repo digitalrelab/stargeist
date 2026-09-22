@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Check,
+  Command,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
@@ -71,4 +72,8 @@ export function ChevronUpIcon(props: LucideProps) {
 
 export function ChevronsUpDownIcon(props: LucideProps) {
   return <ChevronsUpDown size={control.iconSize} {...props} />;
+}
+
+export function CommandIcon(props: LucideProps) {
+  return <Command size={control.iconSize} {...props} />;
 }

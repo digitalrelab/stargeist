@@ -2,7 +2,7 @@ import { Button as BaseButton } from "@base-ui/react/button";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import * as stylex from "@stylexjs/stylex";
-import { colors, control, focusRing, fonts, space } from "../tokens.stylex";
+import { colors, control, focusRing, fonts, radii, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
 type ButtonLayout = Partial<
@@ -35,8 +35,14 @@ type ButtonStyleProps = {
   appearance?: keyof typeof appearances;
   size?: keyof typeof sizes;
 } & (
-  | { shape?: "rectangle"; styles?: stylex.StyleXStyles<ButtonLayout & ButtonSizing> }
-  | { shape: "square"; styles?: stylex.StyleXStyles<ButtonLayout> }
+  | {
+      shape?: "rectangle" | "pill";
+      styles?: stylex.StyleXStyles<ButtonLayout & ButtonSizing>;
+    }
+  | {
+      shape: "square" | "circle";
+      styles?: stylex.StyleXStyles<ButtonLayout>;
+    }
 );
 
 export type ButtonProps = Omit<BaseButton.Props, "className" | "style"> & ButtonStyleProps;
@@ -77,24 +83,26 @@ function buttonStyles(
   shape: ButtonStyleProps["shape"] = "rectangle",
   customStyles?: ButtonStyleProps["styles"],
 ) {
+  const equalSides = shape === "square" || shape === "circle";
+
   return stylex.props(
     typography.label,
     styles.button,
-    shape === "rectangle" && sizes[size],
+    !equalSides && sizes[size],
     appearances[appearance],
+    shapes[shape],
     customStyles,
-    shape === "square" && styles.square,
-    shape === "square" && squareSizes[size],
+    equalSides && styles.equalSides,
+    equalSides && equalSideSizes[size],
   );
 }
 
 const styles = stylex.create({
-  square: { padding: 0, flex: "none" },
+  equalSides: { padding: 0, flex: "none" },
   button: {
     alignItems: "center",
     appearance: "none",
     borderWidth: 0,
-    borderRadius: control.radius,
     display: "inline-flex",
     fontWeight: fonts.semibold,
     gap: space[2],
@@ -153,6 +161,23 @@ const appearances = stylex.create({
       [states.disabled]: colors.onControlDisabled,
     },
   },
+  outlined: {
+    backgroundColor: {
+      default: colors.controlOutlined,
+      [states.hovered]: colors.controlOutlinedHovered,
+      [states.pressed]: colors.controlOutlinedPressed,
+      [states.disabled]: colors.controlDisabled,
+    },
+    color: {
+      default: colors.onControl,
+      [states.disabled]: colors.onControlDisabled,
+    },
+    boxShadow: {
+      default: `inset 0 0 0 1px ${colors.border}`,
+      [states.interacting]: `inset 0 0 0 1px ${colors.borderStrong}`,
+      [states.disabled]: `inset 0 0 0 1px ${colors.borderSubtle}`,
+    },
+  },
   ghost: {
     backgroundColor: {
       default: "oklch(0% 0 0 / 0)",
@@ -182,7 +207,14 @@ const sizes = stylex.create({
   },
 });
 
-const squareSizes = stylex.create({
+const equalSideSizes = stylex.create({
   sm: { inlineSize: control.heightSm, blockSize: control.heightSm },
   md: { inlineSize: control.heightMd, blockSize: control.heightMd },
+});
+
+const shapes = stylex.create({
+  rectangle: { borderRadius: control.radius },
+  square: { borderRadius: control.radius },
+  pill: { borderRadius: radii.full },
+  circle: { borderRadius: radii.full },
 });
