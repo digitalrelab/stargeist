@@ -2,7 +2,7 @@ import type {
   ConfigureProvider,
   ProviderConnection,
   ProviderConnectionError,
-} from "@stargeist/domain/ai";
+} from "@stargeist/domain";
 import type { Effect } from "effect";
 import type { ClientUnavailableError } from "#src/client/index.ts";
 

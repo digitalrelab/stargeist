@@ -42,7 +42,7 @@ it("initializes once under concurrent callers and discovers the nearest nested r
       expect((yield* roots.read(folder)).identity).toBe(parent.identity);
     }),
   );
-  expect(await readdir(join(folder, ".stargeist"))).toEqual(["workspace.json"]);
+  expect((await readdir(join(folder, ".stargeist"))).sort()).toEqual(["workspace.json"]);
 });
 
 it("preserves identity after a move or copy and resolves symlink aliases", async () => {
@@ -72,13 +72,12 @@ it("preserves identity after a move or copy and resolves symlink aliases", async
     }),
   );
   const manifest = JSON.parse(await readFile(join(moved, ".stargeist", "workspace.json"), "utf8"));
-  expect(Object.keys(manifest).sort()).toEqual(["createdAt", "formatVersion", "id"]);
+  expect(Object.keys(manifest).sort()).toEqual(["createdAt", "id"]);
 });
 
 it.each([
   ["{", "InvalidWorkspace"],
-  [JSON.stringify({ formatVersion: 2 }), "UnsupportedFormat"],
-  [JSON.stringify({ formatVersion: 1, id: "invalid", createdAt: 1 }), "InvalidWorkspace"],
+  [JSON.stringify({ id: "invalid", createdAt: 1 }), "InvalidWorkspace"],
   [" ".repeat(65537), "InvalidWorkspace"],
 ])(
   "rejects invalid metadata without overwriting it or falling back to a parent",

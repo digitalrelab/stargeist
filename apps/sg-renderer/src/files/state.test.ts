@@ -1,3 +1,4 @@
+import { fileAt } from "./file.test-support";
 import { entryPageSize, ListingId, type DirectoryListingPage } from "@stargeist/domain";
 import { Effect, Schema } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
@@ -7,17 +8,14 @@ import { createFileListing } from "./index";
 const first: DirectoryListingPage = {
   listingId: Schema.decodeUnknownSync(ListingId)("files"),
   offset: 0,
-  entries: Array.from({ length: entryPageSize }, (_, index) => ({
-    name: `file-${index}`,
-    kind: "file" as const,
-  })),
+  entries: Array.from({ length: entryPageSize }, (_, index) => fileAt(index)),
   hasMore: true,
 };
 
 const last: DirectoryListingPage = {
   listingId: first.listingId,
   offset: entryPageSize,
-  entries: [{ name: "last", kind: "directory" }],
+  entries: [{ ...fileAt(entryPageSize, "last"), type: "folder" }],
   hasMore: false,
 };
 

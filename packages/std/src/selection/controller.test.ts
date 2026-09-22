@@ -15,7 +15,7 @@ function setup(overrides: Partial<Source<string, string, Error, string>> = {}) {
     {
       scope: "listing-a",
       extent: Atom.make<Extent>({ count: 5_000, hasMore: false }),
-      keyOf: (item: string) => item,
+      keyOf: ({ item }: { item: string }) => item,
       read: (index: number) =>
         Effect.sync(() => {
           reads.push(index);

@@ -1,5 +1,5 @@
 import * as RpcEndpoint from "@stargeist/application/rpc";
-import { AIProviderConnections } from "@stargeist/domain/ai";
+import { AIProviderConnections } from "@stargeist/domain";
 import { ProviderConnectionRpcs } from "@stargeist/protocol/ai";
 import { Effect } from "effect";
 import { Rpc } from "effect/unstable/rpc";

@@ -1,4 +1,4 @@
-import { ProviderConnectionError } from "@stargeist/domain/ai";
+import { ProviderConnectionError } from "@stargeist/domain";
 import { Context, Effect, Redacted } from "effect";
 
 export class SecretProtection extends Context.Service<

@@ -24,7 +24,8 @@ function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
       bind: inspection.bind,
       target: inspection.target,
       isOpen: inspection.isOpen,
-      inspectedName: inspection.inspectedName,
+      inspectedIndex: inspection.inspectedIndex,
+      detail: inspection.detail,
       rememberFocus: (target: RefObject<HTMLElement | null>) => {
         origin.current = target;
       },

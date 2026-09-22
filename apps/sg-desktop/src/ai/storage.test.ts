@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AIProviderConnections, ProviderConnectionError } from "@stargeist/domain/ai";
+import { AIProviderConnections, ProviderConnectionError } from "@stargeist/domain";
 import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { pathsLayer } from "../storage";

@@ -1,4 +1,4 @@
-import type { ProviderCredential } from "@stargeist/domain/ai";
+import type { ProviderCredential } from "@stargeist/domain";
 import { Effect, Redacted } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 import type { AIProviderConnectionsClient } from "./client";

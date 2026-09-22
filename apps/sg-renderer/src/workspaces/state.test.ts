@@ -1,6 +1,7 @@
 import type { WorkspacesClient } from "./client";
 import {
   ListingId,
+  makeFileId,
   type DirectoryListingPage,
   WorkspaceId,
   Workspace,
@@ -89,7 +90,9 @@ describe("Workspace state", () => {
       offset: 0,
       entries: Array.from({ length: entryPageSize }, (_, index) => ({
         name: `file-${index}`,
-        kind: "file" as const,
+        id: Effect.runSync(makeFileId),
+        type: "file" as const,
+        mediaType: null,
       })),
       hasMore: true,
     };

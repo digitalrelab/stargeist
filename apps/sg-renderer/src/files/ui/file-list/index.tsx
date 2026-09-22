@@ -182,7 +182,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
     }
 
     return (
-      <div key={entry.name} {...stylex.props(styles.row(item.start))}>
+      <div key={item.index} {...stylex.props(styles.row(item.start))}>
         <FileRow entry={entry} index={item.index} />
       </div>
     );

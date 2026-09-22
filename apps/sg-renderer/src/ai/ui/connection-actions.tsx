@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { ProviderConnection } from "@stargeist/domain/ai";
+import type { ProviderConnection } from "@stargeist/domain";
 import { Button, ConfirmDialog, DeleteIcon, EditIcon, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";

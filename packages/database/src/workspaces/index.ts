@@ -1,1 +1,1 @@
-export { openWorkspaceStore, type WorkspaceStore } from "./service";
+export { makeWorkspaceStore, type WorkspaceStore } from "./service";

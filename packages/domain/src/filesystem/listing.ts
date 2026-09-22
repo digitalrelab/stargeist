@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { FileSystemEntry } from "./entry";
+import { File } from "../files";
 
 export const ListingId = Schema.String.pipe(Schema.brand("ListingId"));
 export type ListingId = typeof ListingId.Type;
@@ -14,7 +14,7 @@ export const PageOffset = Schema.Number.check(
 export const DirectoryListingPage = Schema.Struct({
   listingId: ListingId,
   offset: PageOffset,
-  entries: Schema.Array(FileSystemEntry),
+  entries: Schema.Array(File),
   hasMore: Schema.Boolean,
 });
 export type DirectoryListingPage = typeof DirectoryListingPage.Type;

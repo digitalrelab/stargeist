@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import { Selection } from "@stargeist/std/selection/react";
-import type { FileSystemEntry } from "@stargeist/domain";
+import type { File } from "@stargeist/domain";
 import { Checkbox, typography } from "@stargeist/ui";
 import { colors, focusRing, fonts, radii } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
@@ -10,12 +10,15 @@ import { FileKind } from "../file-kind";
 import { useFileListContext } from "./context";
 import { layout } from "./layout";
 
-export function FileRow({ entry, index }: { entry: FileSystemEntry; index: number }) {
+export function FileRow({ entry, index }: { entry: File; index: number }) {
   const list = useFileListContext();
   const browser = useFileBrowserContext();
-  const selected = Selection.useSelected(browser.selection, entry.name);
-  const matchesEntry = useCallback((name: string | undefined) => name === entry.name, [entry.name]);
-  const inspected = useAtomValue(browser.inspectedName, matchesEntry);
+  const selected = Selection.useSelected(browser.selection, index);
+  const matchesEntry = useCallback(
+    (inspectedIndex: number | undefined) => inspectedIndex === index,
+    [index],
+  );
+  const inspected = useAtomValue(browser.inspectedIndex, matchesEntry);
   const active = index === list.active;
   const id = `${list.gridId}-${index}`;
 
@@ -65,7 +68,7 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
           {...stylex.props(typography.label, layout.name, styles.action)}
           tabIndex={-1}
         >
-          <FileKind.Icon kind={entry.kind} />
+          <FileKind.Icon entry={entry} />
           <span {...stylex.props(styles.name)}>{entry.name}</span>
         </button>
       </span>

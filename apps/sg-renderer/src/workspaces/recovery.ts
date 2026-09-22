@@ -19,7 +19,7 @@ export function workspaceRecovery(cause: Cause.Cause<unknown>): ReadonlyArray<Wo
     case "RootConflict":
       return ["open"];
     case "BackendUnavailable":
-    case "UnsupportedFormat":
+    case "IdentityUnavailable":
       return [];
     case "FolderPickerUnavailable":
     case "StorageUnavailable":

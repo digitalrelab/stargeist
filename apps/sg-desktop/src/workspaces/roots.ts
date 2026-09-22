@@ -11,12 +11,10 @@ const manifestName = "workspace.json";
 const maximumManifestBytes = 65536;
 const { schema: Identity, generate: makeIdentity } = Id.define("wsp");
 const Manifest = Schema.Struct({
-  formatVersion: Schema.Literal(1),
   id: Identity,
   createdAt: Schema.Number,
 });
 const decodeManifest = Schema.decodeUnknownSync(Manifest, { onExcessProperty: "error" });
-const decodeVersion = Schema.decodeUnknownSync(Schema.Struct({ formatVersion: Schema.Int }));
 const invalid = () =>
   new WorkspaceError({
     code: "InvalidWorkspace",
@@ -34,6 +32,16 @@ const storageUnavailable = () =>
     message:
       "Workspace metadata could not be saved. Check folder permissions and available space, then retry.",
   });
+
+async function syncDirectory(path: string) {
+  if (process.platform === "win32") return;
+  const directory = await open(path, "r");
+  try {
+    await directory.sync();
+  } finally {
+    await directory.close();
+  }
+}
 
 function hasCode(error: unknown, code: string) {
   return error instanceof Error && "code" in error && error.code === code;
@@ -74,18 +82,9 @@ async function readManifest(root: string) {
     let value: unknown;
     try {
       value = JSON.parse(bytes.subarray(0, length).toString("utf8"));
-      const version = decodeVersion(value);
-      if (version.formatVersion !== 1) {
-        throw new WorkspaceError({
-          code: "UnsupportedFormat",
-          message:
-            "This workspace uses an unsupported format. Open it with a compatible version of Stargeist.",
-        });
-      }
       const manifest = decodeManifest(value);
       return { identity: manifest.id, root, createdAt: manifest.createdAt };
-    } catch (error) {
-      if (error instanceof WorkspaceError) throw error;
+    } catch {
       throw invalid();
     }
   } catch (error) {
@@ -139,47 +138,54 @@ export const workspaceRoots: WorkspaceRoots = {
     const root = yield* readOperation("workspaces.root.resolve", () => canonicalDirectory(path));
     const id = yield* makeIdentity;
     const createdAt = yield* Clock.currentTimeMillis;
-    return yield* Effect.tryPromise(async () => {
+    return yield* Effect.gen(function* () {
       const directory = join(root, workspaceDirectoryName);
-      if (await markerExists(root)) {
-        let hasManifest = true;
-        try {
-          await lstat(join(directory, manifestName));
-        } catch (error) {
-          if (!hasCode(error, "ENOENT")) throw error;
-          hasManifest = false;
+      const existing = yield* Effect.tryPromise(async () => {
+        if (await markerExists(root)) {
+          let hasManifest = true;
+          try {
+            await lstat(join(directory, manifestName));
+          } catch (error) {
+            if (!hasCode(error, "ENOENT")) throw error;
+            hasManifest = false;
+          }
+          if (hasManifest) return readManifest(root);
+          try {
+            await rmdir(directory);
+          } catch (error) {
+            if (hasCode(error, "ENOTEMPTY") || hasCode(error, "EEXIST")) return readManifest(root);
+            if (!hasCode(error, "ENOENT")) throw error;
+          }
         }
-        if (hasManifest) return readManifest(root);
-        try {
-          await rmdir(directory);
-        } catch (error) {
-          if (hasCode(error, "ENOTEMPTY") || hasCode(error, "EEXIST")) return readManifest(root);
-          if (!hasCode(error, "ENOENT")) throw error;
-        }
-      }
-      const temporary = await mkdtemp(join(root, ".stargeist-initialize-"));
-      try {
+      });
+      if (existing) return existing;
+
+      const temporary = yield* Effect.acquireRelease(
+        Effect.tryPromise(() => mkdtemp(join(root, ".stargeist-initialize-"))),
+        (path) => Effect.promise(() => rm(path, { recursive: true, force: true })),
+      );
+      return yield* Effect.tryPromise(async () => {
         const file = await open(join(temporary, manifestName), "wx", 0o600);
         try {
-          await file.writeFile(`${JSON.stringify({ formatVersion: 1, id, createdAt }, null, 2)}\n`);
+          await file.writeFile(`${JSON.stringify({ id, createdAt }, null, 2)}\n`);
           await file.sync();
         } finally {
           await file.close();
         }
+        await syncDirectory(temporary);
         try {
           await rename(temporary, directory);
         } catch (error) {
           if (!(await markerExists(root))) throw error;
-          return await readManifest(root);
         }
+        await syncDirectory(root);
         return await readManifest(root);
-      } finally {
-        await rm(temporary, { recursive: true, force: true });
-      }
+      });
     }).pipe(
+      Effect.scoped,
       Effect.onError((cause) => reportFailure("workspaces.root.initialize", cause)),
       Effect.mapError((error) => {
-        if (error.cause instanceof WorkspaceError) return error.cause;
+        if ("cause" in error && error.cause instanceof WorkspaceError) return error.cause;
         return storageUnavailable();
       }),
       Effect.uninterruptible,

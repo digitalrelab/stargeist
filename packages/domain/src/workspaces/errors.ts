@@ -9,10 +9,10 @@ export class WorkspaceError extends Schema.Error<WorkspaceError>("WorkspaceError
     "FolderUnavailable",
     "StorageUnavailable",
     "InvalidWorkspace",
-    "UnsupportedFormat",
     "WorkspaceChanged",
     "RootConflict",
     "ListingExpired",
+    "IdentityUnavailable",
   ]),
   message: Schema.String,
 }) {}

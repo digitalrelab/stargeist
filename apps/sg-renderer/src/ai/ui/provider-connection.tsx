@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { ConnectionState, ProviderConnection as Connection } from "@stargeist/domain/ai";
+import type { ConnectionState, ProviderConnection as Connection } from "@stargeist/domain";
 import { Dialog, Item, Ping } from "@stargeist/ui";
 import { space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";

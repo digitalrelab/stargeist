@@ -113,5 +113,10 @@ export const colors = stylex.defineVars({
   statusPositive: "oklch(72% 0.12 145)",
   statusNegativeBorder: "oklch(55% 0.055 25)",
   statusNegative: "oklch(72% 0.09 25)",
+  accentBlue: "oklch(78% 0.08 245)",
+  accentGreen: "oklch(78% 0.10 155)",
+  accentPurple: "oklch(78% 0.10 285)",
+  accentOrange: "oklch(78% 0.10 55)",
+  accentAmber: "oklch(80% 0.10 85)",
   focusRing: slateDark.slate11,
 });

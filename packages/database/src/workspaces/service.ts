@@ -1,10 +1,8 @@
-import { mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
 import { WorkspaceError, WorkspaceId } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema } from "effect";
 import { eq } from "drizzle-orm";
-import { openDatabase } from "./sqlite/client";
+import { Database } from "../database";
 import { workspaces } from "./schema";
 
 const Record = Schema.Struct({
@@ -27,12 +25,8 @@ const storage = <A, E, R>(operation: string, effect: Effect.Effect<A, E, R>) =>
     Effect.mapError(storageError),
   );
 
-export const openWorkspaceStore = Effect.fnUntraced(function* (filename: string) {
-  yield* storage(
-    "workspaces.store.open",
-    Effect.tryPromise(() => mkdir(dirname(filename), { recursive: true })),
-  );
-  const database = yield* storage("workspaces.store.open", openDatabase(filename));
+export const makeWorkspaceStore = Effect.gen(function* () {
+  const database = yield* Database;
   const records = (session: Pick<typeof database, "select" | "insert" | "delete">) => ({
     get: (id: WorkspaceId) =>
       storage(
@@ -104,4 +98,4 @@ export const openWorkspaceStore = Effect.fnUntraced(function* (filename: string)
   };
 });
 
-export type WorkspaceStore = Effect.Success<ReturnType<typeof openWorkspaceStore>>;
+export type WorkspaceStore = Effect.Success<typeof makeWorkspaceStore>;

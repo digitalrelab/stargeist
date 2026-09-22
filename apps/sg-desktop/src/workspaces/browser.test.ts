@@ -5,17 +5,22 @@ import { WorkspaceError, Workspace, makeWorkspaceId } from "@stargeist/domain";
 import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
+import { BackendApplication } from "../backend/application";
+import { workspaceRoots } from "./roots";
 import { makeWorkspaceBrowser } from "./browser";
 
 async function createFixture() {
   const root = await mkdtemp(join(tmpdir(), "stargeist-workspace-listing-test-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
+  await Effect.runPromise(workspaceRoots.initialize(root));
   const workspace = new Workspace({ id: Effect.runSync(makeWorkspaceId), root });
   return {
     workspace,
     root,
-    layer: temporaryStorageLayer.pipe(Layer.provide(pathsLayer(join(root, "profile")))),
+    layer: Layer.merge(BackendApplication.layer, temporaryStorageLayer).pipe(
+      Layer.provide(pathsLayer(join(root, "profile"))),
+    ),
   };
 }
 

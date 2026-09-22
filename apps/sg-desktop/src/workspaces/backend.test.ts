@@ -11,7 +11,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Workspaces } from "@stargeist/domain";
+import { Files, Workspaces } from "@stargeist/domain";
 import { Deferred, Effect, Exit, Fiber, Layer, Scope, Stream } from "effect";
 import { RpcClient, RpcServer, RpcTest } from "effect/unstable/rpc";
 import { expect, it, onTestFinished } from "vite-plus/test";
@@ -27,7 +27,9 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
   await mkdir(film, { recursive: true });
   await writeFile(join(film, "interview.txt"), "original");
   const profile = join(root, "profile");
-  const run = <A, E>(effect: Effect.Effect<A, E, Workspaces | TemporaryStorage | Scope.Scope>) =>
+  const run = <A, E>(
+    effect: Effect.Effect<A, E, Workspaces | Files | TemporaryStorage | Scope.Scope>,
+  ) =>
     Effect.runPromise(
       effect.pipe(
         Effect.scoped,
@@ -65,7 +67,9 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.map((views) => views[0]),
       );
       expect(first.workspace).toEqual(parent);
-      expect(first.directory.entries).toEqual([{ name: "Film", kind: "directory" }]);
+      expect(first.directory.entries).toMatchObject([
+        { name: "Film", type: "folder", mediaType: null, id: expect.stringMatching(/^fil_/) },
+      ]);
       const secondScope = yield* Scope.fork(yield* Effect.scope);
       const second = yield* client["workspaces.browse"]({ id: child.id }).pipe(
         Stream.toPull,
@@ -73,7 +77,14 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.map((views) => views[0]),
         Scope.provide(secondScope),
       );
-      expect(second.directory.entries).toEqual([{ name: "interview.txt", kind: "file" }]);
+      expect(second.directory.entries).toMatchObject([
+        {
+          name: "interview.txt",
+          type: "file",
+          mediaType: "text/plain",
+          id: expect.stringMatching(/^fil_/),
+        },
+      ]);
       expect(
         yield* client["workspaces.readDirectory"]({
           listingId: first.directory.listingId,
@@ -117,7 +128,10 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.flatMap((pull) => pull),
         Effect.map((views) => views[0]),
       );
-      expect(independent.directory.entries).toEqual(reopened.directory.entries);
+      expect(independent.directory.entries).toMatchObject([
+        { name: "interview.txt", type: "file", mediaType: "text/plain" },
+      ]);
+      expect(independent.directory.entries[0]!.id).not.toBe(reopened.directory.entries[0]!.id);
       expect(
         yield* client["workspaces.readDirectory"]({
           listingId: reopened.directory.listingId,

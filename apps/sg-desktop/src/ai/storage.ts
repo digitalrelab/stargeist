@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { ProviderConnectionError, ProviderId } from "@stargeist/domain/ai";
+import { ProviderConnectionError, ProviderId } from "@stargeist/domain";
 import { Effect, Layer, Predicate, RcMap, Redacted, Schema, Semaphore } from "effect";
 import { StoragePaths } from "../storage";
 import { Credentials, StoredCredential } from "./credentials";

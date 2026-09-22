@@ -14,7 +14,7 @@ it("resolves product paths without creating storage or acquiring a temporary ses
 
   expect(paths).toEqual({
     profile,
-    database: join(profile, "data", "workspaces.sqlite"),
+    database: join(profile, "data", "application.sqlite"),
     userPreferences: join(profile, "data", "user-preferences.json"),
     credentials: join(profile, "data", "credentials"),
     temporary: join(profile, "temporary"),

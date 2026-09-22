@@ -1,4 +1,4 @@
-import { ProviderConnectionError, type ProviderConnection } from "@stargeist/domain/ai";
+import { ProviderConnectionError, type ProviderConnection } from "@stargeist/domain";
 import { Deferred, Effect, Redacted } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished } from "vite-plus/test";

@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { FileSystemEntry } from "@stargeist/domain";
+import type { File } from "@stargeist/domain";
 import {
   createContext,
   useContext,
@@ -144,11 +144,11 @@ export function useFileList() {
       },
     },
     viewportProps: { ...viewProps, tabIndex: 0, onKeyDown },
-    inspect: (index: number, entry: FileSystemEntry) => {
+    inspect: (index: number, entry: File) => {
       setColumn(1);
       dispatch({ type: "activate", value: { index, item: entry } });
     },
-    toggle: (index: number, entry: FileSystemEntry) => {
+    toggle: (index: number, entry: File) => {
       setColumn(0);
       dispatch({ type: "toggle", value: { index, item: entry } });
     },

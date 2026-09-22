@@ -1,18 +1,18 @@
 import { randomUUID } from "node:crypto";
-import type { Dirent } from "node:fs";
 import { opendir } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  type FileSystemEntry,
   type DirectoryListingPage,
   ListingId,
   DirectoryError,
   entryPageSize,
+  Files,
 } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema, Semaphore } from "effect";
 import { TemporaryStorage } from "../storage";
 import { openDirectoryCache } from "@stargeist/database/filesystem";
+import { observeFile } from "./observation";
 
 const expired = () =>
   new DirectoryError({
@@ -26,22 +26,27 @@ const unavailable = () =>
     message: "The folder could not be read. Check its location and permissions, then refresh.",
   });
 
-function entryKind(entry: Dirent): FileSystemEntry["kind"] {
-  if (entry.isDirectory()) return "directory";
-  if (entry.isFile()) return "file";
-  if (entry.isSymbolicLink()) return "symlink";
-
-  return "other";
-}
-
 export const openListing = Effect.fnUntraced(function* (
   rootPath: string,
   options?: { readonly exclude: ReadonlySet<string> },
 ) {
   const temporaryStorage = yield* TemporaryStorage;
+  const files = yield* Files;
   const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
   const filename = join(temporaryStorage.directory, `directory-listing-${listingId}.sqlite`);
   const cache = yield* openDirectoryCache(filename);
+  const root = yield* observeFile(rootPath, ".");
+  if (root?.type !== "folder") return yield* unavailable();
+
+  let invalidated = false;
+  const validateRoot = Effect.gen(function* () {
+    if (invalidated) return yield* expired();
+    const current = yield* observeFile(rootPath, ".");
+    if (current?.objectKey !== root.objectKey) {
+      invalidated = true;
+      return yield* expired();
+    }
+  });
 
   const directory = yield* Effect.acquireRelease(
     Effect.tryPromise(() => opendir(rootPath, { bufferSize: entryPageSize })).pipe(
@@ -52,6 +57,7 @@ export const openListing = Effect.fnUntraced(function* (
   );
 
   let complete = false;
+  let pendingNames: string[] = [];
 
   const readNext = Effect.gen(function* () {
     const entry = yield* Effect.tryPromise(() => directory.read()).pipe(
@@ -65,7 +71,7 @@ export const openListing = Effect.fnUntraced(function* (
     }
 
     if (!options?.exclude.has(entry.name)) {
-      cache.append({ name: entry.name, kind: entryKind(entry) });
+      pendingNames.push(entry.name);
     }
   }).pipe(Effect.uninterruptible);
 
@@ -76,8 +82,31 @@ export const openListing = Effect.fnUntraced(function* (
 
     const lookahead = offset + entryPageSize + 1;
 
-    while (!complete && cache.totalCount < lookahead) {
-      yield* readNext;
+    while ((!complete || pendingNames.length > 0) && cache.totalCount < lookahead) {
+      yield* validateRoot;
+      while (!complete && pendingNames.length < lookahead - cache.totalCount) {
+        yield* readNext;
+      }
+
+      const observations = yield* Effect.forEach(
+        pendingNames,
+        (name) => observeFile(rootPath, name),
+        { concurrency: 8 },
+      );
+      const present = observations.filter((entry) => entry !== null);
+      yield* validateRoot;
+
+      yield* Effect.gen(function* () {
+        const entries = yield* files
+          .remember(present)
+          .pipe(
+            Effect.mapError(
+              (error) => new DirectoryError({ code: error.code, message: error.message }),
+            ),
+          );
+        for (const entry of entries) cache.append(entry);
+        pendingNames = [];
+      }).pipe(Effect.uninterruptible);
     }
 
     const entries = yield* cache.read(offset);

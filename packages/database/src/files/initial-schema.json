@@ -1,0 +1,3 @@
+[
+  "CREATE TABLE `files` (\n\t`id` text PRIMARY KEY,\n\t`source` text NOT NULL,\n\t`object_key` text NOT NULL,\n\t`name` text NOT NULL,\n\t`type` text NOT NULL,\n\t`media_type` text,\n\tCONSTRAINT `files_source_object_key_unique` UNIQUE(`source`,`object_key`)\n);\n"
+]

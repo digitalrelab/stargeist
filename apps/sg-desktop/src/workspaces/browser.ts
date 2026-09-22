@@ -4,11 +4,12 @@ import {
   type WorkspaceId,
   type Workspaces,
   WorkspaceError,
+  Files,
 } from "@stargeist/domain";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import { openListing } from "../filesystem";
-import { TemporaryStorage } from "../storage";
 import { workspaceDirectoryName } from "./storage";
+import { TemporaryStorage } from "../storage";
 
 const workspaceError = (error: DirectoryError) =>
   new WorkspaceError({ code: error.code, message: error.message });
@@ -29,6 +30,7 @@ export const makeWorkspaceBrowser = Effect.fnUntraced(function* (
 ) {
   const parent = yield* Effect.scope;
   const temporaryStorage = yield* TemporaryStorage;
+  const files = yield* Files;
   const lock = yield* Semaphore.make(1);
 
   let active: ActiveListing | undefined;
@@ -52,6 +54,7 @@ export const makeWorkspaceBrowser = Effect.fnUntraced(function* (
       Effect.mapError(workspaceError),
       Scope.provide(scope),
       Effect.provideService(TemporaryStorage, temporaryStorage),
+      Effect.provideService(Files, files),
       Effect.map((snapshot) => {
         active = { scope, snapshot };
 

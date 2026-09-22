@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
 import * as Drizzle from "drizzle-orm/effect-sqlite-node";
 import { gte, sql } from "drizzle-orm";
-import { FileSystemEntry, DirectoryError, entryPageSize } from "@stargeist/domain";
+import { File, DirectoryError, entryPageSize } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema } from "effect";
 import { Reactivity } from "effect/unstable/reactivity";
@@ -15,7 +15,7 @@ const storageUnavailable = () =>
     message: "Temporary storage could not be used. Check available disk space, then refresh.",
   });
 
-const decodeEntries = Schema.decodeUnknownEffect(Schema.Array(FileSystemEntry));
+const decodeEntries = Schema.decodeUnknownEffect(Schema.Array(File));
 
 export const openDirectoryCache = Effect.fnUntraced(
   function* (filename: string) {
@@ -37,7 +37,7 @@ export const openDirectoryCache = Effect.fnUntraced(
     }
 
     let count = 0;
-    const pending: FileSystemEntry[] = [];
+    const pending: File[] = [];
 
     const flush = Effect.gen(function* () {
       if (pending.length === 0) {
@@ -58,7 +58,12 @@ export const openDirectoryCache = Effect.fnUntraced(
         yield* flush;
 
         const rows = yield* database
-          .select({ name: entries.name, kind: entries.kind })
+          .select({
+            id: entries.id,
+            name: entries.name,
+            type: entries.type,
+            mediaType: entries.mediaType,
+          })
           .from(entries)
           .where(gte(entries.position, offset))
           .orderBy(entries.position)
@@ -77,7 +82,7 @@ export const openDirectoryCache = Effect.fnUntraced(
       get totalCount() {
         return count + pending.length;
       },
-      append: (entry: FileSystemEntry) => {
+      append: (entry: File) => {
         pending.push(entry);
       },
       read,

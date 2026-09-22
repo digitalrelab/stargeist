@@ -1,4 +1,4 @@
-import { ProviderConnectionError } from "@stargeist/domain/ai";
+import { ProviderConnectionError } from "@stargeist/domain";
 import { Effect, Schema, Stream } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import type { ProviderAdapter } from "../provider";
