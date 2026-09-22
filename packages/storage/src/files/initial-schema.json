@@ -1,3 +1,4 @@
 [
-  "CREATE TABLE `files` (\n\t`id` text PRIMARY KEY,\n\t`source` text NOT NULL,\n\t`object_key` text NOT NULL,\n\t`name` text NOT NULL,\n\t`type` text NOT NULL,\n\t`media_type` text,\n\tCONSTRAINT `files_source_object_key_unique` UNIQUE(`source`,`object_key`)\n);\n"
+  "CREATE TABLE `files` (\n\t`id` text PRIMARY KEY,\n\t`source` text NOT NULL,\n\t`object_key` text NOT NULL,\n\t`evidence` text,\n\t`retired` integer DEFAULT false NOT NULL,\n\t`name` text NOT NULL,\n\t`type` text NOT NULL,\n\t`media_type` text\n);\n",
+  "CREATE UNIQUE INDEX `files_current_source_object_key` ON `files` (`source`,`object_key`) WHERE \"files\".\"retired\" = 0;"
 ]

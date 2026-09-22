@@ -3,6 +3,7 @@ import { opendir } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type DirectoryListingPage,
+  type FileError,
   ListingId,
   DirectoryError,
   directoryPageSize,
@@ -13,6 +14,7 @@ import { Effect, Schema, Semaphore } from "effect";
 import { TemporaryStorage } from "@stargeist/storage";
 import { openDirectoryCache } from "./directory-cache";
 import { observeFile } from "./observation";
+import { verifyFileIdentities } from "./identity";
 
 const expired = () =>
   new DirectoryError({
@@ -26,6 +28,11 @@ const unavailable = () =>
     message: "The folder could not be read. Check its location and permissions, then refresh.",
   });
 
+function listingError(error: FileError) {
+  if (error.code === "ObservationExpired") return expired();
+  return new DirectoryError({ code: error.code, message: error.message });
+}
+
 export const openListing = Effect.fnUntraced(function* (
   rootPath: string,
   options?: { readonly exclude: ReadonlySet<string> },
@@ -35,8 +42,9 @@ export const openListing = Effect.fnUntraced(function* (
   const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
   const filename = join(temporaryStorage.directory, `directory-listing-${listingId}.sqlite`);
   const cache = yield* openDirectoryCache(filename);
-  const root = yield* observeFile(rootPath, ".");
-  if (root?.type !== "folder") return yield* unavailable();
+  const initialRoot = yield* observeFile(rootPath, ".");
+  if (initialRoot?.type !== "folder") return yield* unavailable();
+  let root = initialRoot;
 
   let invalidated = false;
   const validateRoot = Effect.gen(function* () {
@@ -46,6 +54,14 @@ export const openListing = Effect.fnUntraced(function* (
       invalidated = true;
       return yield* expired();
     }
+    const [identity] = yield* verifyFileIdentities([{ previous: root, current }]).pipe(
+      Effect.mapError(listingError),
+    );
+    if (identity !== "same") {
+      invalidated = true;
+      return yield* expired();
+    }
+    root = current;
   });
 
   const directory = yield* Effect.acquireRelease(
@@ -97,13 +113,7 @@ export const openListing = Effect.fnUntraced(function* (
       yield* validateRoot;
 
       yield* Effect.gen(function* () {
-        const files = yield* fileService
-          .remember(present)
-          .pipe(
-            Effect.mapError(
-              (error) => new DirectoryError({ code: error.code, message: error.message }),
-            ),
-          );
+        const files = yield* fileService.remember(present).pipe(Effect.mapError(listingError));
         for (const file of files) cache.append(file);
         pendingNames = [];
       }).pipe(Effect.uninterruptible);

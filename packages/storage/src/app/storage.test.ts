@@ -42,6 +42,7 @@ it("keeps persistent file identities isolated between profiles and stable when r
           FileObservation.make({
             source: "source",
             objectKey: "object",
+            evidence: null,
             name: "file.txt",
             type: "file",
             mediaType: "text/plain",
@@ -50,7 +51,7 @@ it("keeps persistent file identities isolated between profiles and stable when r
         return file!.id;
       }).pipe(
         Effect.provide(
-          filesLayer.pipe(
+          filesLayer().pipe(
             Layer.provide(AppStorage.database),
             Layer.provide(AppStorage.layer(profile)),
           ),

@@ -4,13 +4,14 @@ import { File, FileId } from "./file";
 export const FileObservation = Schema.Struct({
   source: Schema.NonEmptyString,
   objectKey: Schema.NonEmptyString,
+  evidence: Schema.NullOr(Schema.NonEmptyString),
   ...Struct.omit(File.fields, ["id"]),
 });
 export type FileObservation = typeof FileObservation.Type;
 
 export class FileError extends Schema.Error<FileError>("FileError")({
   _tag: Schema.tag("FileError"),
-  code: Schema.Literals(["StorageUnavailable"]),
+  code: Schema.Literals(["StorageUnavailable", "IdentityUnavailable", "ObservationExpired"]),
   message: Schema.String,
 }) {}
 
