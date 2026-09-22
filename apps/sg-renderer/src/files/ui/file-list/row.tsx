@@ -86,23 +86,23 @@ const styles = stylex.create({
       borderRadius: radii.md,
       backgroundColor: {
         default: "transparent",
-        ":hover": colors.surfaceRaised,
+        ":hover": colors.control,
       },
     },
   },
   selected: {
     "::before": {
       backgroundColor: {
-        default: `color-mix(in srgb, ${colors.text} 6%, transparent)`,
-        ":hover": `color-mix(in srgb, ${colors.text} 8%, transparent)`,
+        default: colors.control,
+        ":hover": colors.controlHovered,
       },
     },
   },
   active: {
     "::before": {
       backgroundColor: {
-        default: `color-mix(in srgb, ${colors.text} 10%, transparent)`,
-        ":hover": `color-mix(in srgb, ${colors.text} 12%, transparent)`,
+        default: colors.controlPressed,
+        ":hover": colors.controlPressed,
       },
     },
     outlineColor: "Highlight",

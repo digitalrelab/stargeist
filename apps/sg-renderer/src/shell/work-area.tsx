@@ -21,6 +21,14 @@ export function Content(props: Props<"div">) {
   return <div {...props} {...stylex.props(styles.content)} />;
 }
 
+export function Body(props: Props<"div">) {
+  return <div {...props} {...stylex.props(styles.body)} />;
+}
+
+export function Container(props: Props<"div">) {
+  return <div {...props} {...stylex.props(styles.container)} />;
+}
+
 const styles = stylex.create({
   root: {
     display: "grid",
@@ -52,5 +60,18 @@ const styles = stylex.create({
     minWidth: 0,
     minHeight: 0,
     overflow: "hidden",
+  },
+  body: {
+    flexGrow: 1,
+    minWidth: 0,
+    minHeight: 0,
+    overflowY: "auto",
+  },
+  container: {
+    width: "100%",
+    maxWidth: "800px",
+    marginInline: "auto",
+    paddingBlock: space[8],
+    paddingInline: { default: space[6], "@media (max-width: 480px)": space[4] },
   },
 });

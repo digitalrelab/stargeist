@@ -1,7 +1,5 @@
 import type { ConnectionState, ProviderConnection as Connection } from "@stargeist/domain/ai";
-import { typography } from "@stargeist/ui";
-import { colors, space } from "@stargeist/ui/tokens.stylex";
-import * as stylex from "@stylexjs/stylex";
+import { Item } from "@stargeist/ui";
 import { useId, useRef, useState } from "react";
 import { APIKeyForm } from "./api-key-form";
 import { ConnectionActions } from "./connection-actions";
@@ -19,43 +17,41 @@ export function ProviderConnection({ connection }: { connection: Connection }) {
   };
 
   return (
-    <section aria-labelledby={headingId} {...stylex.props(styles.provider)}>
-      <header {...stylex.props(styles.summary)}>
-        <h3 id={headingId} ref={heading} tabIndex={-1} {...stylex.props(typography.label)}>
+    <Item.Root aria-labelledby={headingId}>
+      <Item.Content>
+        <Item.Title id={headingId} ref={heading} tabIndex={-1}>
           {connection.displayName}
-        </h3>
+        </Item.Title>
         <ConnectionSummary state={connection.state} />
-      </header>
-      {editing && <APIKeyForm providerId={connection.providerId} onClose={closeEditor} />}
-      {!editing && <ConnectionActions connection={connection} onEdit={() => setEditing(true)} />}
-    </section>
+      </Item.Content>
+      {editing && (
+        <Item.Details>
+          <APIKeyForm providerId={connection.providerId} onClose={closeEditor} />
+        </Item.Details>
+      )}
+      {!editing && (
+        <Item.Actions>
+          <ConnectionActions connection={connection} onEdit={() => setEditing(true)} />
+        </Item.Actions>
+      )}
+    </Item.Root>
   );
 }
 
 function ConnectionSummary({ state }: { state: ConnectionState }) {
   switch (state.status) {
     case "notConfigured":
-      return <p {...stylex.props(styles.muted)}>No key added.</p>;
+      return <Item.Description>No key added.</Item.Description>;
     case "unavailable":
-      return (
-        <p role="alert" {...stylex.props(styles.muted)}>
-          {state.error.message}
-        </p>
-      );
+      return <Item.Description role="alert">{state.error.message}</Item.Description>;
     case "configured":
       return (
         <>
-          <p {...stylex.props(styles.muted)}>Saved key {state.keyHint}</p>
-          <p {...stylex.props(typography.label, styles.muted)}>
+          <Item.Description>Saved key {state.keyHint}</Item.Description>
+          <Item.Description>
             Last checked {validatedAt.format(state.lastValidatedAt)}
-          </p>
+          </Item.Description>
         </>
       );
   }
 }
-
-const styles = stylex.create({
-  provider: { display: "flex", flexDirection: "column", gap: space[4] },
-  summary: { display: "flex", flexDirection: "column", gap: space[1], minWidth: 0 },
-  muted: { color: colors.textMuted, overflowWrap: "anywhere" },
-});

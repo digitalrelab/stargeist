@@ -298,7 +298,7 @@ const styles = stylex.create({
     color: colors.textMuted,
   },
   activeStatus: {
-    backgroundColor: `color-mix(in srgb, ${colors.text} 10%, transparent)`,
+    backgroundColor: colors.controlPressed,
     borderRadius: radii.md,
     outlineColor: "Highlight",
     outlineWidth: 1,

@@ -18,3 +18,4 @@ export { ScrollArea } from "./scroll-area";
 export { Checkbox } from "./checkbox";
 export { typography } from "./typography";
 export { Skeleton } from "./skeleton";
+export * as Item from "./item";

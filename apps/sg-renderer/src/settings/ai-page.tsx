@@ -1,25 +1,19 @@
 import { typography } from "@stargeist/ui";
-import { space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Providers } from "#src/ai/index.ts";
+import { WorkArea } from "#src/shell/index.ts";
 
 export function AIPage() {
   return (
-    <main {...stylex.props(styles.page)}>
-      <h1 {...stylex.props(typography.heading)}>AI</h1>
-      <Providers />
-    </main>
+    <WorkArea.Page>
+      <WorkArea.Header>
+        <h1 {...stylex.props(typography.heading)}>AI</h1>
+      </WorkArea.Header>
+      <WorkArea.Body>
+        <WorkArea.Container>
+          <Providers />
+        </WorkArea.Container>
+      </WorkArea.Body>
+    </WorkArea.Page>
   );
 }
-
-const styles = stylex.create({
-  page: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space[8],
-    padding: { default: space[6], "@media (max-width: 480px)": space[4] },
-    minWidth: 0,
-    minHeight: 0,
-    overflowY: "auto",
-  },
-});
