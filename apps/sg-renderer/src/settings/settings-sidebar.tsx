@@ -1,32 +1,9 @@
-import {
-  Button,
-  BackIcon,
-  SettingsIcon,
-  AppearanceIcon,
-  AIIcon,
-  Sidebar,
-  typography,
-} from "@stargeist/ui";
-import { space } from "@stargeist/ui/tokens.stylex";
-import * as stylex from "@stylexjs/stylex";
+import { AIIcon, AppearanceIcon, BackIcon, Button, SettingsIcon, Sidebar } from "@stargeist/ui";
 import { Link } from "@tanstack/react-router";
 
 export function SettingsSidebar() {
   return (
     <Sidebar.Root aria-label="Settings">
-      <Sidebar.Header>
-        <div {...stylex.props(styles.header)}>
-          <Button.Link
-            appearance="ghost"
-            shape="square"
-            render={<Link to="/" />}
-            aria-label="Back to workspaces"
-          >
-            <BackIcon aria-hidden="true" />
-          </Button.Link>
-          <h2 {...stylex.props(typography.label)}>Settings</h2>
-        </div>
-      </Sidebar.Header>
       <Sidebar.Content>
         <Sidebar.Nav aria-label="Settings sections">
           <Sidebar.Link
@@ -43,10 +20,18 @@ export function SettingsSidebar() {
           </Sidebar.Link>
         </Sidebar.Nav>
       </Sidebar.Content>
+      <Sidebar.Footer>
+        <Sidebar.Nav aria-label="Application">
+          <Button.Link
+            appearance="ghost"
+            shape="circle"
+            render={<Link to="/" />}
+            aria-label="Back to workspaces"
+          >
+            <BackIcon aria-hidden="true" />
+          </Button.Link>
+        </Sidebar.Nav>
+      </Sidebar.Footer>
     </Sidebar.Root>
   );
 }
-
-const styles = stylex.create({
-  header: { display: "flex", alignItems: "center", gap: space[2] },
-});

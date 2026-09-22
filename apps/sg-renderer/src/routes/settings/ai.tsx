@@ -1,4 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AIPage } from "#src/settings/pages.ts";
+import { ProvidersSection } from "#src/ai/index.ts";
 
-export const Route = createFileRoute("/settings/ai")({ component: AIPage });
+export const Route = createFileRoute("/settings/ai")({
+  component: ProvidersSection,
+  staticData: { breadcrumb: { label: "AI" } },
+});

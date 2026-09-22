@@ -15,7 +15,10 @@ declare module "@tanstack/react-router" {
 export const Route = createRootRouteWithContext<{ application: RendererServices }>()({
   component: RootLayout,
   notFoundComponent: RouteError,
-  staticData: { primarySidebar: WorkspaceSidebar },
+  staticData: {
+    primarySidebar: WorkspaceSidebar,
+    breadcrumb: { label: "Home" },
+  },
 });
 
 function RootLayout() {
