@@ -1,5 +1,5 @@
 import { useAtomSet } from "@effect/atom-react";
-import type { FileSnapshot, WorkspaceId } from "@stargeist/domain";
+import type { FileSnapshot } from "@stargeist/domain";
 import type { Command } from "@stargeist/std/selection";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { createFileSelectionController } from "../../selection";
@@ -8,16 +8,15 @@ import { useFileInspection } from "../file-inspection";
 
 export interface FileBrowserProps {
   listing: FileListing;
-  workspaceId: WorkspaceId;
   folder: string | undefined;
 }
 
-export function useFileBrowser({ listing, workspaceId, folder }: FileBrowserProps) {
+export function useFileBrowser({ listing, folder }: FileBrowserProps) {
   const inspection = useFileInspection();
   const view = useRef<HTMLDivElement>(null);
   const selection = useMemo(
-    () => createFileSelectionController(listing, inspection.bind(listing, { workspaceId, folder })),
-    [listing, inspection.bind, workspaceId, folder],
+    () => createFileSelectionController(listing, inspection.bind(listing, folder)),
+    [listing, inspection.bind, folder],
   );
   const send = useAtomSet(selection.command);
 

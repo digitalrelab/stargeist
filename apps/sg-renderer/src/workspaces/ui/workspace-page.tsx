@@ -79,7 +79,6 @@ function WorkspaceFiles({
       <FileBrowser.Root
         key={view.value.listing.id}
         listing={view.value.listing}
-        workspaceId={view.value.workspace.id}
         folder={view.value.workspace.root}
       >
         <FileList />

@@ -1,4 +1,4 @@
-import type { FileSnapshot, WorkspaceId, ListingId } from "@stargeist/domain";
+import type { FileSnapshot, ListingId } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Effect, HashSet } from "effect";
 import { AsyncResult, Atom, type AtomRegistry } from "effect/unstable/reactivity";
@@ -19,7 +19,6 @@ export interface FileInspection {
 
 export interface FileInspectionInput {
   readonly interaction: FileInteraction;
-  readonly workspaceId: WorkspaceId;
   readonly folder: string | undefined;
   readonly extent: FileListing["extent"];
   readonly read: ReadFile;
@@ -33,7 +32,7 @@ function resolveInspection(
   input: FileInspectionInput,
   total: number | undefined,
 ): FileInspection | undefined {
-  const { interaction, workspaceId, folder } = input;
+  const { interaction, folder } = input;
   const focused = interaction.focused;
   let members = interaction.selection;
 
@@ -66,7 +65,7 @@ function resolveInspection(
   if (focused && focused.index === index) file = focused.item;
 
   return {
-    selection: { workspaceId, folder, members },
+    selection: { folder, members },
     total,
     file,
     index,
@@ -127,7 +126,7 @@ export function createFileInspection() {
     },
   ).pipe(Atom.setIdleTTL(0));
 
-  function bind(listing: FileListing, location: Pick<FileSelection, "workspaceId" | "folder">) {
+  function bind(listing: FileListing, folder: string | undefined) {
     return Atom.writable(
       () => undefined,
       (ctx, interaction: FileInteraction) => {
@@ -135,7 +134,7 @@ export function createFileInspection() {
           type: "interact",
           input: {
             interaction,
-            ...location,
+            folder,
             extent: listing.extent,
             read: (index) =>
               listing.read(listing.pageOffset(index), { retry: true }).pipe(

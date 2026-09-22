@@ -1,5 +1,5 @@
 import { fileAt } from "../../file.test-support";
-import { WorkspaceId, ListingId, directoryPageSize } from "@stargeist/domain";
+import { ListingId, directoryPageSize } from "@stargeist/domain";
 import { Selection, type SelectionState } from "@stargeist/std/selection";
 import { Deferred, Effect, HashSet, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
@@ -8,7 +8,6 @@ import { createFileSelectionController } from "../../selection";
 import { createFileListing } from "../../state";
 import { createFileInspection, describeFileInspection, type FileInspectionInput } from "./state";
 
-const workspaceId = Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001");
 const listingId = Schema.decodeUnknownSync(ListingId)("inspection");
 const empty = Selection.empty<number, typeof listingId>(listingId);
 
@@ -23,7 +22,6 @@ function input(
   }
   return {
     read: (position) => Effect.succeed(fileAt(position)),
-    workspaceId,
     folder: "/files",
     extent: Atom.make({ count: 10_000, hasMore: false }),
     interaction: { type, focused, selection },
@@ -76,10 +74,7 @@ it("shows inspection from arrow navigation without changing checkbox selection",
     },
     () => Effect.die("Navigation must use the cached page"),
   );
-  const selection = createFileSelectionController(
-    listing,
-    inspection.bind(listing, { workspaceId, folder: "/files" }),
-  );
+  const selection = createFileSelectionController(listing, inspection.bind(listing, "/files"));
   registry.mount(selection.command);
   const navigate = (by: number) => {
     registry.set(selection.command, { type: "move", by });
@@ -262,7 +257,7 @@ it("resolves the remaining select-all occurrence when the final page arrives", a
     members = Selection.set(members, index, false);
   }
   registry.set(
-    inspection.bind(listing, { workspaceId, folder: "/files" }),
+    inspection.bind(listing, "/files"),
     input("select", directoryPageSize - 1, members).interaction,
   );
   expect(target()?.index).toBeUndefined();
@@ -321,7 +316,7 @@ it("exposes detail read failures and retries the selected occurrence", async () 
   );
   registry.mount(listing.pages(directoryPageSize));
   registry.set(
-    inspection.bind(listing, { workspaceId, folder: "/files" }),
+    inspection.bind(listing, "/files"),
     input("select", 0, Selection.replace(listingId, [directoryPageSize])).interaction,
   );
   expect(registry.get(inspection.detail)._tag).toBe("Failure");
@@ -340,10 +335,7 @@ it("publishes selection and inspection together and cancels queued navigation wh
   const listing = createFileListing({ listingId, files, offset: 0, hasMore: false }, () =>
     Effect.die("Selection must use the cached page"),
   );
-  const selection = createFileSelectionController(
-    listing,
-    inspection.bind(listing, { workspaceId, folder: "/files" }),
-  );
+  const selection = createFileSelectionController(listing, inspection.bind(listing, "/files"));
   registry.mount(selection.command);
   const indicators: Array<number | undefined> = [];
 
