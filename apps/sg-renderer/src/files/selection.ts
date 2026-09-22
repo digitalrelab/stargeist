@@ -19,30 +19,8 @@ export const createFileSelectionController = (
 
         return page.items[index - offset];
       }),
-      readRange: Effect.fnUntraced(function* (
-        from: number,
-        to: number,
-        options: { readonly retry: boolean },
-      ) {
-        const keys: number[] = [];
-        let index = from;
-
-        while (index <= to) {
-          const offset = listing.pageOffset(index);
-          const page = yield* listing.read(offset, options).pipe(Effect.scoped);
-          const end = Math.min(to + 1, offset + page.items.length);
-
-          if (index >= end) {
-            break;
-          }
-
-          for (; index < end; index++) {
-            keys.push(index);
-          }
-        }
-
-        return keys;
-      }),
+      readRange: (from: number, to: number) =>
+        Effect.sync(() => Array.from({ length: to - from + 1 }, (_, index) => from + index)),
     },
     onInteraction,
   );

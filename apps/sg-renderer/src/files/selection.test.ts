@@ -174,7 +174,7 @@ it("retries a failed range page once and reuses it to resolve focus and membersh
   expect(registry.get(selection.current)?.item.name).toBe("next");
 });
 
-it("resolves a multi-page range by page and preserves its anchor when shrinking", async () => {
+it("selects a multi-page range without rereading intermediate pages", async () => {
   const registry = registryForTest();
   const requests: number[] = [];
   const listing = createFileListing(initial, (offset) =>
@@ -188,7 +188,14 @@ it("resolves a multi-page range by page and preserves its anchor when shrinking"
       };
     }),
   );
-  const selection = createFileSelectionController(listing);
+  const reads: number[] = [];
+  const selection = createFileSelectionController({
+    ...listing,
+    read: (offset, options) => {
+      reads.push(offset);
+      return listing.read(offset, options);
+    },
+  });
   registry.mount(selection.command);
   registry.mount(listing.pages(directoryPageSize));
   await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
@@ -209,6 +216,7 @@ it("resolves a multi-page range by page and preserves its anchor when shrinking"
   expect(Selection.count(registry.get(selection.selection))).toBe(directoryPageSize + 1);
   expect(registry.get(selection.isSelected(513))).toBe(false);
   expect(requests).toEqual([directoryPageSize, directoryPageSize * 2]);
+  expect(reads).toEqual([directoryPageSize * 2, directoryPageSize]);
 });
 
 it("finishes a range across an unloaded page without activating the newly focused file", async () => {
