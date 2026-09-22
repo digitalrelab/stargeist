@@ -11,6 +11,8 @@ import {
 } from "./desktop/index";
 
 const resetTargets = Symbol("resetTargets");
+const changed = () =>
+  new ProfileError("reset-changed", "Reset targets changed after the preview. Preview again.");
 
 function targetIdentity(path: string) {
   const target = lstatSync(path, { bigint: true, throwIfNoEntry: false });
@@ -18,6 +20,22 @@ function targetIdentity(path: string) {
     return null;
   }
   return `${target.dev}:${target.ino}:${target.birthtimeNs}`;
+}
+
+function inspectTargets(profile: DevelopmentProfile) {
+  const storage = AppStorage.at(profile.root);
+  const app = storage.inspect();
+  const workspaces = storage.inspectWorkspaces().map((root) => WorkspaceStorage.at(root).inspect());
+  const identities = {
+    data: targetIdentity(profile.data),
+    quarantine: targetIdentity(profile.quarantine),
+    workspaces: workspaces.map(({ root, path, status }) => ({
+      root,
+      status,
+      identity: targetIdentity(path),
+    })),
+  };
+  return { storage, app, workspaces, identities };
 }
 
 export function previewReset(profile: DevelopmentProfile) {
@@ -28,8 +46,7 @@ export function previewReset(profile: DevelopmentProfile) {
   }
 
   const access = inspectProfileAccess(profile);
-  const storage = AppStorage.at(profile.root);
-  const workspaces = storage.inspectWorkspaces().map((root) => WorkspaceStorage.at(root).inspect());
+  const { app, workspaces, identities } = inspectTargets(profile);
 
   return {
     command: "reset" as const,
@@ -37,25 +54,18 @@ export function previewReset(profile: DevelopmentProfile) {
     scope: "development" as const,
     profile: profile.root,
     target: profile.data,
-    ...storage.inspect(),
+    ...app,
     access,
     quarantine: profile.quarantine,
     workspaces,
-    [resetTargets]: {
-      data: targetIdentity(profile.data),
-      quarantine: targetIdentity(profile.quarantine),
-      workspaces: workspaces.map(({ path }) => targetIdentity(path)),
-    },
+    [resetTargets]: identities,
   };
 }
 
 export function resetData(profile: DevelopmentProfile, preview = previewReset(profile)) {
   if (inspectProfile(profile) === "missing") {
     if (preview.exists || preview.workspaces.length > 0) {
-      throw new ProfileError(
-        "reset-changed",
-        "App data changed after the preview. Preview again and retry.",
-      );
+      throw changed();
     }
     return { ...preview, status: "already-empty" as const };
   }
@@ -64,42 +74,16 @@ export function resetData(profile: DevelopmentProfile, preview = previewReset(pr
 
   try {
     validateProfilePaths(profile);
-    const storage = AppStorage.at(profile.root);
-    const targetsBefore = preview[resetTargets];
-    const appTargetsChanged = () =>
-      targetIdentity(profile.data) !== targetsBefore.data ||
-      targetIdentity(profile.quarantine) !== targetsBefore.quarantine;
-    if (appTargetsChanged()) {
-      throw new ProfileError(
-        "reset-changed",
-        "App data changed after the preview. Preview again and retry.",
-      );
+    const current = inspectTargets(profile);
+    const expected = preview[resetTargets];
+    if (JSON.stringify(current.identities) !== JSON.stringify(expected)) {
+      throw changed();
     }
-    const roots = storage.inspectWorkspaces();
-    if (JSON.stringify(roots) !== JSON.stringify(preview.workspaces.map(({ root }) => root))) {
-      throw new ProfileError(
-        "reset-changed",
-        "Workspaces changed after the preview. Preview again and retry.",
-      );
-    }
-    const targets = roots.map((root) => WorkspaceStorage.at(root));
-    const workspaceChanged = (target: (typeof targets)[number], index: number) =>
-      target.inspect().status !== preview.workspaces[index]?.status ||
-      targetIdentity(preview.workspaces[index]!.path) !== targetsBefore.workspaces[index];
-    if (targets.some(workspaceChanged)) {
-      throw new ProfileError(
-        "reset-changed",
-        "Workspaces changed after the preview. Preview again and retry.",
-      );
-    }
-    const workspaces = targets.map((target, index) => {
-      if (workspaceChanged(target, index)) {
-        throw new ProfileError(
-          "reset-changed",
-          "Workspaces changed after the preview. Preview again and retry.",
-        );
+    const workspaces = current.workspaces.map(({ root, path }, index) => {
+      if (targetIdentity(path) !== expected.workspaces[index]!.identity) {
+        throw changed();
       }
-      return target.reset();
+      return WorkspaceStorage.at(root).reset();
     });
     const result = { ...preview, workspaces, access: "available" as const };
     if (workspaces.some(({ status }) => status === "blocked")) {
@@ -107,13 +91,13 @@ export function resetData(profile: DevelopmentProfile, preview = previewReset(pr
     }
 
     validateProfilePaths(profile);
-    if (appTargetsChanged()) {
-      throw new ProfileError(
-        "reset-changed",
-        "App data changed after the preview. Preview again and retry.",
-      );
+    if (
+      targetIdentity(profile.data) !== expected.data ||
+      targetIdentity(profile.quarantine) !== expected.quarantine
+    ) {
+      throw changed();
     }
-    const outcome = storage.reset();
+    const outcome = current.storage.reset();
     return {
       ...result,
       ...outcome,
