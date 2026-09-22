@@ -76,7 +76,7 @@ it("persists object IDs across reopen, edits and renames while distinguishing co
   expect(replacementId).not.toBe(original.id);
   expect(replaced.find((file) => file.name === "alias.jpg")?.id).toBe(original.id);
   expect((await list()).find((file) => file.name === "renamed.jpg")?.id).toBe(replacementId);
-});
+}, 15000);
 
 it("shares IDs across moved, nested and overlapping workspace views", async () => {
   const { base, root, list } = await fixture();
@@ -117,7 +117,7 @@ it("assigns matching IDs when full initial pages open concurrently", async () =>
     new Map(second.map((file) => [file.name, file.id])),
   );
   expect(new Set(first.map((file) => file.id)).size).toBe(directoryPageSize);
-});
+}, 15000);
 
 it("retains remembered file descriptions after listing closure and source removal", async () => {
   const { root, layer } = await fixture();

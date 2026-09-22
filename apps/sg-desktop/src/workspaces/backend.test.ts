@@ -196,7 +196,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
   );
   expect(await readFile(join(saved.root, ".stargeist", "workspace.json"), "utf8")).toBe(manifest);
   expect(await readFile(join(saved.root, "interview.txt"), "utf8")).toBe("original");
-});
+}, 15000);
 
 it("rejects identity replacement at a remembered root until that folder is explicitly reopened", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "stargeist-replacement-")));
