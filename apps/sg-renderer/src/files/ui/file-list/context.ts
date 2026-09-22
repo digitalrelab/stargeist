@@ -1,18 +1,18 @@
 import type { FileSystemEntry } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection/react";
-import { createContext, useContext, useId, useMemo, useState, type KeyboardEvent } from "react";
+import { createContext, useContext, useId, useState, type KeyboardEvent } from "react";
 import { canRetryFailure } from "#src/client/index.ts";
-import { createFileSelectionController, type FileInteraction } from "../../selection";
+import type { FileInteraction, FileSelectionController } from "../../selection";
 import type { FileListing } from "../../state";
 import { rowHeight } from "./layout";
 
 export interface FileListProps {
   listing: FileListing;
+  selection: FileSelectionController;
   onInteraction: (interaction: FileInteraction, trigger: HTMLElement) => void;
 }
 
-export function useFileList({ listing, onInteraction }: FileListProps) {
-  const selection = useMemo(() => createFileSelectionController(listing), [listing]);
+export function useFileList({ listing, selection, onInteraction }: FileListProps) {
   const gridId = useId();
   const [column, setColumn] = useState(1);
   const navigation = Selection.useController(selection, {
