@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { mkdtemp, readFile, readdir, rename, rm, writeFile, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AIProviderConnections, ProviderConnectionError } from "@stargeist/domain/ai";
@@ -188,15 +188,16 @@ it("surfaces unreadable credentials without failing startup and supports removal
 
 it("reports filesystem failures and retains the previous credential for recovery", async () => {
   const setup = await fixture();
-  const data = join(setup.profile, "data");
-  const backup = join(setup.profile, "saved-data");
+  const directory = join(setup.profile, "data", "credentials");
+  const filename = join(directory, "first.bin");
+  const backup = join(directory, "first.saved");
   await Effect.runPromise(
     Effect.gen(function* () {
       const store = yield* Credentials;
       yield* store.write(record);
       yield* Effect.promise(async () => {
-        await rename(data, backup);
-        await writeFile(data, "not a directory");
+        await rename(filename, backup);
+        await mkdir(filename);
       });
       expect(
         yield* store
@@ -207,8 +208,8 @@ it("reports filesystem failures and retains the previous credential for recovery
         code: "StorageUnavailable",
       });
       yield* Effect.promise(async () => {
-        await rm(data);
-        await rename(backup, data);
+        await rm(filename, { recursive: true });
+        await rename(backup, filename);
       });
       expect(Redacted.value((yield* store.read("first"))!.credential.key)).toBe("a-secret-api-key");
       expect(yield* store.read("../escape").pipe(Effect.flip)).toMatchObject({
