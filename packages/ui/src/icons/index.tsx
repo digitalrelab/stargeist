@@ -6,7 +6,7 @@ import {
   ChevronsUpDown,
   Settings2,
   Palette,
-  Sparkles,
+  Astroid,
   File,
   FileQuestionMark,
   Folder,
@@ -50,7 +50,7 @@ export function AppearanceIcon(props: LucideProps) {
 }
 
 export function AIIcon(props: LucideProps) {
-  return <Sparkles size={control.iconSize} {...props} />;
+  return <Astroid size={control.iconSize} {...props} />;
 }
 
 export function CheckIcon(props: LucideProps) {

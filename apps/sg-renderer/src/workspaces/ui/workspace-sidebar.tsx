@@ -20,7 +20,7 @@ export function WorkspaceSidebar() {
         <Sidebar.Nav aria-label="Application">
           <Button.Link
             appearance="ghost"
-            size="icon"
+            shape="square"
             render={<Link to="/settings" />}
             aria-label="Settings"
           >

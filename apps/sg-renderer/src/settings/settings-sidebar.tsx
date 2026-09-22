@@ -18,7 +18,7 @@ export function SettingsSidebar() {
         <div {...stylex.props(styles.header)}>
           <Button.Link
             appearance="ghost"
-            size="icon"
+            shape="square"
             render={<Link to="/" />}
             aria-label="Back to workspaces"
           >

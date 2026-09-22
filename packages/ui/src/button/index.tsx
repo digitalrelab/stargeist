@@ -5,51 +5,57 @@ import * as stylex from "@stylexjs/stylex";
 import { colors, control, focusRing, fonts, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
+type ButtonLayout = Partial<
+  Pick<
+    stylex.CSSProperties,
+    | "alignSelf"
+    | "justifySelf"
+    | "order"
+    | "gridArea"
+    | "gridColumn"
+    | "gridRow"
+    | "margin"
+    | "marginBlock"
+    | "marginBlockStart"
+    | "marginBlockEnd"
+    | "marginInline"
+    | "marginInlineStart"
+    | "marginInlineEnd"
+  >
+>;
+
+type ButtonSizing = Partial<
+  Pick<
+    stylex.CSSProperties,
+    "flexGrow" | "flexShrink" | "flexBasis" | "inlineSize" | "minInlineSize" | "maxInlineSize"
+  >
+>;
+
 type ButtonStyleProps = {
   appearance?: keyof typeof appearances;
   size?: keyof typeof sizes;
-  styles?: stylex.StyleXStyles<
-    Partial<
-      Pick<
-        stylex.CSSProperties,
-        | "alignSelf"
-        | "justifySelf"
-        | "flexGrow"
-        | "flexShrink"
-        | "flexBasis"
-        | "order"
-        | "gridArea"
-        | "gridColumn"
-        | "gridRow"
-        | "inlineSize"
-        | "minInlineSize"
-        | "maxInlineSize"
-        | "margin"
-        | "marginBlock"
-        | "marginBlockStart"
-        | "marginBlockEnd"
-        | "marginInline"
-        | "marginInlineStart"
-        | "marginInlineEnd"
-      >
-    >
-  >;
-};
+} & (
+  | { shape?: "rectangle"; styles?: stylex.StyleXStyles<ButtonLayout & ButtonSizing> }
+  | { shape: "square"; styles?: stylex.StyleXStyles<ButtonLayout> }
+);
 
 export type ButtonProps = Omit<BaseButton.Props, "className" | "style"> & ButtonStyleProps;
 
 export type ButtonLinkProps = Omit<useRender.ComponentProps<"a">, "className" | "style"> &
   ButtonStyleProps;
 
-function ButtonRoot({ appearance, size, styles: customStyles, ...props }: ButtonProps) {
+function ButtonRoot({ appearance, size, shape, styles: customStyles, ...props }: ButtonProps) {
   return (
-    <BaseButton {...mergeProps<"button">(props, buttonStyles(appearance, size, customStyles))} />
+    <BaseButton
+      {...mergeProps<"button">(props, buttonStyles(appearance, size, shape, customStyles))}
+    />
   );
 }
 
 function ButtonLink({
   appearance,
   size,
+  shape,
   styles: customStyles,
   render,
   ref,
@@ -59,7 +65,7 @@ function ButtonLink({
     defaultTagName: "a",
     render,
     ref,
-    props: mergeProps<"a">(props, buttonStyles(appearance, size, customStyles)),
+    props: mergeProps<"a">(props, buttonStyles(appearance, size, shape, customStyles)),
   });
 }
 
@@ -67,19 +73,23 @@ export const Button = Object.assign(ButtonRoot, { Link: ButtonLink });
 
 function buttonStyles(
   appearance: ButtonStyleProps["appearance"] = "solid",
-  size: ButtonStyleProps["size"] = "md",
+  size: ButtonStyleProps["size"] = "sm",
+  shape: ButtonStyleProps["shape"] = "rectangle",
   customStyles?: ButtonStyleProps["styles"],
 ) {
   return stylex.props(
     typography.label,
     styles.button,
-    sizes[size],
+    shape === "rectangle" && sizes[size],
     appearances[appearance],
     customStyles,
+    shape === "square" && styles.square,
+    shape === "square" && squareSizes[size],
   );
 }
 
 const styles = stylex.create({
+  square: { padding: 0, flex: "none" },
   button: {
     alignItems: "center",
     appearance: "none",
@@ -107,6 +117,18 @@ const states = {
 };
 
 const appearances = stylex.create({
+  danger: {
+    backgroundColor: {
+      default: colors.danger,
+      [states.hovered]: colors.dangerHovered,
+      [states.pressed]: colors.dangerPressed,
+      [states.disabled]: colors.controlDisabled,
+    },
+    color: {
+      default: colors.onDanger,
+      [states.disabled]: colors.onControlDisabled,
+    },
+  },
   solid: {
     backgroundColor: {
       default: colors.action,
@@ -148,20 +170,19 @@ const appearances = stylex.create({
 });
 
 const sizes = stylex.create({
-  icon: {
-    inlineSize: control.heightMd,
-    blockSize: control.heightMd,
-    flexShrink: 0,
-    padding: 0,
-  },
   sm: {
-    minHeight: control.heightSm,
+    minBlockSize: control.heightSm,
     paddingBlock: space[1],
-    paddingInline: space[3],
+    paddingInline: control.paddingInlineSm,
   },
   md: {
-    minHeight: control.heightMd,
+    minBlockSize: control.heightMd,
     paddingBlock: space[2],
     paddingInline: control.paddingInlineMd,
   },
+});
+
+const squareSizes = stylex.create({
+  sm: { inlineSize: control.heightSm, blockSize: control.heightSm },
+  md: { inlineSize: control.heightMd, blockSize: control.heightMd },
 });

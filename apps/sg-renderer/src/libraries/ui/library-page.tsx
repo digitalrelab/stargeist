@@ -44,7 +44,7 @@ export function LibraryPage({
             </p>
           )}
         </div>
-        <Button appearance="ghost" size="sm" onClick={refresh} disabled={!canRefresh}>
+        <Button appearance="ghost" onClick={refresh} disabled={!canRefresh}>
           Refresh
         </Button>
       </WorkArea.Header>

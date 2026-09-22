@@ -2,7 +2,7 @@ import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps } from "react";
 import { Button } from "../button";
-import { colors, radii, shadows, space } from "../tokens.stylex";
+import { colors, fonts, radii, shadows, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
 export function Root<Payload>(props: Omit<BaseDialog.Root.Props<Payload>, "modal">) {
@@ -20,16 +20,19 @@ export type PopupProps = Omit<BaseDialog.Popup.Props, "className" | "style">;
 export function Popup(props: PopupProps) {
   return (
     <BaseDialog.Portal {...stylex.props(styles.portal)}>
-      <BaseDialog.Backdrop {...stylex.props(styles.backdrop)} />
+      <BaseDialog.Backdrop {...stylex.props(styles.transition, styles.backdrop)} />
       <BaseDialog.Viewport {...stylex.props(styles.viewport)}>
-        <BaseDialog.Popup {...props} {...stylex.props(styles.popup, typography.body)} />
+        <BaseDialog.Popup
+          {...props}
+          {...stylex.props(styles.transition, styles.popup, typography.body)}
+        />
       </BaseDialog.Viewport>
     </BaseDialog.Portal>
   );
 }
 
 export function Title(props: Omit<BaseDialog.Title.Props, "className" | "style">) {
-  return <BaseDialog.Title {...props} {...stylex.props(typography.heading)} />;
+  return <BaseDialog.Title {...props} {...stylex.props(typography.body, styles.title)} />;
 }
 
 export function Description(props: Omit<BaseDialog.Description.Props, "className" | "style">) {
@@ -48,14 +51,24 @@ export function Close(props: CloseProps) {
 
 const styles = stylex.create({
   portal: { position: "relative", zIndex: 1 },
+  transition: {
+    opacity: { default: 1, ":is([data-starting-style], [data-ending-style])": 0 },
+    transitionProperty: "opacity",
+    transitionDuration: {
+      default: "140ms",
+      "@media (prefers-reduced-motion: reduce)": "0ms",
+    },
+    transitionTimingFunction: "ease-out",
+  },
   backdrop: { position: "fixed", inset: 0, backgroundColor: colors.backdrop },
   viewport: {
     position: "fixed",
     inset: 0,
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
     padding: space[4],
+    paddingBlockStart: `clamp(${space[4]}, 15dvh, 8rem)`,
   },
   popup: {
     display: "flex",
@@ -67,7 +80,7 @@ const styles = stylex.create({
     minWidth: 0,
     overflowY: "auto",
     overscrollBehavior: "contain",
-    padding: space[6],
+    padding: space[5],
     borderWidth: "1px",
     borderStyle: "solid",
     borderColor: colors.border,
@@ -77,7 +90,13 @@ const styles = stylex.create({
     boxShadow: shadows.raised,
     outline: "none",
     overflowWrap: "anywhere",
+    transitionProperty: "opacity, transform",
+    transform: {
+      default: "translateY(0)",
+      ":is([data-starting-style], [data-ending-style])": "translateY(-4px)",
+    },
   },
+  title: { fontWeight: fonts.semibold },
   description: { color: colors.textMuted },
   actions: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: space[2] },
 });

@@ -32,7 +32,6 @@ export function AddLibrary({ workspaceId }: { workspaceId: WorkspaceId }) {
     <>
       <Button
         appearance="ghost"
-        size="sm"
         onClick={() => void chooseFolder()}
         disabled={disabled}
         aria-busy={creation.waiting}

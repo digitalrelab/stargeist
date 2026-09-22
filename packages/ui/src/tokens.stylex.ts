@@ -7,6 +7,7 @@ export const space = stylex.defineVars({
   2: "8px",
   3: "12px",
   4: "16px",
+  5: "20px",
   6: "24px",
   8: "32px",
 });
@@ -37,6 +38,7 @@ export const fonts = stylex.defineVars({
 export const control = stylex.defineVars({
   heightSm: "32px",
   heightMd: "40px",
+  paddingInlineSm: space[3],
   paddingInlineMd: space[4],
   radius: radii.md,
   iconSize: "16px",
@@ -80,6 +82,10 @@ export const colors = stylex.defineVars({
   actionHovered: "oklch(100% 0 0)",
   actionPressed: slateDark.slate11,
   onAction: slateDark.slate1,
+  danger: "oklch(31% 0.045 25)",
+  dangerHovered: "oklch(35% 0.05 25)",
+  dangerPressed: "oklch(28% 0.04 25)",
+  onDanger: "oklch(78% 0.095 25)",
   control: slateDark.slate3,
   controlHovered: slateDark.slate4,
   controlPressed: slateDark.slate5,

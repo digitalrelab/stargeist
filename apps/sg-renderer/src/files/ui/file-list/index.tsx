@@ -144,7 +144,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
         <>
           <span role="alert">{failureMessage(result.cause)}</span>
           {canRetryFailure(result.cause) && (
-            <Button appearance="soft" size="sm" onClick={retry} disabled={result.waiting}>
+            <Button appearance="soft" onClick={retry} disabled={result.waiting}>
               Retry
             </Button>
           )}
@@ -234,7 +234,7 @@ function ListFooter() {
 
   if (hasSelection) {
     action = (
-      <Button appearance="ghost" size="sm" onClick={list.clear}>
+      <Button appearance="ghost" onClick={list.clear}>
         Clear selection
       </Button>
     );
@@ -243,7 +243,7 @@ function ListFooter() {
   if (request.waiting && operation === "range") {
     label = "Selecting range…";
     action = (
-      <Button appearance="ghost" size="sm" onClick={list.cancel}>
+      <Button appearance="ghost" onClick={list.cancel}>
         Cancel
       </Button>
     );
@@ -257,7 +257,7 @@ function ListFooter() {
         <>
           <span role="alert">{failureMessage(request.cause)}</span>
           {canRetryFailure(request.cause) && (
-            <Button appearance="soft" size="sm" onClick={list.retry} disabled={request.waiting}>
+            <Button appearance="soft" onClick={list.retry} disabled={request.waiting}>
               Retry
             </Button>
           )}

@@ -150,7 +150,7 @@ const styles = stylex.create({
     alignItems: "center",
     minHeight: control.heightSm,
     paddingBlock: space[1],
-    paddingInline: `calc(${control.paddingInlineMd} - ${space[1]} - ${popupBorderWidth})`,
+    paddingInline: `calc(${control.paddingInlineSm} - ${space[1]} - ${popupBorderWidth})`,
     borderRadius: radii.sm,
     cursor: "default",
     outlineStyle: "none",
