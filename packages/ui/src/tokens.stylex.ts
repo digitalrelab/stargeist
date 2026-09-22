@@ -20,7 +20,8 @@ export const radii = stylex.defineVars({
 });
 
 export const fonts = stylex.defineVars({
-  body: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  body: '"Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  mono: '"JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace',
   labelSize: "0.875rem",
   bodySize: "1rem",
   headingSize: "1.5rem",

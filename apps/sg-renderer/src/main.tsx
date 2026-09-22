@@ -11,6 +11,8 @@ import { ApplicationRoot } from "./application-root";
 import { createRendererApplication } from "./application";
 import { desktopConnectionLayer } from "./desktop/connection";
 import { createAppRouter } from "./router";
+import "@fontsource-variable/inter/standard.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@stargeist/ui/reset.css";
 import "./reset.css";
 
@@ -19,6 +21,7 @@ const styles = stylex.create({
     backgroundColor: colors.canvas,
     color: colors.text,
     colorScheme: "dark",
+    fontOpticalSizing: "auto",
   },
 });
 
