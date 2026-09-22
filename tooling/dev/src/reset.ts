@@ -1,3 +1,4 @@
+import { lstatSync } from "node:fs";
 import { AppStorage, WorkspaceStorage } from "@stargeist/storage";
 import {
   inspectProfile,
@@ -9,6 +10,16 @@ import {
   ProfileError,
 } from "./desktop/index";
 
+const resetTargets = Symbol("resetTargets");
+
+function targetIdentity(path: string) {
+  const target = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+  if (!target) {
+    return null;
+  }
+  return `${target.dev}:${target.ino}:${target.birthtimeNs}`;
+}
+
 export function previewReset(profile: DevelopmentProfile) {
   const ownership = inspectProfile(profile);
 
@@ -18,6 +29,7 @@ export function previewReset(profile: DevelopmentProfile) {
 
   const access = inspectProfileAccess(profile);
   const storage = AppStorage.at(profile.root);
+  const workspaces = storage.inspectWorkspaces().map((root) => WorkspaceStorage.at(root).inspect());
 
   return {
     command: "reset" as const,
@@ -28,7 +40,12 @@ export function previewReset(profile: DevelopmentProfile) {
     ...storage.inspect(),
     access,
     quarantine: profile.quarantine,
-    workspaces: storage.inspectWorkspaces().map((root) => WorkspaceStorage.at(root).inspect()),
+    workspaces,
+    [resetTargets]: {
+      data: targetIdentity(profile.data),
+      quarantine: targetIdentity(profile.quarantine),
+      workspaces: workspaces.map(({ path }) => targetIdentity(path)),
+    },
   };
 }
 
@@ -48,8 +65,11 @@ export function resetData(profile: DevelopmentProfile, preview = previewReset(pr
   try {
     validateProfilePaths(profile);
     const storage = AppStorage.at(profile.root);
-    const current = storage.inspect();
-    if (current.exists !== preview.exists || current.cleanupPending !== preview.cleanupPending) {
+    const targetsBefore = preview[resetTargets];
+    const appTargetsChanged = () =>
+      targetIdentity(profile.data) !== targetsBefore.data ||
+      targetIdentity(profile.quarantine) !== targetsBefore.quarantine;
+    if (appTargetsChanged()) {
       throw new ProfileError(
         "reset-changed",
         "App data changed after the preview. Preview again and retry.",
@@ -63,21 +83,36 @@ export function resetData(profile: DevelopmentProfile, preview = previewReset(pr
       );
     }
     const targets = roots.map((root) => WorkspaceStorage.at(root));
-    if (
-      targets.some((target, index) => target.inspect().status !== preview.workspaces[index]?.status)
-    ) {
+    const workspaceChanged = (target: (typeof targets)[number], index: number) =>
+      target.inspect().status !== preview.workspaces[index]?.status ||
+      targetIdentity(preview.workspaces[index]!.path) !== targetsBefore.workspaces[index];
+    if (targets.some(workspaceChanged)) {
       throw new ProfileError(
         "reset-changed",
         "Workspaces changed after the preview. Preview again and retry.",
       );
     }
-    const workspaces = targets.map((target) => target.reset());
+    const workspaces = targets.map((target, index) => {
+      if (workspaceChanged(target, index)) {
+        throw new ProfileError(
+          "reset-changed",
+          "Workspaces changed after the preview. Preview again and retry.",
+        );
+      }
+      return target.reset();
+    });
     const result = { ...preview, workspaces, access: "available" as const };
     if (workspaces.some(({ status }) => status === "blocked")) {
       return { ...result, status: "reset-incomplete" as const };
     }
 
     validateProfilePaths(profile);
+    if (appTargetsChanged()) {
+      throw new ProfileError(
+        "reset-changed",
+        "App data changed after the preview. Preview again and retry.",
+      );
+    }
     const outcome = storage.reset();
     return {
       ...result,

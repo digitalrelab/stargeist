@@ -327,6 +327,39 @@ it("keeps app data created after the preview", () => {
   expect(readFileSync(file, "utf8")).toBe("keep");
 });
 
+it("keeps app data replaced after the preview", () => {
+  const { profile } = fixture();
+  initializeProfile(profile);
+  mkdirSync(profile.data);
+  writeFileSync(join(profile.data, "original.txt"), "original");
+  const preview = previewReset(profile);
+  renameSync(profile.data, `${profile.data}-previous`);
+  mkdirSync(profile.data);
+  const replacement = join(profile.data, "replacement.txt");
+  writeFileSync(replacement, "keep");
+
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(readFileSync(replacement, "utf8")).toBe("keep");
+});
+
+it("keeps workspace metadata replaced after the preview", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const workspace = join(root, "workspace");
+  const metadata = join(workspace, ".stargeist");
+  mkdirSync(metadata, { recursive: true });
+  await rememberWorkspaces(profile, [workspace]);
+  const preview = previewReset(profile);
+  renameSync(metadata, `${metadata}-previous`);
+  mkdirSync(metadata);
+  const replacement = join(metadata, "replacement.txt");
+  writeFileSync(replacement, "keep");
+
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(readFileSync(replacement, "utf8")).toBe("keep");
+  expect(existsSync(profile.data)).toBe(true);
+});
+
 it.each(["appears", "disappears"] as const)(
   "requires a new preview if registered workspace metadata %s before reset",
   async (change) => {
