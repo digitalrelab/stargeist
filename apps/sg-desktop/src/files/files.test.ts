@@ -1,8 +1,8 @@
 import { copyFile, link, mkdir, mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Layer } from "effect";
-import { directoryPageSize } from "@stargeist/domain";
+import { Effect, Layer, Schema } from "effect";
+import { directoryPageSize, Files, FileKindMetadata } from "@stargeist/domain";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { AppStorage, temporaryStorageLayer, WorkspaceStorage } from "@stargeist/storage";
 import { openDirectorySession } from "../filesystem";
@@ -36,18 +36,15 @@ it("keeps a path's ID through replacement and gives copies and moved paths new I
   const first = await list();
   const original = first.find((file) => file.name === "photo.JPG")!;
   expect(original).toMatchObject({
-    type: "file",
-    mediaType: "image/jpeg",
+    kind: "image",
     id: expect.stringMatching(/^fil_/),
   });
   expect(first.find((file) => file.name === "alias.jpg")?.id).not.toBe(original.id);
   expect(first.find((file) => file.name === "shortcut.jpg")).toMatchObject({
-    type: "link",
-    mediaType: null,
+    kind: "link",
   });
   expect(first.find((file) => file.name === "folder.pdf")).toMatchObject({
-    type: "folder",
-    mediaType: null,
+    kind: "folder",
   });
   expect(first.some((file) => file.name === ".stargeist")).toBe(false);
 
@@ -75,6 +72,42 @@ it("shares IDs when the same path is browsed through overlapping workspaces", as
   const first = (await list(nested))[0]!;
   const second = (await list(nested))[0]!;
   expect(second.id).toBe(first.id);
+});
+
+it("persists kind beyond a directory session and refreshes it without replacing other metadata", async () => {
+  const { root, list, layer } = await fixture();
+  const path = join(root, "photo.jpg");
+  await writeFile(path, "photo");
+  const [original] = await list();
+  const Note = { key: "test.note", schema: Schema.String };
+  const run = <A, E>(effect: Effect.Effect<A, E, Files>) =>
+    Effect.runPromise(effect.pipe(Effect.provide(layer)));
+
+  await run(
+    Effect.gen(function* () {
+      const { metadata } = yield* Files;
+      expect(yield* metadata.read(FileKindMetadata, [original!.id])).toEqual(
+        new Map([[original!.id, "image"]]),
+      );
+      yield* metadata.write(Note, new Map([[original!.id, "Keep me"]]));
+    }),
+  );
+  await rm(path);
+  await mkdir(path);
+  const [updated] = await list();
+  expect(updated).toMatchObject({ id: original!.id, kind: "folder" });
+  await rm(path, { recursive: true });
+  await run(
+    Effect.gen(function* () {
+      const { metadata } = yield* Files;
+      expect(yield* metadata.read(FileKindMetadata, [original!.id])).toEqual(
+        new Map([[original!.id, "folder"]]),
+      );
+      expect(yield* metadata.read(Note, [original!.id])).toEqual(
+        new Map([[original!.id, "Keep me"]]),
+      );
+    }),
+  );
 });
 
 it("assigns matching IDs when full initial pages open concurrently", async () => {

@@ -4,6 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 import { AppDatabase } from "../app/database";
 import { files } from "./schema";
+import { makeFileMetadata } from "./metadata";
 
 const decodeReferences = Schema.decodeUnknownEffect(Schema.Array(FileReference));
 const decodeFiles = Schema.decodeUnknownEffect(Schema.Array(File));
@@ -17,6 +18,7 @@ export const filesLayer = Layer.effect(
     const database = yield* AppDatabase;
 
     return Files.of({
+      metadata: yield* makeFileMetadata,
       ensure: Effect.fnUntraced(
         function* (input) {
           const references = yield* decodeReferences(input);

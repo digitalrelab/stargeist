@@ -1,4 +1,4 @@
-import { classifyFileKind, type FileKind as Kind, type FileSnapshot } from "@stargeist/domain";
+import type { FileKind as Kind, FileSnapshot } from "@stargeist/domain";
 import {
   FileIcon,
   FolderIcon,
@@ -40,7 +40,7 @@ const kinds = {
 type Props = { file: FileSnapshot };
 
 function Icon({ file, decorative = false }: Props & { decorative?: boolean }) {
-  const { Icon: KindIcon, label, color } = kinds[classifyFileKind(file)];
+  const { Icon: KindIcon, label, color } = kinds[file.kind];
   let accessibleLabel;
 
   if (!decorative) {
@@ -58,7 +58,7 @@ function Icon({ file, decorative = false }: Props & { decorative?: boolean }) {
 }
 
 function Label({ file }: Props) {
-  return <>{kinds[classifyFileKind(file)].label}</>;
+  return <>{kinds[file.kind].label}</>;
 }
 
 export const FileKind = { Icon, Label };

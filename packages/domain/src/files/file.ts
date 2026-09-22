@@ -17,11 +17,3 @@ export const FileReference = Schema.Struct({
   key: Schema.NonEmptyString,
 });
 export type FileReference = typeof FileReference.Type;
-
-export const FileSnapshot = Schema.Struct({
-  ...File.fields,
-  name: Schema.String,
-  type: FileType,
-  mediaType: Schema.NullOr(Schema.String),
-});
-export type FileSnapshot = typeof FileSnapshot.Type;

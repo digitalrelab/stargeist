@@ -66,7 +66,7 @@ describe("directory sessions", () => {
         expect([...first.files, ...second.files].map((file) => file.name).sort()).toEqual(
           [...names, "nested"].sort(),
         );
-        expect([...first.files, ...second.files].find((file) => file.name === "nested")?.type).toBe(
+        expect([...first.files, ...second.files].find((file) => file.name === "nested")?.kind).toBe(
           "folder",
         );
         expect(yield* session.read(0)).toEqual(first);
@@ -94,8 +94,7 @@ describe("directory sessions", () => {
         expect((yield* second.read(0)).files).toMatchObject([
           {
             name: "file.txt",
-            type: "file",
-            mediaType: "text/plain",
+            kind: "text",
             id: expect.stringMatching(/^fil_/),
           },
         ]);

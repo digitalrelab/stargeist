@@ -68,7 +68,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       );
       expect(first.workspace).toEqual(parent);
       expect(first.directory.files).toMatchObject([
-        { name: "Film", type: "folder", mediaType: null, id: expect.stringMatching(/^fil_/) },
+        { name: "Film", kind: "folder", id: expect.stringMatching(/^fil_/) },
       ]);
       const secondScope = yield* Scope.fork(yield* Effect.scope);
       const second = yield* client["workspaces.browse"]({ id: child.id }).pipe(
@@ -80,8 +80,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       expect(second.directory.files).toMatchObject([
         {
           name: "interview.txt",
-          type: "file",
-          mediaType: "text/plain",
+          kind: "text",
           id: expect.stringMatching(/^fil_/),
         },
       ]);
@@ -128,9 +127,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.flatMap((pull) => pull),
         Effect.map((views) => views[0]),
       );
-      expect(independent.directory.files).toMatchObject([
-        { name: "interview.txt", type: "file", mediaType: "text/plain" },
-      ]);
+      expect(independent.directory.files).toMatchObject([{ name: "interview.txt", kind: "text" }]);
       expect(independent.directory.files[0]!.id).not.toBe(reopened.directory.files[0]!.id);
       expect(
         yield* client["workspaces.readDirectory"]({

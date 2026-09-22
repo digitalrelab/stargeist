@@ -15,7 +15,7 @@ const first: DirectoryPage = {
 const last: DirectoryPage = {
   directorySessionId: first.directorySessionId,
   offset: directoryPageSize,
-  files: [{ ...fileAt(directoryPageSize, "last"), type: "folder" }],
+  files: [{ ...fileAt(directoryPageSize, "last"), kind: "folder" }],
   hasMore: false,
 };
 
