@@ -37,6 +37,7 @@ export const fonts = stylex.defineVars({
 });
 
 export const control = stylex.defineVars({
+  heightXs: "24px",
   heightSm: "32px",
   heightMd: "40px",
   paddingInlineSm: space[3],
@@ -82,9 +83,10 @@ export const colors = stylex.defineVars({
   canvas: slateDark.slate1,
   surface: slateDark.slate2,
   surfaceRaised: slateDark.slate3,
+  surfaceOverlay: slateDark.slate4,
   text: slateDark.slate12,
   textMuted: slateDark.slate11,
-  borderSubtle: slateDark.slate3,
+  borderSubtle: neutralLayer.subtle,
   divider: slateDark.slate4,
   border: slateDark.slate6,
   borderStrong: slateDark.slate8,
@@ -107,5 +109,9 @@ export const colors = stylex.defineVars({
   onControl: slateDark.slate12,
   onControlMuted: slateDark.slate11,
   onControlDisabled: slateDark.slate10,
-  focusRing: "oklch(77.429% 0.12152 287.46)",
+  statusNeutral: slateDark.slate9,
+  statusPositive: "oklch(72% 0.12 145)",
+  statusNegativeBorder: "oklch(55% 0.055 25)",
+  statusNegative: "oklch(72% 0.09 25)",
+  focusRing: slateDark.slate11,
 });

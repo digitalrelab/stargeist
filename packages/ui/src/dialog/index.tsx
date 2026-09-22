@@ -2,6 +2,7 @@ import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps } from "react";
 import { Button } from "../button";
+import { CloseIcon } from "../icons";
 import { colors, fonts, radii, shadows, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
@@ -35,6 +36,10 @@ export function Title(props: Omit<BaseDialog.Title.Props, "className" | "style">
   return <BaseDialog.Title {...props} {...stylex.props(typography.body, styles.title)} />;
 }
 
+export function Header(props: Omit<ComponentProps<"div">, "className" | "style">) {
+  return <div {...props} {...stylex.props(styles.header)} />;
+}
+
 export function Description(props: Omit<BaseDialog.Description.Props, "className" | "style">) {
   return <BaseDialog.Description {...props} {...stylex.props(styles.description)} />;
 }
@@ -45,8 +50,23 @@ export function Actions(props: Omit<ComponentProps<"div">, "className" | "style"
 
 export type CloseProps = Omit<BaseDialog.Close.Props, "className" | "style">;
 
-export function Close(props: CloseProps) {
-  return <BaseDialog.Close render={<Button appearance="ghost" />} {...props} />;
+export function Close({ children, render, "aria-label": ariaLabel, ...props }: CloseProps) {
+  let content = children;
+  let closeRender = render;
+  let label = ariaLabel;
+
+  if (closeRender === undefined)
+    closeRender = <Button appearance="ghost" shape="square" size="xs" />;
+  if (content === undefined) {
+    content = <CloseIcon aria-hidden="true" />;
+    if (label === undefined) label = "Close dialog";
+  }
+
+  return (
+    <BaseDialog.Close {...props} aria-label={label} render={closeRender}>
+      {content}
+    </BaseDialog.Close>
+  );
 }
 
 const styles = stylex.create({
@@ -95,6 +115,12 @@ const styles = stylex.create({
       default: "translateY(0)",
       ":is([data-starting-style], [data-ending-style])": "translateY(-4px)",
     },
+  },
+  header: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: space[4],
   },
   title: { fontWeight: fonts.semibold },
   description: { color: colors.textMuted },

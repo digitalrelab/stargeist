@@ -22,7 +22,7 @@ function registry() {
   return value;
 }
 
-it("refreshes saved connection summaries after configuring, checking, and removing a key", async () => {
+it("refreshes saved connection summaries after configuring and removing a key", async () => {
   const store = registry();
   let current = provider;
   const client: AIProviderConnectionsClient = {
@@ -34,15 +34,7 @@ it("refreshes saved connection summaries after configuring, checking, and removi
         current = saved;
         return current;
       }),
-    check: (id) =>
-      Effect.sync(() => {
-        expect(id).toBe("example");
-        current = {
-          ...saved,
-          state: { status: "configured", keyHint: "••••1234", lastValidatedAt: 2000 },
-        };
-        return current;
-      }),
+    check: () => Effect.die("Unexpected health check"),
     remove: (id) =>
       Effect.sync(() => {
         expect(id).toBe("example");
@@ -65,22 +57,95 @@ it("refreshes saved connection summaries after configuring, checking, and removi
         yield* AtomRegistry.getResult(store, state.connections, { suspendOnWaiting: true }),
       ).toEqual([saved]);
       expect(() => Redacted.value(key)).toThrow();
-      store.set(operation, { type: "check" });
-      yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true });
-      expect(
-        (yield* AtomRegistry.getResult(store, state.connections, { suspendOnWaiting: true }))[0]
-          ?.state,
-      ).toEqual({
-        status: "configured",
-        keyHint: "••••1234",
-        lastValidatedAt: 2000,
-      });
       store.set(operation, { type: "remove" });
       yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true });
       expect(
         yield* AtomRegistry.getResult(store, state.connections, { suspendOnWaiting: true }),
       ).toEqual([provider]);
     }),
+  );
+});
+
+it("tracks connection health independently from saved connection summaries", async () => {
+  const store = registry();
+  const disconnected = new ProviderConnectionError({
+    code: "NetworkUnavailable",
+    message: "Cannot reach provider.",
+  });
+  let available = false;
+  let lists = 0;
+  const state = createAIProviderConnectionsState({
+    list: Effect.sync(() => {
+      lists += 1;
+      return [saved];
+    }),
+    configure: () => Effect.die("Unexpected configuration"),
+    check: (providerId) => {
+      expect(providerId).toBe("example");
+      if (available) return Effect.succeed(saved);
+      return Effect.fail(disconnected);
+    },
+    remove: () => Effect.die("Unexpected removal"),
+  });
+  const health = state.health("example");
+  store.mount(state.connections);
+  store.mount(health);
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([saved]);
+      store.set(health, undefined);
+      expect(
+        yield* AtomRegistry.getResult(store, health, { suspendOnWaiting: true }).pipe(Effect.flip),
+      ).toEqual(disconnected);
+      expect(lists).toBe(1);
+      available = true;
+      store.set(health, undefined);
+      expect(yield* AtomRegistry.getResult(store, health, { suspendOnWaiting: true })).toEqual(
+        saved,
+      );
+      expect(lists).toBe(1);
+    }),
+  );
+});
+
+it("cancels an in-flight health check before changing the connection", async () => {
+  const store = registry();
+  const started = Effect.runSync(Deferred.make<void>());
+  const canceled = Effect.runSync(Deferred.make<void>());
+  let removed = false;
+  const state = createAIProviderConnectionsState({
+    list: Effect.succeed([saved]),
+    configure: () => Effect.die("Unexpected configuration"),
+    check: () =>
+      Deferred.succeed(started, undefined).pipe(
+        Effect.andThen(Effect.never),
+        Effect.ensuring(Deferred.succeed(canceled, undefined)),
+      ),
+    remove: () =>
+      Deferred.await(canceled).pipe(
+        Effect.andThen(
+          Effect.sync(() => {
+            removed = true;
+          }),
+        ),
+      ),
+  });
+  const health = state.health("example");
+  const operation = state.operation("example");
+  store.mount(health);
+  store.mount(operation);
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      store.set(health, undefined);
+      yield* Deferred.await(started);
+      store.set(operation, { type: "remove" });
+      expect(yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true })).toBe(
+        "remove",
+      );
+      expect(removed).toBe(true);
+    }).pipe(Effect.timeout("3 seconds")),
   );
 });
 

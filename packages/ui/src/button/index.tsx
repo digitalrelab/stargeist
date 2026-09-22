@@ -137,6 +137,18 @@ const appearances = stylex.create({
       [states.disabled]: colors.onControlDisabled,
     },
   },
+  dangerGhost: {
+    backgroundColor: {
+      default: "oklch(0% 0 0 / 0)",
+      [states.hovered]: colors.controlHovered,
+      [states.pressed]: colors.controlPressed,
+    },
+    color: {
+      default: colors.statusNegativeBorder,
+      [states.interacting]: colors.statusNegative,
+      [states.disabled]: colors.onControlDisabled,
+    },
+  },
   solid: {
     backgroundColor: {
       default: colors.action,
@@ -195,6 +207,11 @@ const appearances = stylex.create({
 });
 
 const sizes = stylex.create({
+  xs: {
+    minBlockSize: control.heightXs,
+    paddingBlock: space[0.5],
+    paddingInline: space[2],
+  },
   sm: {
     minBlockSize: control.heightSm,
     paddingBlock: space[1],
@@ -208,6 +225,7 @@ const sizes = stylex.create({
 });
 
 const equalSideSizes = stylex.create({
+  xs: { inlineSize: control.heightXs, blockSize: control.heightXs },
   sm: { inlineSize: control.heightSm, blockSize: control.heightSm },
   md: { inlineSize: control.heightMd, blockSize: control.heightMd },
 });

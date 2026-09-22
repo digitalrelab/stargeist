@@ -8,7 +8,7 @@ import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { ProviderConnection } from "./provider-connection";
 import { useAIProviderConnectionsState } from "./use-state";
 
-export function Providers() {
+export function ProvidersSection() {
   const { connections } = useAIProviderConnectionsState();
   const result = useAtomValue(connections);
   const refresh = useAtomRefresh(connections);

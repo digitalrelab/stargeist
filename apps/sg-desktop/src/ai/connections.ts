@@ -21,11 +21,14 @@ function connection(provider: ProviderAdapter, state: ConnectionState): Provider
   };
 }
 
-function configured(record: StoredCredential): ConnectionState {
+function configured(
+  record: StoredCredential,
+  lastValidatedAt = record.lastValidatedAt,
+): ConnectionState {
   let keyHint = "••••";
   const key = Redacted.value(record.credential.key);
   if (key.length > 8) keyHint += key.slice(-4);
-  return { status: "configured", keyHint, lastValidatedAt: record.lastValidatedAt };
+  return { status: "configured", keyHint, lastValidatedAt };
 }
 
 export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
@@ -33,19 +36,23 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
     AIProviderConnections,
     Effect.gen(function* () {
       const credentials = yield* Credentials;
-      const entries = new Map<string, { adapter: ProviderAdapter; lock: Semaphore.Semaphore }>();
+      const providersById = new Map<
+        string,
+        { adapter: ProviderAdapter; lock: Semaphore.Semaphore }
+      >();
+      const lastValidatedAtByProvider = new Map<string, number>();
       for (const adapter of providers) {
-        if (entries.has(adapter.id))
+        if (providersById.has(adapter.id))
           return yield* Effect.die(new Error("Duplicate AI provider registration."));
-        entries.set(adapter.id, { adapter, lock: yield* Semaphore.make(1) });
+        providersById.set(adapter.id, { adapter, lock: yield* Semaphore.make(1) });
       }
 
-      const mutate = <A>(
+      const runExclusive = <A>(
         id: string,
         run: (provider: ProviderAdapter) => Effect.Effect<A, ProviderConnectionError>,
       ) =>
         Effect.suspend(() => {
-          const entry = entries.get(id);
+          const entry = providersById.get(id);
           if (!entry)
             return Effect.fail(
               new ProviderConnectionError({
@@ -82,11 +89,12 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
           lastValidatedAt: DateTime.toEpochMillis(now),
         };
         yield* credentials.write(record);
+        lastValidatedAtByProvider.set(provider.id, record.lastValidatedAt);
         return connection(provider, configured(record));
       });
 
       const configure = (input: ConfigureProvider) =>
-        mutate(
+        runExclusive(
           input.providerId,
           Effect.fnUntraced(function* (provider) {
             yield* Schema.decodeUnknownEffect(Key)(input.credential.key).pipe(
@@ -103,7 +111,7 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
         );
 
       const check = (id: string) =>
-        mutate(
+        runExclusive(
           id,
           Effect.fnUntraced(function* (provider) {
             const record = yield* credentials.read(id);
@@ -112,7 +120,11 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
                 code: "NotConfigured",
                 message: "Add an API key first.",
               });
-            return yield* validateAndSave(provider, record.credential);
+            yield* provider.validate(record.credential);
+            const now = yield* DateTime.now;
+            const lastValidatedAt = DateTime.toEpochMillis(now);
+            lastValidatedAtByProvider.set(provider.id, lastValidatedAt);
+            return connection(provider, configured(record, lastValidatedAt));
           }),
         );
 
@@ -121,7 +133,7 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
         (provider) =>
           credentials.read(provider.id).pipe(
             Effect.map((record): ConnectionState => {
-              if (record) return configured(record);
+              if (record) return configured(record, lastValidatedAtByProvider.get(provider.id));
               return { status: "notConfigured" };
             }),
             Effect.catch((error) =>
@@ -136,7 +148,14 @@ export const connectionsLayer = (providers: ReadonlyArray<ProviderAdapter>) =>
         list,
         configure,
         check,
-        remove: (id) => mutate(id, () => credentials.remove(id)),
+        remove: (id) =>
+          runExclusive(
+            id,
+            Effect.fnUntraced(function* () {
+              yield* credentials.remove(id);
+              lastValidatedAtByProvider.delete(id);
+            }),
+          ),
       });
     }),
   );

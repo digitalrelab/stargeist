@@ -22,6 +22,7 @@ const rejected = new ProviderConnectionError({
 function fixture(validate: ProviderAdapter["validate"] = () => Effect.void) {
   const records = new Map<string, StoredCredential>();
   let failWrite = false;
+  let writes = 0;
   const store: Credentials["Service"] = {
     read: (id) => Effect.sync(() => records.get(id) ?? null),
     write: (record) =>
@@ -31,6 +32,7 @@ function fixture(validate: ProviderAdapter["validate"] = () => Effect.void) {
             new ProviderConnectionError({ code: "StorageUnavailable", message: "Cannot save." }),
           );
         return Effect.sync(() => {
+          writes += 1;
           records.set(record.providerId, record);
         });
       }),
@@ -52,6 +54,7 @@ function fixture(validate: ProviderAdapter["validate"] = () => Effect.void) {
     failWrites: () => {
       failWrite = true;
     },
+    writes: () => writes,
     layer: connectionsLayer(adapters).pipe(Layer.provide(Layer.succeed(Credentials, store))),
   };
 }
@@ -164,6 +167,7 @@ it("reports failed checks without discarding credentials, and supports replacing
         keyHint: "••••5678",
         lastValidatedAt: 2000,
       });
+      expect(setup.writes()).toBe(2);
       expect((yield* connections.list)[0]).toEqual(checked);
       yield* connections.remove("first");
       yield* connections.configure({

@@ -1,1 +1,1 @@
-export { Providers } from "./ui/providers";
+export { ProvidersSection } from "./ui/providers-section";

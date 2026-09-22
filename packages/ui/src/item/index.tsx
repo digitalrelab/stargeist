@@ -16,6 +16,14 @@ export function Root(props: Props<"li">) {
   return <li {...props} {...stylex.props(styles.root)} />;
 }
 
+export function Main(props: Props<"div">) {
+  return <div {...props} {...stylex.props(styles.main)} />;
+}
+
+export function Media(props: Props<"div">) {
+  return <div {...props} {...stylex.props(styles.media)} />;
+}
+
 export function Content(props: Props<"div">) {
   return <div {...props} {...stylex.props(styles.content)} />;
 }
@@ -32,8 +40,8 @@ export function Actions(props: Props<"div">) {
   return <div {...props} {...stylex.props(styles.actions)} />;
 }
 
-export function Details(props: Props<"div">) {
-  return <div {...props} {...stylex.props(styles.details)} />;
+export function Aside(props: Props<"div">) {
+  return <div {...props} {...stylex.props(styles.aside)} />;
 }
 
 const styles = stylex.create({
@@ -66,10 +74,24 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: colors.divider,
   },
+  main: {
+    display: "flex",
+    alignItems: "center",
+    gap: space[3],
+    minWidth: 0,
+  },
+  media: { display: "flex", flex: "none" },
   content: {
     display: "flex",
     flexDirection: "column",
     gap: space[1],
+    minWidth: 0,
+  },
+  aside: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: { default: "flex-end", "@media (max-width: 640px)": "flex-start" },
+    gap: space[2],
     minWidth: 0,
   },
   title: { fontWeight: fonts.semibold, overflowWrap: "anywhere" },
@@ -82,5 +104,4 @@ const styles = stylex.create({
     gap: space[2],
     minWidth: 0,
   },
-  details: { gridColumn: "1 / -1", minWidth: 0 },
 });
