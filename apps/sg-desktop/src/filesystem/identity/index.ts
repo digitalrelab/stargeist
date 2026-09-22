@@ -1,12 +1,12 @@
 import { endianness } from "node:os";
-import { FileError } from "@stargeist/domain";
+import { FileError, type FileIdentityVerifier } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect } from "effect";
 import { createDarwinIdentity } from "./darwin";
 import { createLinuxIdentity } from "./linux";
 import { createWindowsIdentity } from "./windows";
 import { IdentityUnavailable, ObservationExpired } from "./errors";
-import type { IdentityAdapter, IdentityComparison } from "./types";
+import type { IdentityAdapter } from "./types";
 
 export { IdentityUnavailable } from "./errors";
 
@@ -45,7 +45,7 @@ export async function readFileIdentity(path: string) {
   }
 }
 
-export const verifyFileIdentities = (comparisons: ReadonlyArray<IdentityComparison>) =>
+export const verifyFileIdentities: FileIdentityVerifier = (comparisons) =>
   Effect.tryPromise({
     try: async () => {
       const verify = currentAdapter().verify;

@@ -27,7 +27,6 @@ export const observeFile = Effect.fnUntraced(
   },
   Effect.onError((cause) => reportFailure("files.observe", cause)),
   Effect.mapError((error) => {
-    if (error instanceof DirectoryError) return error;
     if (error instanceof IdentityUnavailable) {
       return new DirectoryError({ code: "IdentityUnavailable", message: error.message });
     }

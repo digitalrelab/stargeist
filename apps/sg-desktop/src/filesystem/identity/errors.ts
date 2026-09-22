@@ -1,7 +1,3 @@
-export class IdentityUnavailable extends Error {
-  readonly code = "IdentityUnavailable";
-}
+export class IdentityUnavailable extends Error {}
 
-export class ObservationExpired extends Error {
-  readonly code = "ObservationExpired";
-}
+export class ObservationExpired extends Error {}

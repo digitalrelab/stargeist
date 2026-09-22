@@ -1,27 +1,10 @@
-import type { FileType } from "@stargeist/domain";
+import type { FileIdentityComparison, FileObservation } from "@stargeist/domain";
 
-export interface NativeFile {
-  readonly objectKey: string;
-  readonly type: FileType;
-  readonly evidence: string | null;
-}
-
-export interface IdentityComparison {
-  readonly previous: {
-    readonly source: string;
-    readonly objectKey: string;
-    readonly evidence: string | null;
-  };
-  readonly current: {
-    readonly source: string;
-    readonly objectKey: string;
-    readonly evidence: string | null;
-  };
-}
+export type NativeFile = Pick<FileObservation, "objectKey" | "type" | "evidence">;
 
 export interface IdentityAdapter {
   readonly read: (path: string) => Promise<NativeFile | null>;
   readonly verify?: (
-    comparisons: ReadonlyArray<IdentityComparison>,
+    comparisons: ReadonlyArray<FileIdentityComparison>,
   ) => Promise<ReadonlyArray<"same" | "different">>;
 }

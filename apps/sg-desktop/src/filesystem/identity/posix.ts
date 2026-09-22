@@ -2,7 +2,7 @@ import { getSystemErrorName } from "node:util";
 import koffi, { type LibraryHandle } from "koffi";
 
 export function syscall(fn: ReturnType<LibraryHandle["func"]>, ...args: unknown[]) {
-  return new Promise<number>((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     fn.async(...args, (error: unknown, result: number) => {
       if (error) {
         reject(error);
@@ -10,7 +10,7 @@ export function syscall(fn: ReturnType<LibraryHandle["func"]>, ...args: unknown[
         const code = getSystemErrorName(-koffi.errno());
         reject(Object.assign(new Error(`${fn.info.name}: ${code}`), { code }));
       } else {
-        resolve(result);
+        resolve();
       }
     });
   });

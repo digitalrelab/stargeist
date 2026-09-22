@@ -1,12 +1,18 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { FileError, FileObservation, Files, makeFileId } from "@stargeist/domain";
+import {
+  FileError,
+  FileObservation,
+  Files,
+  makeFileId,
+  type FileIdentityVerifier,
+} from "@stargeist/domain";
 import { Effect, Layer } from "effect";
 import { sql } from "drizzle-orm";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { AppDatabase, openDatabase } from "../app/database";
-import { filesLayer, type FileIdentityVerifier } from "./service";
+import { filesLayer } from "./service";
 
 const observation = (
   objectKey: string,
@@ -106,7 +112,7 @@ it("persists continuity evidence and preserves retired file IDs when a source re
   );
 });
 
-it("compares repeated object keys in observation order within one batch", async () => {
+it("applies verification to the right observations in a mixed batch", async () => {
   const { run } = await fixture((comparisons) =>
     Effect.sync(() => {
       expect(
@@ -122,15 +128,19 @@ it("compares repeated object keys in observation order within one batch", async 
     Effect.flatMap(Files, (files) =>
       files.remember([
         observation("reused", "original.txt", "local", "first"),
+        observation("stable", "stable.txt"),
         observation("reused", "replacement.txt", "local", "replacement"),
+        observation("stable", "stable-alias.txt"),
         observation("reused", "alias.txt", "local", "continued"),
       ]),
     ),
   );
-  expect(result[0]!.id).not.toBe(result[1]!.id);
-  expect(result[1]!.id).toBe(result[2]!.id);
+  expect(result[0]!.id).not.toBe(result[2]!.id);
+  expect(result[1]!.id).toBe(result[3]!.id);
+  expect(result[2]!.id).toBe(result[4]!.id);
   expect(await run(Effect.flatMap(Files, (files) => files.get(result[0]!.id)))).toEqual(result[0]);
-  expect(await run(Effect.flatMap(Files, (files) => files.get(result[1]!.id)))).toEqual(result[2]);
+  expect(await run(Effect.flatMap(Files, (files) => files.get(result[1]!.id)))).toEqual(result[3]);
+  expect(await run(Effect.flatMap(Files, (files) => files.get(result[2]!.id)))).toEqual(result[4]);
 });
 
 it("rolls back retirements and evidence when continuity cannot be verified", async () => {

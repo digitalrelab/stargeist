@@ -15,7 +15,7 @@ export {
   directoryPageSize,
   DirectoryError,
 } from "./filesystem";
-export { File, FileId, FileType, makeFileId, FileError, FileObservation, Files } from "./files";
+export * from "./files";
 export {
   UserPreferences,
   UserPreferencesError,

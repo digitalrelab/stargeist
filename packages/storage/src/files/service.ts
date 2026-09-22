@@ -1,4 +1,12 @@
-import { File, FileError, FileObservation, Files, makeFileId } from "@stargeist/domain";
+import {
+  File,
+  FileError,
+  FileObservation,
+  Files,
+  makeFileId,
+  type FileIdentityComparison,
+  type FileIdentityVerifier,
+} from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { and, eq, or, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
@@ -11,17 +19,39 @@ const batchSize = 128;
 const sourceKey = ({ source, objectKey }: Pick<FileObservation, "source" | "objectKey">) =>
   JSON.stringify([source, objectKey]);
 
-type Identity = Pick<FileObservation, "source" | "objectKey" | "evidence">;
-
-export type FileIdentityVerifier = (
-  comparisons: ReadonlyArray<{ readonly previous: Identity; readonly current: Identity }>,
-) => Effect.Effect<ReadonlyArray<"same" | "different">, FileError>;
-
 const identityUnavailable = () =>
   new FileError({
     code: "IdentityUnavailable",
     message: "The file's identity could not be verified.",
   });
+
+const replacementsIn = Effect.fnUntraced(function* (
+  observations: ReadonlyArray<FileObservation>,
+  known: ReadonlyMap<string, FileIdentityComparison["previous"]>,
+  verify?: FileIdentityVerifier,
+) {
+  const identities = new Map(known);
+  const pending = new Map<number, FileIdentityComparison>();
+  for (const [index, current] of observations.entries()) {
+    const key = sourceKey(current);
+    const previous = identities.get(key);
+    if (previous && (previous.evidence !== null || current.evidence !== null)) {
+      pending.set(index, { previous, current });
+    }
+    identities.set(key, current);
+  }
+  const replacements = new Set<number>();
+  if (pending.size === 0) return replacements;
+  if (!verify) return yield* identityUnavailable();
+  const verdicts = yield* verify([...pending.values()]);
+  if (verdicts.length !== pending.size) return yield* identityUnavailable();
+  for (const [index, position] of [...pending.keys()].entries()) {
+    const verdict = verdicts[index];
+    if (verdict === "different") replacements.add(position);
+    else if (verdict !== "same") return yield* identityUnavailable();
+  }
+  return replacements;
+});
 
 const storage = <A, E, R>(operation: string, effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
@@ -86,36 +116,15 @@ export const filesLayer = (verifyIdentities?: FileIdentityVerifier) =>
                     )
                     .all();
                   const records = new Map(existing.map((record) => [sourceKey(record), record]));
-                  const identities = new Map<string, Identity>(records);
-                  const comparisons: Parameters<FileIdentityVerifier>[0][number][] = [];
-                  for (const observation of batch) {
-                    const key = sourceKey(observation);
-                    const previous = identities.get(key);
-                    if (previous && (previous.evidence !== null || observation.evidence !== null)) {
-                      comparisons.push({ previous, current: observation });
-                    }
-                    identities.set(key, observation);
-                  }
-                  let verdicts: ReadonlyArray<"same" | "different"> = [];
-                  if (comparisons.length > 0) {
-                    if (!verifyIdentities) return yield* identityUnavailable();
-                    verdicts = yield* verifyIdentities(comparisons);
-                    if (verdicts.length !== comparisons.length) return yield* identityUnavailable();
-                  }
-                  let comparisonIndex = 0;
+                  const replacements = yield* replacementsIn(batch, records, verifyIdentities);
                   const changed = new Map<string, typeof files.$inferInsert>();
-                  for (const observation of batch) {
+                  for (const [index, observation] of batch.entries()) {
                     const key = sourceKey(observation);
                     const previous = records.get(key);
                     let id = previous?.id;
-                    if (previous && (previous.evidence !== null || observation.evidence !== null)) {
-                      const verdict = verdicts[comparisonIndex++];
-                      if (verdict === "different") {
-                        changed.set(previous.id, { ...previous, retired: true });
-                        id = undefined;
-                      } else if (verdict !== "same") {
-                        return yield* identityUnavailable();
-                      }
+                    if (previous && replacements.has(index)) {
+                      changed.set(previous.id, { ...previous, retired: true });
+                      id = undefined;
                     }
                     if (!id) id = yield* makeFileId;
                     const record = { ...observation, id, retired: false };

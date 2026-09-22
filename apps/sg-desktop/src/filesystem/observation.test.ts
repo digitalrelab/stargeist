@@ -18,12 +18,11 @@ it("keeps saved file IDs through timestamp changes and moves, and preserves repl
     Layer.provide(AppStorage.database),
     Layer.provide(AppStorage.layer(join(root, "profile"))),
   );
-  const remember = (name: string) =>
-    Effect.gen(function* () {
-      const observation = yield* observeFile(content, name);
-      expect(observation).not.toBeNull();
-      return (yield* (yield* Files).remember([observation!]))[0]!;
-    });
+  const remember = Effect.fnUntraced(function* (name: string) {
+    const observation = yield* observeFile(content, name);
+    expect(observation).not.toBeNull();
+    return (yield* (yield* Files).remember([observation!]))[0]!;
+  });
   const run = <A, E>(effect: Effect.Effect<A, E, Files>) =>
     Effect.runPromise(effect.pipe(Effect.provide(layer)));
   const original = await run(remember("original.txt"));

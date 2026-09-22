@@ -1,8 +1,9 @@
 import { toNamespacedPath } from "node:path";
+import type { FileIdentityComparison } from "@stargeist/domain";
 import { Schema } from "effect";
-import koffi from "koffi";
+import koffi, { type LibraryHandle } from "koffi";
 import { IdentityUnavailable, ObservationExpired } from "./errors";
-import type { IdentityAdapter, IdentityComparison, NativeFile } from "./types";
+import type { IdentityAdapter, NativeFile } from "./types";
 
 type Journal = {
   id: bigint;
@@ -13,11 +14,9 @@ type Journal = {
 
 type Comparison = {
   index: number;
-  previous: Evidence;
-  current: Evidence;
+  previous: ParsedEvidence;
+  current: ParsedEvidence;
 };
-
-type NativeFunction = { async: (...args: unknown[]) => unknown };
 
 const volumePattern =
   /^\\\\\?\\Volume\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}\\$/i;
@@ -29,6 +28,7 @@ const Evidence = Schema.Struct({
   checkpoint: Schema.String.check(Schema.isPattern(/^(0|[1-9][0-9]{0,18})$/)),
 });
 type Evidence = typeof Evidence.Type;
+type ParsedEvidence = Omit<Evidence, "checkpoint"> & { readonly checkpoint: bigint };
 const decodeEvidence = Schema.decodeUnknownSync(Schema.fromJsonString(Evidence), {
   onExcessProperty: "error",
 });
@@ -41,7 +41,7 @@ function objectKey(evidence: Pick<Evidence, "volume" | "serial" | "fileId">): st
   return `win32:${evidence.volume}:${evidence.serial}:${evidence.fileId}`;
 }
 
-function readEvidence(identity: IdentityComparison["current"]): Evidence {
+function readEvidence(identity: FileIdentityComparison["current"]): ParsedEvidence {
   if (identity.source !== "local" || identity.evidence === null) {
     throw new IdentityUnavailable("File recognition information is unavailable.");
   }
@@ -51,13 +51,14 @@ function readEvidence(identity: IdentityComparison["current"]): Evidence {
   } catch (cause) {
     throw new IdentityUnavailable("File recognition information is invalid.", { cause });
   }
-  if (BigInt(parsed.checkpoint) > 0x7fff_ffff_ffff_ffffn) {
+  const checkpoint = BigInt(parsed.checkpoint);
+  if (checkpoint > 0x7fff_ffff_ffff_ffffn) {
     throw new IdentityUnavailable("File recognition information is invalid.");
   }
   if (objectKey(parsed) !== identity.objectKey) {
     throw new IdentityUnavailable("File recognition information does not match.");
   }
-  return parsed;
+  return { ...parsed, checkpoint };
 }
 
 function assertCoverage(journal: Journal, id: string, first: bigint, last: bigint): void {
@@ -71,7 +72,7 @@ function assertCoverage(journal: Journal, id: string, first: bigint, last: bigin
   }
 }
 
-export function createWindowsIdentity(): IdentityAdapter {
+export function createWindowsIdentity() {
   const kernel = koffi.load("kernel32.dll");
   const createFile = kernel.func(
     "intptr_t __stdcall CreateFileW(const char16_t *path, uint32_t access, uint32_t sharing, void *security, uint32_t disposition, uint32_t flags, intptr_t templateFile)",
@@ -94,7 +95,7 @@ export function createWindowsIdentity(): IdentityAdapter {
     "int __stdcall DeviceIoControl(intptr_t handle, uint32_t code, const void *input, uint32_t inputSize, void *output, uint32_t outputSize, void *returnedSize, void *overlapped)",
   );
 
-  function invoke(native: NativeFunction, args: readonly unknown[]) {
+  function invoke(native: ReturnType<LibraryHandle["func"]>, args: readonly unknown[]) {
     return new Promise<{ value: number | bigint; error: number }>((resolve, reject) => {
       native.async(...args, (failure: unknown, value: number | bigint) => {
         const error = Number(lastError());
@@ -140,13 +141,11 @@ export function createWindowsIdentity(): IdentityAdapter {
   async function control(handle: bigint, code: number, input: Buffer | null, size: number) {
     const output = Buffer.alloc(size);
     const returned = Buffer.alloc(4);
-    let inputSize = 0;
-    if (input !== null) inputSize = input.length;
     const result = await invoke(deviceControl, [
       handle,
       code,
       input,
-      inputSize,
+      input?.length ?? 0,
       output,
       size,
       returned,
@@ -219,7 +218,6 @@ export function createWindowsIdentity(): IdentityAdapter {
       const fileId = Buffer.alloc(8);
       fileId.writeUInt32LE(fileInformation.readUInt32LE(48), 0);
       fileId.writeUInt32LE(fileInformation.readUInt32LE(44), 4);
-      const attributes = await information(handle, 9, 8);
       let name = Buffer.alloc(1024);
       let finalPath = await invoke(getFinalPath, [handle, name, name.length / 2, 9]);
       let length = Number(finalPath.value);
@@ -258,10 +256,13 @@ export function createWindowsIdentity(): IdentityAdapter {
         journalId: journal.id.toString(16).padStart(16, "0"),
         checkpoint: journal.next.toString(),
       };
+      const attributes = fileInformation.readUInt32LE();
       let type: NativeFile["type"] = "file";
-      if ((attributes.readUInt32LE() & 0x10) !== 0) type = "folder";
-      const tag = attributes.readUInt32LE(4);
-      if (tag === 0xa000_000c || tag === 0xa000_0003) type = "link";
+      if ((attributes & 0x10) !== 0) type = "folder";
+      if ((attributes & 0x400) !== 0) {
+        const tag = (await information(handle, 9, 8)).readUInt32LE(4);
+        if (tag === 0xa000_000c || tag === 0xa000_0003) type = "link";
+      }
       return { objectKey: objectKey(evidence), type, evidence: JSON.stringify(evidence) };
     } finally {
       await close(handle);
@@ -274,12 +275,12 @@ export function createWindowsIdentity(): IdentityAdapter {
   ): Promise<void> {
     const initial = comparisons[0];
     if (initial === undefined) return;
-    let first = BigInt(initial.previous.checkpoint);
-    let last = BigInt(initial.current.checkpoint);
+    let first = initial.previous.checkpoint;
+    let last = initial.current.checkpoint;
     const candidates = new Map<string, Comparison[]>();
     for (const comparison of comparisons) {
-      const start = BigInt(comparison.previous.checkpoint);
-      const end = BigInt(comparison.current.checkpoint);
+      const start = comparison.previous.checkpoint;
+      const end = comparison.current.checkpoint;
       if (start < first) first = start;
       if (end > last) last = end;
       const existing = candidates.get(comparison.previous.fileId);
@@ -293,6 +294,11 @@ export function createWindowsIdentity(): IdentityAdapter {
     try {
       const journal = await queryJournal(handle);
       assertCoverage(journal, initial.previous.journalId, first, last);
+      const input = Buffer.alloc(48);
+      input.writeUInt32LE(0xffff_ffff, 8);
+      input.writeBigUInt64LE(journal.id, 32);
+      input.writeUInt16LE(2, 40);
+      input.writeUInt16LE(2, 42);
       let cursor = first;
       let reads = 0;
       let records = 0;
@@ -301,12 +307,7 @@ export function createWindowsIdentity(): IdentityAdapter {
           throw new IdentityUnavailable("Too much file history needs to be checked.");
         }
         reads += 1;
-        const input = Buffer.alloc(48);
         input.writeBigInt64LE(cursor, 0);
-        input.writeUInt32LE(0xffff_ffff, 8);
-        input.writeBigUInt64LE(journal.id, 32);
-        input.writeUInt16LE(2, 40);
-        input.writeUInt16LE(2, 42);
         const output = await control(handle, 0x0009_03ab, input, journalBufferSize);
         if (output.length < 8) throw new IdentityUnavailable("File history is invalid.");
         const next = output.readBigInt64LE();
@@ -333,10 +334,7 @@ export function createWindowsIdentity(): IdentityAdapter {
           if ((reason & 0x200) !== 0) {
             const fileId = output.subarray(offset + 8, offset + 16).toString("hex");
             for (const candidate of candidates.get(fileId) ?? []) {
-              if (
-                usn >= BigInt(candidate.previous.checkpoint) &&
-                usn < BigInt(candidate.current.checkpoint)
-              ) {
+              if (usn >= candidate.previous.checkpoint && usn < candidate.current.checkpoint) {
                 results[candidate.index] = "different";
               }
             }
@@ -351,7 +349,7 @@ export function createWindowsIdentity(): IdentityAdapter {
     }
   }
 
-  async function verify(comparisons: readonly IdentityComparison[]) {
+  async function verify(comparisons: readonly FileIdentityComparison[]) {
     const results: ("same" | "different")[] = comparisons.map(() => "same");
     const groups = new Map<string, Comparison[]>();
     for (const [index, comparison] of comparisons.entries()) {
@@ -367,7 +365,7 @@ export function createWindowsIdentity(): IdentityAdapter {
       if (previous.journalId !== current.journalId) {
         throw new IdentityUnavailable("File history is no longer available.");
       }
-      if (BigInt(current.checkpoint) < BigInt(previous.checkpoint)) {
+      if (current.checkpoint < previous.checkpoint) {
         throw new ObservationExpired("The file changed while it was being checked.");
       }
       const groupKey = `${previous.volume}:${previous.serial}:${previous.journalId}`;
@@ -380,5 +378,5 @@ export function createWindowsIdentity(): IdentityAdapter {
     return results;
   }
 
-  return { read, verify };
+  return { read, verify } satisfies IdentityAdapter;
 }

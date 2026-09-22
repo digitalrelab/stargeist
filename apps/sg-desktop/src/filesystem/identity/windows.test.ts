@@ -8,12 +8,12 @@ import koffi from "koffi";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { IdentityUnavailable, ObservationExpired } from "./errors";
 import { verifyFileIdentities } from "./index";
-import type { IdentityAdapter, NativeFile } from "./types";
+import type { NativeFile } from "./types";
 import { createWindowsIdentity } from "./windows";
 
 describe.skipIf(process.platform !== "win32")("Windows file recognition", () => {
   let directory: string;
-  let adapter: IdentityAdapter;
+  let adapter: ReturnType<typeof createWindowsIdentity>;
 
   beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), "stargeist-windows-identity-"));
@@ -31,7 +31,6 @@ describe.skipIf(process.platform !== "win32")("Windows file recognition", () => 
   }
 
   async function verify(previous: NativeFile, current: NativeFile) {
-    if (adapter.verify === undefined) throw new Error("Expected identity verification.");
     return adapter.verify([
       {
         previous: { source: "local", ...previous },
@@ -129,7 +128,6 @@ describe.skipIf(process.platform !== "win32")("Windows file recognition", () => 
       ...before,
       evidence: JSON.stringify({ ...decode(before.evidence), checkpoint }),
     };
-    if (adapter.verify === undefined) throw new Error("Expected identity verification.");
     expect(
       await adapter.verify([
         {
