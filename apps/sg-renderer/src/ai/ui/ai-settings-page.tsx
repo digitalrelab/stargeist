@@ -173,16 +173,16 @@ function modelSettingsFeedback(
   if (updateResult.waiting) return null;
   if (updateResult._tag === "Failure") {
     if (!canRetryFailure(updateResult.cause))
-      return { message: "Could not save the model. Reopen the app to reconnect.", canRetry: false };
+      return { message: "Could not save the model.", canRetry: false };
     return { message: failureMessage(updateResult.cause), canRetry: false };
   }
   if (catalogsResult._tag === "Failure") {
-    return { message: "Models could not be loaded. Reopen the app to reconnect.", canRetry: false };
+    return { message: "Models could not be loaded.", canRetry: false };
   }
   if (defaultModelResult._tag === "Failure") {
     if (!canRetryFailure(defaultModelResult.cause))
       return {
-        message: "Could not load the default model. Reopen the app to reconnect.",
+        message: "Could not load the default model.",
         canRetry: false,
       };
     return {
