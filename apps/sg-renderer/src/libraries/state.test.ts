@@ -144,7 +144,7 @@ describe("Library state", () => {
           next: entryPageSize,
         });
         yield* AtomRegistry.getResult(registry, opened.files.pages(entryPageSize));
-        expect(registry.get(detail).library).toEqual(library);
+        expect(registry.get(detail).metadata).toMatchObject({ _tag: "Success", value: library });
         expect(registry.get(detail).canRefresh).toBe(true);
 
         currentLibrary = renamed;
@@ -159,7 +159,7 @@ describe("Library state", () => {
         registry.mount(reopened.files.extent);
         yield* AtomRegistry.getResult(registry, reopened.files.pages(entryPageSize));
         expect(reads).toEqual([first.listingId, second.listingId]);
-        expect(registry.get(detail).library).toEqual(renamed);
+        expect(registry.get(detail).metadata).toMatchObject({ _tag: "Success", value: renamed });
         yield* Deferred.await(firstClosed);
 
         unsubscribe();
@@ -167,6 +167,53 @@ describe("Library state", () => {
       }).pipe(Effect.timeout("3 seconds")),
     );
   });
+
+  it.each(["metadata", "listing"] as const)(
+    "exposes independent loading states when %s finishes first",
+    async (first) => {
+      const registry = createRegistry();
+      const metadataReady = Effect.runSync(Deferred.make<Library>());
+      const listingReady = Effect.runSync(Deferred.make<DirectoryListingPage>());
+      const page: DirectoryListingPage = {
+        listingId: Schema.decodeUnknownSync(ListingId)("loading-order"),
+        offset: 0,
+        entries: [],
+        hasMore: false,
+      };
+      const state = createLibraryState(
+        createClient({
+          getLibrary: () => Deferred.await(metadataReady),
+          openDirectory: () => Deferred.await(listingReady),
+        }),
+      );
+      const detail = state.detail(workspace.id)(library.id);
+      const metadata = Atom.map(detail, (value) => value.metadata);
+      const listing = Atom.map(detail, (value) => value.listing);
+      registry.mount(detail);
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          if (first === "metadata") {
+            yield* Deferred.succeed(metadataReady, library);
+            expect(yield* AtomRegistry.getResult(registry, metadata)).toEqual(library);
+            expect(registry.get(listing)).toMatchObject({ _tag: "Initial", waiting: true });
+          } else {
+            yield* Deferred.succeed(listingReady, page);
+            expect((yield* AtomRegistry.getResult(registry, listing)).id).toBe(page.listingId);
+            expect(registry.get(metadata)).toMatchObject({ _tag: "Initial", waiting: true });
+          }
+
+          expect(registry.get(detail).canRefresh).toBe(false);
+
+          yield* Deferred.succeed(metadataReady, library);
+          yield* Deferred.succeed(listingReady, page);
+          expect(yield* AtomRegistry.getResult(registry, metadata)).toEqual(library);
+          expect((yield* AtomRegistry.getResult(registry, listing)).id).toBe(page.listingId);
+          expect(registry.get(detail).canRefresh).toBe(true);
+        }).pipe(Effect.timeout("3 seconds")),
+      );
+    },
+  );
 
   it("preserves library metadata and keeps refresh available when its directory fails", async () => {
     const registry = createRegistry();
@@ -192,7 +239,7 @@ describe("Library state", () => {
     );
 
     expect(error).toEqual(failure);
-    expect(registry.get(detail).library).toEqual(library);
+    expect(registry.get(detail).metadata).toMatchObject({ _tag: "Success", value: library });
     expect(registry.get(detail).canRefresh).toBe(true);
   });
 

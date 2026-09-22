@@ -1,8 +1,9 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { WorkspaceId } from "@stargeist/domain";
-import { Button, typography } from "@stargeist/ui";
+import { Button, Skeleton, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { useWorkspaceState } from "./use-state";
 
@@ -11,8 +12,12 @@ export function WorkspacePage({ workspaceId }: { workspaceId: WorkspaceId }) {
   const workspace = useAtomValue(state.workspace(workspaceId));
   const refresh = useAtomRefresh(state.workspace(workspaceId));
 
-  let title = "Workspace";
-  let content = <p role="status">Loading workspace…</p>;
+  let title: ReactNode = <Skeleton styles={styles.titleSkeleton} />;
+  let content = (
+    <p role="status" aria-label="Loading workspace" {...stylex.props(styles.loading)}>
+      <Skeleton styles={styles.descriptionSkeleton} />
+    </p>
+  );
 
   if (workspace._tag === "Success") {
     title = workspace.value.displayName;
@@ -20,6 +25,7 @@ export function WorkspacePage({ workspaceId }: { workspaceId: WorkspaceId }) {
   }
 
   if (workspace._tag === "Failure") {
+    title = "Workspace";
     content = (
       <>
         <p role="alert">{failureMessage(workspace.cause)}</p>
@@ -34,7 +40,7 @@ export function WorkspacePage({ workspaceId }: { workspaceId: WorkspaceId }) {
 
   return (
     <main {...stylex.props(styles.page)}>
-      <h1 {...stylex.props(typography.heading)}>{title}</h1>
+      <h1 {...stylex.props(typography.heading, styles.heading)}>{title}</h1>
       {content}
     </main>
   );
@@ -51,5 +57,9 @@ const styles = stylex.create({
     overflowY: "auto",
     padding: { default: space[8], "@media (max-width: 640px)": space[4] },
   },
+  heading: { maxWidth: "100%" },
+  loading: { maxWidth: "100%" },
+  titleSkeleton: { inlineSize: "12rem", blockSize: "1em" },
+  descriptionSkeleton: { inlineSize: "16rem", blockSize: space[3] },
   description: { color: colors.textMuted },
 });

@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { WorkspaceId } from "@stargeist/domain";
-import { Button, Sidebar, typography } from "@stargeist/ui";
-import { colors } from "@stargeist/ui/tokens.stylex";
+import { Button, Sidebar, Skeleton, typography } from "@stargeist/ui";
+import { colors, control, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
@@ -41,9 +41,13 @@ function LibraryLinks({ workspaceId }: { workspaceId: WorkspaceId }) {
 
   if (list._tag !== "Success") {
     return (
-      <p role="status" {...stylex.props(styles.message, typography.label)}>
-        Loading libraries…
-      </p>
+      <div role="status" aria-label="Loading libraries" {...stylex.props(styles.loading)}>
+        {[0, 1, 2].map((index) => (
+          <div key={index} {...stylex.props(styles.loadingRow)}>
+            <Skeleton styles={styles.nameSkeleton} />
+          </div>
+        ))}
+      </div>
     );
   }
 
@@ -67,5 +71,13 @@ function LibraryLinks({ workspaceId }: { workspaceId: WorkspaceId }) {
 }
 
 const styles = stylex.create({
+  loading: { display: "flex", flexDirection: "column", gap: space[1] },
+  loadingRow: {
+    display: "flex",
+    alignItems: "center",
+    height: control.heightMd,
+    paddingInline: control.paddingInlineMd,
+  },
+  nameSkeleton: { inlineSize: "70%", blockSize: space[3] },
   message: { color: colors.textMuted, overflowWrap: "anywhere" },
 });
