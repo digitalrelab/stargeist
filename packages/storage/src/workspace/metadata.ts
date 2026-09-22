@@ -5,6 +5,7 @@ import { WorkspaceError } from "@stargeist/domain";
 import * as Id from "@stargeist/std/id";
 import { reportFailure } from "@stargeist/std/errors";
 import { Clock, Effect, Schema } from "effect";
+import { syncDirectory } from "../directory";
 
 export const workspaceDirectoryName = ".stargeist";
 
@@ -33,16 +34,6 @@ const storageUnavailable = () =>
     message:
       "Workspace metadata could not be saved. Check folder permissions and available space, then retry.",
   });
-
-async function syncDirectory(path: string) {
-  if (process.platform === "win32") return;
-  const directory = await open(path, "r");
-  try {
-    await directory.sync();
-  } finally {
-    await directory.close();
-  }
-}
 
 function hasCode(error: unknown, code: string) {
   return error instanceof Error && "code" in error && error.code === code;
@@ -142,8 +133,6 @@ export const discover = (path: string) =>
 
 export const initialize = Effect.fnUntraced(function* (path: string) {
   const root = yield* readOperation("workspaces.root.resolve", () => canonicalDirectory(path));
-  const id = yield* makeIdentity;
-  const createdAt = yield* Clock.currentTimeMillis;
   return yield* Effect.gen(function* () {
     const directory = join(root, workspaceDirectoryName);
     const existing = yield* Effect.tryPromise(async () => {
@@ -166,6 +155,8 @@ export const initialize = Effect.fnUntraced(function* (path: string) {
     });
     if (existing) return existing;
 
+    const id = yield* makeIdentity;
+    const createdAt = yield* Clock.currentTimeMillis;
     const temporary = yield* Effect.acquireRelease(
       Effect.tryPromise(() => mkdtemp(join(root, ".stargeist-initialize-"))),
       (path) => Effect.promise(() => rm(path, { recursive: true, force: true })),

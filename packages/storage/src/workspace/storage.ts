@@ -1,6 +1,7 @@
-import { lstatSync, realpathSync, rmSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { workspaceDirectoryName, read, initialize } from "./metadata";
+import { inspectDirectory, inspectRoot } from "../directory";
 
 type Inspection = {
   readonly root: string;
@@ -10,24 +11,11 @@ type Inspection = {
   | { readonly status: "blocked"; readonly message: string }
 );
 
-function ordinaryDirectory(path: string) {
-  const stat = lstatSync(path, { throwIfNoEntry: false });
-  if (stat && !stat.isDirectory()) throw new Error(`Expected an ordinary directory: ${path}`);
-  return stat;
-}
-
 export function at(root: string) {
   const path = join(root, workspaceDirectoryName);
   const inspect = (): Inspection => {
     try {
-      if (!isAbsolute(root) || resolve(root) !== root) {
-        throw new Error(`Expected an absolute workspace path: ${root}`);
-      }
-      if (!ordinaryDirectory(root)) return { root, path, status: "missing" };
-      if (realpathSync(root) !== root) {
-        throw new Error(`The workspace path has been redirected: ${root}`);
-      }
-      if (!ordinaryDirectory(path)) return { root, path, status: "missing" };
+      if (!inspectRoot(root) || !inspectDirectory(path)) return { root, path, status: "missing" };
       return { root, path, status: "ready" };
     } catch (error) {
       let message = String(error);

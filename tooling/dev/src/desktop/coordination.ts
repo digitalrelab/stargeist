@@ -3,6 +3,7 @@ import {
   closeSync,
   constants,
   fstatSync,
+  lstatSync,
   mkdirSync,
   openSync,
   renameSync,
@@ -11,13 +12,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { ProfileError } from "./errors";
-import {
-  inspectProfile,
-  pathStat,
-  profileOwner,
-  validateFile,
-  validateProfilePaths,
-} from "./ownership";
+import { inspectProfile, profileOwner, validateFile, validateProfilePaths } from "./ownership";
 import type { DevelopmentProfile } from "./paths";
 import { loadNativeLocks as loadAddon } from "./native.cjs";
 
@@ -58,11 +53,11 @@ function openLockFile(profile: DevelopmentProfile, create: boolean) {
     );
   }
 
-  const fd = openSync(
-    profile.lock,
-    constants.O_RDWR | (create ? constants.O_CREAT : 0) | (constants.O_NOFOLLOW ?? 0),
-    0o600,
-  );
+  let flags = constants.O_RDWR | constants.O_NOFOLLOW;
+  if (create) {
+    flags |= constants.O_CREAT;
+  }
+  const fd = openSync(profile.lock, flags, 0o600);
 
   try {
     const opened = fstatSync(fd);
@@ -188,7 +183,7 @@ export function inspectProfileAccess(
   loadNativeLocks();
   validateProfilePaths(profile);
 
-  if (!pathStat(profile.lock)) {
+  if (!lstatSync(profile.lock, { throwIfNoEntry: false })) {
     return "not-initialized";
   }
 

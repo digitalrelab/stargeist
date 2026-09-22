@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import fileSchema from "../files/initial-schema.json";
 import workspaceSchema from "../workspaces/initial-schema.json";
+import { syncDirectory } from "../directory";
 
 const statements = [...workspaceSchema, ...fileSchema];
 const decodeSchema = Schema.decodeUnknownSync(
@@ -49,16 +50,6 @@ function validate(filename: string) {
   using existing = new DatabaseSync(filename, { readOnly: true });
   if (JSON.stringify(schema(existing)) !== JSON.stringify(schema(expected))) {
     throw new Error("Application database schema does not match this build.");
-  }
-}
-
-async function syncDirectory(path: string) {
-  if (process.platform === "win32") return;
-  const directory = await open(path, "r");
-  try {
-    await directory.sync();
-  } finally {
-    await directory.close();
   }
 }
 
