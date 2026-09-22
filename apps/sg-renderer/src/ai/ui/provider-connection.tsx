@@ -1,39 +1,41 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { ConnectionState, ProviderConnection as Connection } from "@stargeist/domain/ai";
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import type { ConnectionState, ProviderConnection as Connection } from "@stargeist/ai";
 import { Dialog, Item, Ping } from "@stargeist/ui";
 import { space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Atom, type AsyncResult } from "effect/unstable/reactivity";
 import { useId, useRef, useState } from "react";
 import { failureMessage } from "#src/client/index.ts";
-import { ProviderBadge } from "../providers";
-import { APIKeyForm } from "./api-key-form";
+import { ProviderBadge, providerEditor } from "../providers";
 import { ConnectionActions } from "./connection-actions";
-import { useAIProviderConnectionsState } from "./use-state";
-import { useProviderHealth } from "./use-provider-health";
+import { useProviderConnections } from "./use-ai";
+import { useProviderConnectionHealth } from "./use-provider-connection-health";
 
 export function ProviderConnection({ connection }: { connection: Connection }) {
   const [editing, setEditing] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
   const headingId = useId();
-  const operation = useAIProviderConnectionsState().operation(connection.providerId);
+  const providerConnections = useProviderConnections();
+  const Editor = providerEditor(connection.providerId);
+  const operation = providerConnections.operation(connection.providerId);
+  const refreshProviders = useAtomRefresh(providerConnections.list);
   const operationResult = useAtomValue(operation);
   const resetOperation = useAtomSet(operation);
   let lastValidatedAt = 0;
-  let keyPlaceholder: string | undefined;
+  let summary: string | null = null;
   let editorTitle = `Connect ${connection.displayName}`;
 
   if (connection.state.status === "configured") {
     lastValidatedAt = connection.state.lastValidatedAt;
-    keyPlaceholder = connection.state.keyHint;
-    editorTitle = `Replace ${connection.displayName} key`;
+    summary = connection.state.summary;
+    editorTitle = `Edit ${connection.displayName} connection`;
   }
 
-  const health = useProviderHealth({
+  const health = useProviderConnectionHealth({
+    check: providerConnections.healthCheck(connection.providerId),
     enabled: connection.state.status === "configured",
     lastValidatedAt,
     paused: editing || operationResult.waiting,
-    providerId: connection.providerId,
   });
 
   const dismissEditor = () => {
@@ -60,13 +62,17 @@ export function ProviderConnection({ connection }: { connection: Connection }) {
             )}
           </Item.Content>
         </Item.Main>
-        <Item.Aside>
-          <ConnectionActions
-            connection={connection}
-            editButton={editButton}
-            onEdit={() => setEditing(true)}
-          />
-        </Item.Aside>
+        {Editor && (
+          <Item.Aside>
+            <ConnectionActions
+              connection={connection}
+              editButton={editButton}
+              operation={operation}
+              onRetryProviders={refreshProviders}
+              onEdit={() => setEditing(true)}
+            />
+          </Item.Aside>
+        )}
       </Item.Root>
       <Dialog.Root
         open={editing}
@@ -79,11 +85,9 @@ export function ProviderConnection({ connection }: { connection: Connection }) {
             <Dialog.Title>{editorTitle}</Dialog.Title>
             <Dialog.Close />
           </Dialog.Header>
-          <APIKeyForm
-            providerId={connection.providerId}
-            placeholder={keyPlaceholder}
-            onClose={() => setEditing(false)}
-          />
+          {Editor && (
+            <Editor operation={operation} summary={summary} onClose={() => setEditing(false)} />
+          )}
         </Dialog.Popup>
       </Dialog.Root>
     </>

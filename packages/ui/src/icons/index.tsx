@@ -1,5 +1,7 @@
 import {
   ArrowLeft,
+  AudioLines,
+  Brain,
   Check,
   Command,
   ChevronDown,
@@ -15,11 +17,13 @@ import {
   FileQuestionMark,
   FileSearch,
   Folder,
+  Image,
   Link,
   Minus,
   Pencil,
   Trash2,
   Tags,
+  Video,
   X,
   type LucideProps,
 } from "lucide-react";
@@ -63,6 +67,22 @@ export function AppearanceIcon(props: LucideProps) {
 
 export function AIIcon(props: LucideProps) {
   return <Astroid size={control.iconSize} {...props} />;
+}
+
+export function ImageIcon(props: LucideProps) {
+  return <Image size={control.iconSize} {...props} />;
+}
+
+export function VideoIcon(props: LucideProps) {
+  return <Video size={control.iconSize} {...props} />;
+}
+
+export function AudioIcon(props: LucideProps) {
+  return <AudioLines size={control.iconSize} {...props} />;
+}
+
+export function ReasoningIcon(props: LucideProps) {
+  return <Brain size={control.iconSize} {...props} />;
 }
 
 export function CheckIcon(props: LucideProps) {

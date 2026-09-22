@@ -57,7 +57,11 @@ it("defaults to no saved window, persists values across reopening, and permits c
   const preferences = await open();
   expect(await Effect.runPromise(preferences.get("window"))).toBeNull();
   await Effect.runPromise(preferences.set("window", window));
-  expect(JSON.parse(await readFile(filename, "utf8"))).toEqual({ window, interfaceScale: 1 });
+  expect(JSON.parse(await readFile(filename, "utf8"))).toEqual({
+    ai: { defaultAgentModel: null },
+    window,
+    interfaceScale: 1,
+  });
 
   const reopened = await open();
   expect(await Effect.runPromise(reopened.get("window"))).toEqual(window);
@@ -74,6 +78,10 @@ it.each([
   ["invalid document", "[]"],
   ["unrecognized preference", '{"unexpected":true}'],
   ["unsupported scale", '{"interfaceScale":3}'],
+  [
+    "invalid default agent model",
+    '{"ai":{"defaultAgentModel":{"providerId":"../bad","modelId":""}}}',
+  ],
 ])("rejects %s on startup without overwriting the file", async (_description, contents) => {
   const { profile, filename, open } = await fixture();
   await mkdir(join(profile, "data"));
@@ -130,6 +138,7 @@ it("reports unavailable storage on writes and allows retry after recovery", asyn
   const error = await Effect.runPromise(preferences.set("window", null).pipe(Effect.flip));
   expect(error).toMatchObject({ _tag: "UserPreferencesError", operation: "write" });
   expect(JSON.parse(await readFile(join(backup, "user-preferences.json"), "utf8"))).toEqual({
+    ai: { defaultAgentModel: null },
     window,
     interfaceScale: 1,
   });
@@ -138,4 +147,17 @@ it("reports unavailable storage on writes and allows retry after recovery", asyn
   await rename(backup, data);
   await Effect.runPromise(preferences.set("window", null));
   expect(await Effect.runPromise(preferences.get("window"))).toBeNull();
+});
+
+it("migrates missing AI preferences and restores a selected default agent model", async () => {
+  const { profile, filename, open } = await fixture();
+  await mkdir(join(profile, "data"));
+  await writeFile(filename, JSON.stringify({ interfaceScale: 1, window: null }));
+  const preferences = await open();
+  expect(await Effect.runPromise(preferences.get("ai"))).toEqual({ defaultAgentModel: null });
+  const model = { providerId: "openrouter", modelId: "anthropic/claude-sonnet" };
+  await Effect.runPromise(preferences.set("ai", { defaultAgentModel: model }));
+  expect(await Effect.runPromise((await open()).get("ai"))).toEqual({
+    defaultAgentModel: model,
+  });
 });

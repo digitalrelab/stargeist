@@ -1,8 +1,8 @@
-import { ProviderConnectionRpcs } from "@stargeist/protocol/ai";
+import { AgentModelRpcs, ProviderConnectionRpcs } from "@stargeist/protocol/ai";
 import { Effect } from "effect";
 import { RpcClient } from "effect/unstable/rpc";
 import { connectionFailure } from "#src/desktop/errors.ts";
-import type { AIProviderConnectionsClient } from "./client";
+import type { AgentModelsClient, AIProviderConnectionsClient } from "./client";
 
 export const makeRpcAIProviderConnectionsClient = Effect.fnUntraced(function* (protocols: {
   readonly host: RpcClient.Protocol["Service"];
@@ -27,4 +27,24 @@ export const makeRpcAIProviderConnectionsClient = Effect.fnUntraced(function* (p
         Effect.catchTag("RpcClientError", connectionFailure),
       ),
   } satisfies AIProviderConnectionsClient;
+});
+
+export const makeRpcAgentModelsClient = Effect.fnUntraced(function* (protocols: {
+  readonly host: RpcClient.Protocol["Service"];
+}) {
+  const host = yield* RpcClient.make(AgentModelRpcs).pipe(
+    Effect.provideService(RpcClient.Protocol, protocols.host),
+  );
+  return {
+    list: Effect.suspend(() => host["ai.models.list"]()).pipe(
+      Effect.catchTag("RpcClientError", connectionFailure),
+    ),
+    getDefault: Effect.suspend(() => host["ai.models.getDefault"]()).pipe(
+      Effect.catchTag("RpcClientError", connectionFailure),
+    ),
+    setDefault: (model) =>
+      host["ai.models.setDefault"]({ model }).pipe(
+        Effect.catchTag("RpcClientError", connectionFailure),
+      ),
+  } satisfies AgentModelsClient;
 });

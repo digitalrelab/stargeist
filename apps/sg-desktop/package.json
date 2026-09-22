@@ -21,6 +21,7 @@
     "@electron-forge/maker-zip": "7.11.2",
     "@electron-forge/plugin-vite": "7.11.2",
     "@electron-forge/shared-types": "7.11.2",
+    "@stargeist/ai": "workspace:*",
     "@stargeist/application": "workspace:*",
     "@stargeist/database": "workspace:*",
     "@stargeist/dev-tools": "workspace:*",

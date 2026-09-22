@@ -3,6 +3,7 @@ import { Button, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { RouterProvider } from "@tanstack/react-router";
+import { Cause } from "effect";
 import type { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { failureMessage, type ClientUnavailableError } from "#src/client/index.ts";
 import type { createAppRouter } from "./router";
@@ -22,10 +23,16 @@ export function ApplicationRoot({
   let content = <p role="status">Starting Stargeist…</p>;
 
   if (result._tag === "Failure" && !result.waiting) {
+    let recovery = <Button onClick={retry}>Try again</Button>;
+
+    if (Cause.hasDies(result.cause)) {
+      recovery = <Button onClick={() => window.location.reload()}>Reload</Button>;
+    }
+
     content = (
       <>
         <p role="alert">{failureMessage(result.cause)}</p>
-        <Button onClick={retry}>Try again</Button>
+        {recovery}
       </>
     );
   }

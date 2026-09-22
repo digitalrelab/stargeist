@@ -2,19 +2,27 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AIProviderConnections, ProviderConnectionError } from "@stargeist/domain/ai";
-import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
-import { expect, it, onTestFinished } from "vite-plus/test";
+import {
+  ProviderConnections,
+  ProviderConnectionError,
+  ProviderConfigurationStore,
+  ProviderRegistry,
+  Provider as AIProvider,
+  connectionsLayer,
+  registryLayer,
+  type ProviderConfigurationRecord,
+} from "@stargeist/ai";
+import { Deferred, Effect, Fiber, Layer, Redacted, Schema } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+import { expect, it, onTestFinished, vi } from "vite-plus/test";
 import { pathsLayer } from "../storage";
-import { connectionsLayer } from "./connections";
-import { Credentials, type StoredCredential } from "./credentials";
 import { SecretProtection } from "./protection";
-import { credentialsLayer } from "./storage";
+import { providersLayer } from "./providers";
+import { providerConfigurationStoreLayer } from "./storage";
 
-const record: StoredCredential = {
-  version: 1,
+const record: ProviderConfigurationRecord = {
   providerId: "first",
-  credential: { kind: "apiKey", key: Redacted.make("a-secret-api-key") },
+  configuration: Redacted.make({ kind: "apiKey", key: "a-secret-api-key" }),
   lastValidatedAt: 1234,
 };
 
@@ -53,7 +61,7 @@ async function fixture() {
         catch: failure,
       }),
   };
-  const layer = credentialsLayer.pipe(
+  const layer = providerConfigurationStoreLayer.pipe(
     Layer.provide(pathsLayer(profile)),
     Layer.provide(Layer.succeed(SecretProtection, protection)),
   );
@@ -78,7 +86,7 @@ it("persists encrypted records across service restarts and rewrites rotated encr
   const file = join(setup.profile, "data", "credentials", "first.bin");
   await Effect.runPromise(
     Effect.gen(function* () {
-      const store = yield* Credentials;
+      const store = yield* ProviderConfigurationStore;
       expect(yield* store.read("first")).toBeNull();
       yield* store.write(record);
     }).pipe(Effect.provide(setup.layer)),
@@ -89,10 +97,13 @@ it("persists encrypted records across service restarts and rewrites rotated encr
   setup.rotate();
   await Effect.runPromise(
     Effect.gen(function* () {
-      const store = yield* Credentials;
+      const store = yield* ProviderConfigurationStore;
       const saved = yield* store.read("first");
       expect(saved?.lastValidatedAt).toBe(1234);
-      expect(Redacted.value(saved!.credential.key)).toBe("a-secret-api-key");
+      expect(Redacted.value(saved!.configuration)).toEqual({
+        kind: "apiKey",
+        key: "a-secret-api-key",
+      });
     }).pipe(Effect.provide(setup.layer)),
   );
   expect(await readFile(file)).not.toEqual(before);
@@ -105,7 +116,7 @@ it("keeps other providers usable during key rotation and prevents rotation from 
     Effect.gen(function* () {
       const started = yield* Deferred.make<void>();
       const finish = yield* Deferred.make<void>();
-      const layer = credentialsLayer.pipe(
+      const layer = providerConfigurationStoreLayer.pipe(
         Layer.provide(pathsLayer(setup.profile)),
         Layer.provide(
           Layer.succeed(SecretProtection, {
@@ -119,7 +130,7 @@ it("keeps other providers usable during key rotation and prevents rotation from 
         ),
       );
       yield* Effect.gen(function* () {
-        const store = yield* Credentials;
+        const store = yield* ProviderConfigurationStore;
         yield* store.write(record);
         setup.rotate();
         const rotation = yield* store.read("first").pipe(Effect.forkChild);
@@ -137,20 +148,61 @@ it("keeps other providers usable during key rotation and prevents rotation from 
   );
 });
 
+it("opens an existing version-one OpenRouter key without a migration", async () => {
+  const setup = await fixture();
+  const directory = join(setup.profile, "data", "credentials");
+  const filename = join(directory, "openrouter.bin");
+  await mkdir(directory, { recursive: true });
+  const json =
+    '{"version":1,"providerId":"openrouter","credential":{"kind":"apiKey","key":"original-secret"},"lastValidatedAt":1234}';
+  const ciphertext = await Effect.runPromise(setup.protection.encrypt(Redacted.make(json)));
+  await writeFile(filename, ciphertext);
+  const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+    Response.json({ data: { is_management_key: false } }),
+  );
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const saved = yield* (yield* ProviderConfigurationStore).read("openrouter");
+      expect(saved?.lastValidatedAt).toBe(1234);
+      expect(Redacted.value(saved!.configuration)).toEqual({
+        kind: "apiKey",
+        key: "original-secret",
+      });
+      expect(JSON.stringify(saved)).not.toContain("original-secret");
+      const provider = yield* (yield* ProviderRegistry).get("openrouter");
+      const runtime = yield* provider.open(saved!.configuration);
+      yield* runtime.check;
+    }).pipe(
+      Effect.provide(Layer.merge(setup.layer, providersLayer)),
+      Effect.provideService(FetchHttpClient.Fetch, fetch),
+    ),
+  );
+  expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+    "Bearer original-secret",
+  );
+  expect(await readFile(filename)).toEqual(ciphertext);
+});
+
 it("preserves existing ciphertext on encryption failure and permits removal while locked", async () => {
   const setup = await fixture();
   await Effect.runPromise(
     Effect.gen(function* () {
-      const store = yield* Credentials;
+      const store = yield* ProviderConfigurationStore;
       yield* store.write(record);
       setup.lock();
       expect(
         yield* store
-          .write({ ...record, credential: { kind: "apiKey", key: Redacted.make("replacement") } })
+          .write({
+            ...record,
+            configuration: Redacted.make({ kind: "apiKey", key: "replacement" }),
+          })
           .pipe(Effect.flip),
       ).toMatchObject({ code: "SecureStorageUnavailable" });
       setup.unlock();
-      expect(Redacted.value((yield* store.read("first"))!.credential.key)).toBe("a-secret-api-key");
+      expect(Redacted.value((yield* store.read("first"))!.configuration)).toEqual({
+        kind: "apiKey",
+        key: "a-secret-api-key",
+      });
       setup.lock();
       yield* store.remove("first");
       expect(yield* store.read("first")).toBeNull();
@@ -160,18 +212,24 @@ it("preserves existing ciphertext on encryption failure and permits removal whil
 
 it("surfaces unreadable credentials without failing startup and supports removal and reconfiguration", async () => {
   const setup = await fixture();
-  const layer = connectionsLayer([
-    {
+  const providers = registryLayer([
+    AIProvider.define({
       id: "first",
       displayName: "First provider",
-      credentialKind: "apiKey",
-      validate: () => Effect.void,
-    },
-  ]).pipe(Layer.provide(setup.layer));
+      configuration: Schema.Struct({ key: Schema.Redacted(Schema.String) }),
+    })(
+      Effect.succeed({
+        describe: () => null,
+        check: () => Effect.void,
+        models: () => Effect.succeed([]),
+      }),
+    ),
+  ]);
+  const layer = connectionsLayer.pipe(Layer.provide(providers), Layer.provide(setup.layer));
   await Effect.runPromise(
     Effect.gen(function* () {
-      const connections = yield* AIProviderConnections;
-      yield* connections.configure({ providerId: "first", credential: record.credential });
+      const connections = yield* ProviderConnections;
+      yield* connections.configure({ providerId: "first", configuration: record.configuration });
       yield* Effect.promise(() =>
         writeFile(join(setup.profile, "data", "credentials", "first.bin"), Buffer.alloc(65537)),
       );
@@ -180,7 +238,7 @@ it("surfaces unreadable credentials without failing startup and supports removal
         error: { code: "CredentialUnreadable" },
       });
       yield* connections.remove("first");
-      yield* connections.configure({ providerId: "first", credential: record.credential });
+      yield* connections.configure({ providerId: "first", configuration: record.configuration });
       expect((yield* connections.list)[0]?.state.status).toBe("configured");
     }).pipe(Effect.provide(layer)),
   );
@@ -193,7 +251,7 @@ it("reports filesystem failures and retains the previous credential for recovery
   const backup = join(directory, "first.saved");
   await Effect.runPromise(
     Effect.gen(function* () {
-      const store = yield* Credentials;
+      const store = yield* ProviderConfigurationStore;
       yield* store.write(record);
       yield* Effect.promise(async () => {
         await rename(filename, backup);
@@ -201,7 +259,10 @@ it("reports filesystem failures and retains the previous credential for recovery
       });
       expect(
         yield* store
-          .write({ ...record, credential: { kind: "apiKey", key: Redacted.make("replacement") } })
+          .write({
+            ...record,
+            configuration: Redacted.make({ kind: "apiKey", key: "replacement" }),
+          })
           .pipe(Effect.flip),
       ).toMatchObject({ code: "StorageUnavailable" });
       expect(yield* store.read("first").pipe(Effect.flip)).toMatchObject({
@@ -211,7 +272,10 @@ it("reports filesystem failures and retains the previous credential for recovery
         await rm(filename, { recursive: true });
         await rename(backup, filename);
       });
-      expect(Redacted.value((yield* store.read("first"))!.credential.key)).toBe("a-secret-api-key");
+      expect(Redacted.value((yield* store.read("first"))!.configuration)).toEqual({
+        kind: "apiKey",
+        key: "a-secret-api-key",
+      });
       expect(yield* store.read("../escape").pipe(Effect.flip)).toMatchObject({
         code: "StorageUnavailable",
       });

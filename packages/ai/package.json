@@ -1,0 +1,26 @@
+{
+  "name": "@stargeist/ai",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./providers/openrouter": "./src/providers/openrouter.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test run --root ../.. packages/ai/src --maxWorkers 2"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "platform:linux",
+      "platform:darwin",
+      "platform:win32"
+    ]
+  }
+}

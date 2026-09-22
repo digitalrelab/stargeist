@@ -121,7 +121,7 @@ const states = {
   interacting: ':is(:hover, :active, [data-popup-open]):not(:disabled):not([aria-disabled="true"])',
   disabled: ':is(:disabled, [aria-disabled="true"])',
   current:
-    '[aria-current="page"]:not(:hover):not(:active):not([data-popup-open]):not(:disabled):not([aria-disabled="true"])',
+    ':is([aria-current="page"], [data-active]):not(:hover):not(:active):not([data-popup-open]):not(:disabled):not([aria-disabled="true"])',
 };
 
 const appearances = stylex.create({

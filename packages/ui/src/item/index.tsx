@@ -29,7 +29,7 @@ export function Content(props: Props<"div">) {
 }
 
 export function Title(props: Props<"h3">) {
-  return <h3 {...props} {...stylex.props(typography.body, styles.title)} />;
+  return <h3 {...props} {...stylex.props(typography.label, styles.title)} />;
 }
 
 export function Description(props: Props<"p">) {
@@ -84,7 +84,7 @@ const styles = stylex.create({
   content: {
     display: "flex",
     flexDirection: "column",
-    gap: space[1],
+    gap: space[0.5],
     minWidth: 0,
   },
   aside: {
@@ -94,7 +94,7 @@ const styles = stylex.create({
     gap: space[2],
     minWidth: 0,
   },
-  title: { fontWeight: fonts.semibold, overflowWrap: "anywhere" },
+  title: { fontWeight: fonts.regular, overflowWrap: "anywhere" },
   description: { color: colors.textMuted, fontWeight: fonts.regular, overflowWrap: "anywhere" },
   actions: {
     display: "flex",

@@ -1,30 +1,30 @@
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { ProviderConnection } from "@stargeist/domain/ai";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import type { ProviderConnection } from "@stargeist/ai";
 import { Button, ConfirmDialog, DeleteIcon, EditIcon, typography } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { Atom, type AsyncResult } from "effect/unstable/reactivity";
 import { useState, type RefObject } from "react";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
-import type { ConnectionAction } from "../state";
-import { useAIProviderConnectionsState } from "./use-state";
+import type { ConnectionAction, ProviderConnectionOperation } from "../state";
 
 type OperationResult = AsyncResult.AsyncResult<ConnectionAction["type"], unknown>;
 
 export function ConnectionActions({
   connection,
   editButton,
+  operation,
+  onRetryProviders,
   onEdit,
 }: {
   connection: ProviderConnection;
   editButton: RefObject<HTMLButtonElement | null>;
+  operation: ProviderConnectionOperation;
+  onRetryProviders: () => void;
   onEdit: () => void;
 }) {
-  const state = useAIProviderConnectionsState();
-  const operation = state.operation(connection.providerId);
   const result = useAtomValue(operation);
   const run = useAtomSet(operation);
-  const refresh = useAtomRefresh(state.connections);
   const disabled = operationDisabled(result);
 
   const edit = () => {
@@ -41,11 +41,15 @@ export function ConnectionActions({
         onClick={edit}
       />
       {connection.state.status === "unavailable" && (
-        <Button appearance="ghost" disabled={disabled} onClick={refresh}>
+        <Button appearance="ghost" disabled={disabled} onClick={onRetryProviders}>
           Retry
         </Button>
       )}
-      <RemoveKeyConfirmation connection={connection} fallbackFocus={editButton} />
+      <DisconnectConfirmation
+        connection={connection}
+        fallbackFocus={editButton}
+        operation={operation}
+      />
     </div>
   );
 }
@@ -68,7 +72,7 @@ function EditConnectionButton({
         appearance="ghost"
         shape="square"
         disabled={disabled}
-        aria-label={`Replace ${connection.displayName} key`}
+        aria-label={`Edit ${connection.displayName} connection`}
         onClick={onClick}
       >
         <EditIcon aria-hidden="true" />
@@ -77,7 +81,7 @@ function EditConnectionButton({
   }
 
   let label = "Connect";
-  if (connection.state.status === "unavailable") label = "Set key";
+  if (connection.state.status === "unavailable") label = "Configure";
 
   return (
     <Button ref={ref} appearance="soft" disabled={disabled} onClick={onClick}>
@@ -86,15 +90,16 @@ function EditConnectionButton({
   );
 }
 
-function RemoveKeyConfirmation({
+function DisconnectConfirmation({
   connection,
   fallbackFocus,
+  operation,
 }: {
   connection: ProviderConnection;
   fallbackFocus: RefObject<HTMLButtonElement | null>;
+  operation: ProviderConnectionOperation;
 }) {
   const [open, setOpen] = useState(false);
-  const operation = useAIProviderConnectionsState().operation(connection.providerId);
   const result = useAtomValue(operation);
   const remove = useAtomSet(operation, { mode: "promiseExit" });
   const reset = useAtomSet(operation);
@@ -123,16 +128,16 @@ function RemoveKeyConfirmation({
       {connection.state.status !== "notConfigured" && (
         <ConfirmDialog.Trigger
           disabled={disabled}
-          aria-label={`Remove ${connection.displayName} key`}
+          aria-label={`Disconnect ${connection.displayName}`}
           render={<Button appearance="ghost" shape="square" />}
         >
           <DeleteIcon aria-hidden="true" />
         </ConfirmDialog.Trigger>
       )}
       <ConfirmDialog.Popup finalFocus={finalFocus}>
-        <ConfirmDialog.Title>Remove {connection.displayName} key?</ConfirmDialog.Title>
+        <ConfirmDialog.Title>Disconnect {connection.displayName}?</ConfirmDialog.Title>
         <ConfirmDialog.Description>
-          This removes the saved key from this device. You’ll need to enter it again to reconnect.
+          This removes the saved connection settings from this device.
         </ConfirmDialog.Description>
         <div {...stylex.props(styles.dialogFooter)}>
           <ConfirmDialog.Actions>
@@ -142,7 +147,7 @@ function RemoveKeyConfirmation({
               disabled={disabled}
               onClick={() => void confirm()}
             >
-              Remove
+              Disconnect
             </ConfirmDialog.Confirm>
           </ConfirmDialog.Actions>
           <RemovalFeedback result={result} />
@@ -162,7 +167,7 @@ function RemovalFeedback({ result }: { result: OperationResult }) {
   if (result.waiting)
     return (
       <p role="status" {...stylex.props(styles.feedback, typography.label)}>
-        Removing key…
+        Disconnecting…
       </p>
     );
   if (result._tag === "Failure")

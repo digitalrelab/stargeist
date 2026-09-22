@@ -1,37 +1,63 @@
-import type { ProviderCredential } from "@stargeist/domain/ai";
+import type { ModelReference, ProviderConfiguration } from "@stargeist/ai";
 import { Effect, Redacted } from "effect";
 import { Atom } from "effect/unstable/reactivity";
-import type { AIProviderConnectionsClient } from "./client";
+import type { AgentModelsClient, AIProviderConnectionsClient } from "./client";
 
 export type ConnectionAction =
-  | { readonly type: "configure"; readonly credential: ProviderCredential }
+  | { readonly type: "configure"; readonly configuration: ProviderConfiguration }
   | { readonly type: "remove" };
 
-export const createAIProviderConnectionsState = (client: AIProviderConnectionsClient) => {
-  const connections = Atom.make(client.list);
-  const health = Atom.family((providerId: string) =>
-    Atom.fn((_arg: void) => client.check(providerId)),
+export const createAIState = (
+  connectionsClient: AIProviderConnectionsClient,
+  agentModelsClient: AgentModelsClient,
+) => {
+  const connections = Atom.make(connectionsClient.list).pipe(Atom.keepAlive);
+  const catalogs = Atom.make(agentModelsClient.list).pipe(Atom.keepAlive);
+  const defaultModel = Atom.make(agentModelsClient.getDefault).pipe(Atom.keepAlive);
+  const healthCheck = Atom.family((providerId: string) =>
+    Atom.fn((_arg: void) => connectionsClient.check(providerId)),
   );
-  const operation = Atom.family((providerId: string) =>
+  const providerOperation = Atom.family((providerId: string) =>
     Atom.fn((action: ConnectionAction, get) =>
       Effect.gen(function* () {
-        get.set(health(providerId), Atom.Reset);
+        get.set(healthCheck(providerId), Atom.Reset);
         switch (action.type) {
           case "configure":
-            yield* client
-              .configure({ providerId, credential: action.credential })
-              .pipe(Effect.ensuring(Effect.sync(() => Redacted.wipeUnsafe(action.credential.key))));
+            yield* connectionsClient
+              .configure({ providerId, configuration: action.configuration })
+              .pipe(Effect.ensuring(Effect.sync(() => Redacted.wipeUnsafe(action.configuration))));
             break;
           case "remove":
-            yield* client.remove(providerId);
+            yield* connectionsClient.remove(providerId);
             break;
         }
         get.refresh(connections);
+        get.refresh(catalogs);
         return action.type;
       }),
     ),
   );
-  return { connections, health, operation };
+  const updateDefaultModel = Atom.fn((model: ModelReference, get) =>
+    Effect.gen(function* () {
+      yield* agentModelsClient.setDefault(model);
+      get.refresh(defaultModel);
+      return model;
+    }),
+  );
+  return {
+    providerConnections: {
+      list: connections,
+      healthCheck,
+      operation: providerOperation,
+    },
+    agentModels: {
+      catalogs,
+      defaultModel,
+      updateDefaultModel,
+    },
+  };
 };
 
-export type AIProviderConnectionsState = ReturnType<typeof createAIProviderConnectionsState>;
+export type AIState = ReturnType<typeof createAIState>;
+export type ProviderConnectionOperation = ReturnType<AIState["providerConnections"]["operation"]>;
+export type ProviderHealthCheck = ReturnType<AIState["providerConnections"]["healthCheck"]>;

@@ -1,19 +1,24 @@
-import { ProviderConnectionError, type ProviderConnection } from "@stargeist/domain/ai";
+import { ProviderConnectionError, type ProviderConnection } from "@stargeist/ai";
+import { AgentModelPreferenceError } from "@stargeist/domain/ai";
 import { Deferred, Effect, Redacted } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import type { AIProviderConnectionsClient } from "./client";
-import { createAIProviderConnectionsState } from "./state";
+import type { AgentModelsClient, AIProviderConnectionsClient } from "./client";
+import { createAIState } from "./state";
 
 const provider: ProviderConnection = {
   providerId: "example",
   displayName: "Example provider",
-  credentialKind: "apiKey",
   state: { status: "notConfigured" },
 };
 const saved: ProviderConnection = {
   ...provider,
-  state: { status: "configured", keyHint: "••••1234", lastValidatedAt: 1000 },
+  state: { status: "configured", summary: "••••1234", lastValidatedAt: 1000 },
+};
+const agentModels: AgentModelsClient = {
+  list: Effect.succeed([]),
+  getDefault: Effect.succeed(null),
+  setDefault: () => Effect.void,
 };
 
 function registry() {
@@ -21,6 +26,61 @@ function registry() {
   onTestFinished(() => value.dispose());
   return value;
 }
+
+it("keeps prefetched AI settings data warm between route subscriptions", async () => {
+  const store = registry();
+  let connectionLists = 0;
+  let modelLists = 0;
+  let defaultModelReads = 0;
+  const state = createAIState(
+    {
+      list: Effect.sync(() => {
+        connectionLists += 1;
+        return [provider];
+      }),
+      configure: () => Effect.die("Unexpected configuration"),
+      check: () => Effect.die("Unexpected health check"),
+      remove: () => Effect.die("Unexpected removal"),
+    },
+    {
+      list: Effect.sync(() => {
+        modelLists += 1;
+        return [];
+      }),
+      getDefault: Effect.sync(() => {
+        defaultModelReads += 1;
+        return null;
+      }),
+      setDefault: () => Effect.die("Unexpected preference update"),
+    },
+  );
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      yield* AtomRegistry.getResult(store, state.providerConnections.list, {
+        suspendOnWaiting: true,
+      });
+      yield* AtomRegistry.getResult(store, state.agentModels.catalogs, {
+        suspendOnWaiting: true,
+      });
+      yield* AtomRegistry.getResult(store, state.agentModels.defaultModel, {
+        suspendOnWaiting: true,
+      });
+      yield* Effect.yieldNow;
+
+      expect(yield* AtomRegistry.getResult(store, state.providerConnections.list)).toEqual([
+        provider,
+      ]);
+      expect(yield* AtomRegistry.getResult(store, state.agentModels.catalogs)).toEqual([]);
+      expect(yield* AtomRegistry.getResult(store, state.agentModels.defaultModel)).toBeNull();
+      expect({ connectionLists, modelLists, defaultModelReads }).toEqual({
+        connectionLists: 1,
+        modelLists: 1,
+        defaultModelReads: 1,
+      });
+    }),
+  );
+});
 
 it("refreshes saved connection summaries after configuring and removing a key", async () => {
   const store = registry();
@@ -30,7 +90,7 @@ it("refreshes saved connection summaries after configuring and removing a key", 
     configure: (input) =>
       Effect.sync(() => {
         expect(input.providerId).toBe("example");
-        expect(Redacted.value(input.credential.key)).toBe("secret-1234");
+        expect(Redacted.value(input.configuration)).toEqual({ key: "secret-1234" });
         current = saved;
         return current;
       }),
@@ -41,27 +101,119 @@ it("refreshes saved connection summaries after configuring and removing a key", 
         current = provider;
       }),
   };
-  const state = createAIProviderConnectionsState(client);
-  const operation = state.operation("example");
-  store.mount(state.connections);
+  let modelLists = 0;
+  const state = createAIState(client, {
+    ...agentModels,
+    list: Effect.sync(() => {
+      modelLists += 1;
+      return [];
+    }),
+  });
+  const operation = state.providerConnections.operation("example");
+  store.mount(state.providerConnections.list);
+  store.mount(state.agentModels.catalogs);
   store.mount(operation);
-  const key = Redacted.make("secret-1234");
+  const configuration = Redacted.make({ key: "secret-1234" });
   await Effect.runPromise(
     Effect.gen(function* () {
-      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([provider]);
-      store.set(operation, { type: "configure", credential: { kind: "apiKey", key } });
+      expect(yield* AtomRegistry.getResult(store, state.providerConnections.list)).toEqual([
+        provider,
+      ]);
+      expect(yield* AtomRegistry.getResult(store, state.agentModels.catalogs)).toEqual([]);
+      expect(modelLists).toBe(1);
+      store.set(operation, { type: "configure", configuration });
       expect(yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true })).toBe(
         "configure",
       );
       expect(
-        yield* AtomRegistry.getResult(store, state.connections, { suspendOnWaiting: true }),
+        yield* AtomRegistry.getResult(store, state.providerConnections.list, {
+          suspendOnWaiting: true,
+        }),
       ).toEqual([saved]);
-      expect(() => Redacted.value(key)).toThrow();
+      expect(
+        yield* AtomRegistry.getResult(store, state.agentModels.catalogs, {
+          suspendOnWaiting: true,
+        }),
+      ).toEqual([]);
+      expect(modelLists).toBe(2);
+      expect(() => Redacted.value(configuration)).toThrow();
       store.set(operation, { type: "remove" });
       yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true });
       expect(
-        yield* AtomRegistry.getResult(store, state.connections, { suspendOnWaiting: true }),
+        yield* AtomRegistry.getResult(store, state.providerConnections.list, {
+          suspendOnWaiting: true,
+        }),
       ).toEqual([provider]);
+      yield* AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true });
+      expect(modelLists).toBe(3);
+    }),
+  );
+});
+
+it("persists, refreshes, and replaces the default agent model", async () => {
+  const store = registry();
+  let current = null as { providerId: string; modelId: string } | null;
+  let fail = false;
+  const failure = new AgentModelPreferenceError({
+    message: "Cannot save preference.",
+  });
+  const state = createAIState(
+    {
+      list: Effect.succeed([]),
+      configure: () => Effect.die("Unexpected configuration"),
+      check: () => Effect.die("Unexpected check"),
+      remove: () => Effect.die("Unexpected removal"),
+    },
+    {
+      list: Effect.succeed([]),
+      getDefault: Effect.sync(() => current),
+      setDefault: (model) => {
+        if (fail) return Effect.fail(failure);
+        return Effect.sync(() => {
+          current = model;
+        });
+      },
+    },
+  );
+  store.mount(state.agentModels.defaultModel);
+  store.mount(state.agentModels.updateDefaultModel);
+  const selected = { providerId: "openrouter", modelId: "publisher/model" };
+  const replacement = { providerId: "openrouter", modelId: "publisher/replacement" };
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      expect(yield* AtomRegistry.getResult(store, state.agentModels.defaultModel)).toBeNull();
+      store.set(state.agentModels.updateDefaultModel, selected);
+      expect(
+        yield* AtomRegistry.getResult(store, state.agentModels.updateDefaultModel, {
+          suspendOnWaiting: true,
+        }),
+      ).toEqual(selected);
+      expect(
+        yield* AtomRegistry.getResult(store, state.agentModels.defaultModel, {
+          suspendOnWaiting: true,
+        }),
+      ).toEqual(selected);
+      fail = true;
+      store.set(state.agentModels.updateDefaultModel, replacement);
+      expect(
+        yield* AtomRegistry.getResult(store, state.agentModels.updateDefaultModel, {
+          suspendOnWaiting: true,
+        }).pipe(Effect.flip),
+      ).toBe(failure);
+      expect(yield* AtomRegistry.getResult(store, state.agentModels.defaultModel)).toEqual(
+        selected,
+      );
+      fail = false;
+      store.set(state.agentModels.updateDefaultModel, replacement);
+      yield* AtomRegistry.getResult(store, state.agentModels.updateDefaultModel, {
+        suspendOnWaiting: true,
+      });
+      expect(
+        yield* AtomRegistry.getResult(store, state.agentModels.defaultModel, {
+          suspendOnWaiting: true,
+        }),
+      ).toEqual(replacement);
     }),
   );
 });
@@ -74,26 +226,29 @@ it("tracks connection health independently from saved connection summaries", asy
   });
   let available = false;
   let lists = 0;
-  const state = createAIProviderConnectionsState({
-    list: Effect.sync(() => {
-      lists += 1;
-      return [saved];
-    }),
-    configure: () => Effect.die("Unexpected configuration"),
-    check: (providerId) => {
-      expect(providerId).toBe("example");
-      if (available) return Effect.succeed(saved);
-      return Effect.fail(disconnected);
+  const state = createAIState(
+    {
+      list: Effect.sync(() => {
+        lists += 1;
+        return [saved];
+      }),
+      configure: () => Effect.die("Unexpected configuration"),
+      check: (providerId) => {
+        expect(providerId).toBe("example");
+        if (available) return Effect.succeed(saved);
+        return Effect.fail(disconnected);
+      },
+      remove: () => Effect.die("Unexpected removal"),
     },
-    remove: () => Effect.die("Unexpected removal"),
-  });
-  const health = state.health("example");
-  store.mount(state.connections);
+    agentModels,
+  );
+  const health = state.providerConnections.healthCheck("example");
+  store.mount(state.providerConnections.list);
   store.mount(health);
 
   await Effect.runPromise(
     Effect.gen(function* () {
-      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([saved]);
+      expect(yield* AtomRegistry.getResult(store, state.providerConnections.list)).toEqual([saved]);
       store.set(health, undefined);
       expect(
         yield* AtomRegistry.getResult(store, health, { suspendOnWaiting: true }).pipe(Effect.flip),
@@ -114,25 +269,28 @@ it("cancels an in-flight health check before changing the connection", async () 
   const started = Effect.runSync(Deferred.make<void>());
   const canceled = Effect.runSync(Deferred.make<void>());
   let removed = false;
-  const state = createAIProviderConnectionsState({
-    list: Effect.succeed([saved]),
-    configure: () => Effect.die("Unexpected configuration"),
-    check: () =>
-      Deferred.succeed(started, undefined).pipe(
-        Effect.andThen(Effect.never),
-        Effect.ensuring(Deferred.succeed(canceled, undefined)),
-      ),
-    remove: () =>
-      Deferred.await(canceled).pipe(
-        Effect.andThen(
-          Effect.sync(() => {
-            removed = true;
-          }),
+  const state = createAIState(
+    {
+      list: Effect.succeed([saved]),
+      configure: () => Effect.die("Unexpected configuration"),
+      check: () =>
+        Deferred.succeed(started, undefined).pipe(
+          Effect.andThen(Effect.never),
+          Effect.ensuring(Deferred.succeed(canceled, undefined)),
         ),
-      ),
-  });
-  const health = state.health("example");
-  const operation = state.operation("example");
+      remove: () =>
+        Deferred.await(canceled).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              removed = true;
+            }),
+          ),
+        ),
+    },
+    agentModels,
+  );
+  const health = state.providerConnections.healthCheck("example");
+  const operation = state.providerConnections.operation("example");
   store.mount(health);
   store.mount(operation);
 
@@ -158,42 +316,45 @@ it("preserves the saved summary after rejected replacement and clears submitted 
   const started = Effect.runSync(Deferred.make<void>());
   const canceled = Effect.runSync(Deferred.make<void>());
   let pending = false;
-  const state = createAIProviderConnectionsState({
-    list: Effect.succeed([saved]),
-    configure: () =>
-      Effect.suspend(() => {
-        if (pending)
-          return Deferred.succeed(started, undefined).pipe(
-            Effect.andThen(Effect.never),
-            Effect.ensuring(Deferred.succeed(canceled, undefined)),
-          );
-        return Effect.fail(rejected);
-      }),
-    check: () => Effect.die("Unexpected check"),
-    remove: () => Effect.die("Unexpected removal"),
-  });
-  const operation = state.operation("example");
-  store.mount(state.connections);
+  const state = createAIState(
+    {
+      list: Effect.succeed([saved]),
+      configure: () =>
+        Effect.suspend(() => {
+          if (pending)
+            return Deferred.succeed(started, undefined).pipe(
+              Effect.andThen(Effect.never),
+              Effect.ensuring(Deferred.succeed(canceled, undefined)),
+            );
+          return Effect.fail(rejected);
+        }),
+      check: () => Effect.die("Unexpected check"),
+      remove: () => Effect.die("Unexpected removal"),
+    },
+    agentModels,
+  );
+  const operation = state.providerConnections.operation("example");
+  store.mount(state.providerConnections.list);
   store.mount(operation);
-  const rejectedKey = Redacted.make("rejected-key");
-  const pendingKey = Redacted.make("pending-key");
+  const rejectedConfiguration = Redacted.make({ key: "rejected-key" });
+  const pendingConfiguration = Redacted.make({ key: "pending-key" });
   await Effect.runPromise(
     Effect.gen(function* () {
-      yield* AtomRegistry.getResult(store, state.connections);
-      store.set(operation, { type: "configure", credential: { kind: "apiKey", key: rejectedKey } });
+      yield* AtomRegistry.getResult(store, state.providerConnections.list);
+      store.set(operation, { type: "configure", configuration: rejectedConfiguration });
       expect(
         yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true }).pipe(
           Effect.flip,
         ),
       ).toEqual(rejected);
-      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([saved]);
-      expect(() => Redacted.value(rejectedKey)).toThrow();
+      expect(yield* AtomRegistry.getResult(store, state.providerConnections.list)).toEqual([saved]);
+      expect(() => Redacted.value(rejectedConfiguration)).toThrow();
       pending = true;
-      store.set(operation, { type: "configure", credential: { kind: "apiKey", key: pendingKey } });
+      store.set(operation, { type: "configure", configuration: pendingConfiguration });
       yield* Deferred.await(started);
       store.dispose();
       yield* Deferred.await(canceled);
-      expect(() => Redacted.value(pendingKey)).toThrow();
+      expect(() => Redacted.value(pendingConfiguration)).toThrow();
     }).pipe(Effect.timeout("3 seconds")),
   );
 });
@@ -206,37 +367,42 @@ it("retains the saved connection after failed removal and refreshes it after a s
   });
   let current = saved;
   let unavailable = true;
-  const state = createAIProviderConnectionsState({
-    list: Effect.sync(() => [current]),
-    configure: () => Effect.die("Unexpected configuration"),
-    check: () => Effect.die("Unexpected check"),
-    remove: Effect.fnUntraced(function* (providerId) {
-      expect(providerId).toBe("example");
-      if (unavailable) return yield* failure;
-      current = provider;
-    }),
-  });
-  const operation = state.operation("example");
-  store.mount(state.connections);
+  const state = createAIState(
+    {
+      list: Effect.sync(() => [current]),
+      configure: () => Effect.die("Unexpected configuration"),
+      check: () => Effect.die("Unexpected check"),
+      remove: Effect.fnUntraced(function* (providerId) {
+        expect(providerId).toBe("example");
+        if (unavailable) return yield* failure;
+        current = provider;
+      }),
+    },
+    agentModels,
+  );
+  const operation = state.providerConnections.operation("example");
+  store.mount(state.providerConnections.list);
   store.mount(operation);
 
   await Effect.runPromise(
     Effect.gen(function* () {
-      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([saved]);
+      expect(yield* AtomRegistry.getResult(store, state.providerConnections.list)).toEqual([saved]);
       store.set(operation, { type: "remove" });
       expect(
         yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true }).pipe(
           Effect.flip,
         ),
       ).toEqual(failure);
-      expect(yield* AtomRegistry.getResult(store, state.connections)).toEqual([saved]);
+      expect(yield* AtomRegistry.getResult(store, state.providerConnections.list)).toEqual([saved]);
       unavailable = false;
       store.set(operation, { type: "remove" });
       expect(yield* AtomRegistry.getResult(store, operation, { suspendOnWaiting: true })).toBe(
         "remove",
       );
       expect(
-        yield* AtomRegistry.getResult(store, state.connections, { suspendOnWaiting: true }),
+        yield* AtomRegistry.getResult(store, state.providerConnections.list, {
+          suspendOnWaiting: true,
+        }),
       ).toEqual([provider]);
     }),
   );

@@ -6,19 +6,18 @@ import { useId, useRef, useState } from "react";
 import { Redacted } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 import { failureMessage } from "#src/client/index.ts";
-import { useAIProviderConnectionsState } from "./use-state";
+import type { ProviderConnectionOperation } from "../state";
 
 export function APIKeyForm({
-  providerId,
-  placeholder,
+  operation,
+  summary,
   onClose,
 }: {
-  providerId: string;
-  placeholder?: string | undefined;
+  operation: ProviderConnectionOperation;
+  summary: string | null;
   onClose: () => void;
 }) {
   const [key, setKey] = useState("");
-  const operation = useAIProviderConnectionsState().operation(providerId);
   const result = useAtomValue(operation);
   const configure = useAtomSet(operation, { mode: "promiseExit" });
   const reset = useAtomSet(operation);
@@ -38,7 +37,7 @@ export function APIKeyForm({
     try {
       const exit = await configure({
         type: "configure",
-        credential: { kind: "apiKey", key: Redacted.make(key) },
+        configuration: Redacted.make({ key }),
       });
       if (exit._tag === "Success") close();
     } finally {
@@ -60,7 +59,7 @@ export function APIKeyForm({
             <APIKeyControl
               error={operationError}
               fieldError={validity.error}
-              placeholder={placeholder}
+              placeholder={summary ?? undefined}
               readOnly={result.waiting}
               value={key}
               valueMissing={validity.validity.valueMissing}

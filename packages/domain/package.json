@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@stargeist/ai": "workspace:*",
     "@stargeist/std": "workspace:*",
     "effect": "catalog:"
   },

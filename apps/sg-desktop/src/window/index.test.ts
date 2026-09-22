@@ -141,12 +141,21 @@ const wait = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.runPromise(effect.pipe(Effect.timeout("3 seconds")));
 
 function fixture(initial: UserPreferenceValues["window"] = saved) {
-  let values: UserPreferenceValues = { window: initial, interfaceScale: 1.25 };
+  let values: UserPreferenceValues = {
+    window: initial,
+    interfaceScale: 1.25,
+    ai: { defaultAgentModel: null },
+  };
   const changes = new EventEmitter();
   const windows: NativeWindow[] = [];
   const created = Deferred.makeUnsafe<NativeWindow>();
   const clock = Deferred.makeUnsafe<TestClock.TestClock>();
   const operations: unknown[] = [];
+  const logs: Array<{
+    level: string;
+    message: unknown;
+    annotations: Readonly<Record<string, unknown>>;
+  }> = [];
   const write = vi.fn(
     (next: UserPreferenceValues["window"]): Effect.Effect<void, UserPreferencesError> =>
       Effect.sync(() => {
@@ -193,8 +202,10 @@ function fixture(initial: UserPreferenceValues["window"] = saved) {
       Layer.succeed(UserPreferences, preferences),
     ),
   });
-  const logger = Logger.make(({ fiber }) => {
-    operations.push(fiber.getRef(References.CurrentLogAnnotations).operation);
+  const logger = Logger.make(({ fiber, logLevel, message }) => {
+    const annotations = fiber.getRef(References.CurrentLogAnnotations);
+    operations.push(annotations.operation);
+    logs.push({ level: logLevel, message, annotations });
   });
   const open = () => {
     const fiber = Effect.runFork(
@@ -220,6 +231,7 @@ function fixture(initial: UserPreferenceValues["window"] = saved) {
     preferences,
     changes,
     operations,
+    logs,
     advance,
   };
 }
@@ -237,6 +249,61 @@ beforeEach(() => {
   onTestFinished(() => {
     vi.unstubAllGlobals();
   });
+});
+
+it("reports development renderer failures before loading and releases its listeners on close", async () => {
+  const runtime = fixture();
+  native.load.mockImplementation(async () => {
+    const contents = runtime.windows[0]!.webContents;
+    contents.emit("console-message", {
+      level: "error",
+      message: "Uncaught ReferenceError: Route component is not defined",
+      sourceId: "http://localhost:5173/src/routes/settings/ai.tsx",
+      lineNumber: 16,
+    });
+    contents.emit("console-message", {
+      level: "info",
+      message: "ERROR: renderer.startup",
+      sourceId: "http://localhost:5173/src/startup.ts",
+      lineNumber: 20,
+    });
+    contents.emit("preload-error", {}, "/preload.js", new Error("Preload failed"));
+  });
+  const fiber = runtime.open();
+  const window = await wait(Deferred.await(runtime.created));
+  await wait(Deferred.await(window.shown));
+
+  expect(runtime.logs).toEqual(
+    expect.arrayContaining([
+      {
+        level: "Error",
+        message: ["Uncaught ReferenceError: Route component is not defined"],
+        annotations: {
+          operation: "renderer.console",
+          source: "http://localhost:5173/src/routes/settings/ai.tsx",
+          line: 16,
+        },
+      },
+      expect.objectContaining({ message: ["ERROR: renderer.startup"] }),
+    ]),
+  );
+  expect(runtime.operations).toContain("renderer.preload");
+  window.close();
+  await wait(Fiber.join(fiber));
+  expect(window.webContents.listenerCount("console-message")).toBe(0);
+  expect(window.webContents.listenerCount("preload-error")).toBe(0);
+});
+
+it("does not forward the renderer console in packaged windows", async () => {
+  native.packaged = true;
+  vi.stubGlobal("process", { ...process, resourcesPath: "/stargeist/resources" });
+  const runtime = fixture();
+  runtime.open();
+  const window = await wait(Deferred.await(runtime.created));
+  await wait(Deferred.await(window.shown));
+
+  expect(window.webContents.listenerCount("console-message")).toBe(0);
+  expect(window.webContents.listenerCount("preload-error")).toBe(0);
 });
 
 it("centers the first window, persists normal bounds on close, and restores them when reopened", async () => {
