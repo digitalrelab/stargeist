@@ -69,7 +69,7 @@ const styles = stylex.create({
     gap: space[2],
     minWidth: 0,
     maxWidth: "100%",
-    padding: space[1],
+    padding: space[2],
     borderRadius: radii.full,
     backgroundColor: colors.surfaceRaised,
     color: colors.text,
