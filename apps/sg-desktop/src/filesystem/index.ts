@@ -1,1 +1,1 @@
-export { openListing } from "./listing";
+export { openDirectorySession } from "./directory-session";

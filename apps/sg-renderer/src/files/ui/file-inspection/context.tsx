@@ -1,58 +1,30 @@
 import { useAtomSet } from "@effect/atom-react";
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import type { DirectorySessionId } from "@stargeist/domain";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { createFileInspection } from "./state";
 
 const FileInspectionContext = createContext<ReturnType<typeof useInspection> | undefined>(
   undefined,
 );
 
-function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
+function useInspection() {
   const [inspection] = useState(createFileInspection);
   const dispatch = useAtomSet(inspection.command);
-  const origin = useRef<RefObject<HTMLElement | null>>(null);
 
   return useMemo(
     () => ({
       bind: inspection.bind,
       target: inspection.target,
-      isOpen: inspection.isOpen,
-      inspectedName: inspection.inspectedName,
-      rememberFocus: (target: RefObject<HTMLElement | null>) => {
-        origin.current = target;
-      },
-      cancelNavigation: () => dispatch({ type: "cancel" }),
-      close: () => {
-        const trigger = origin.current?.current;
-        origin.current = null;
-        dispatch({ type: "close" });
-
-        if (trigger?.isConnected) {
-          trigger.focus({ preventScroll: true });
-        } else {
-          fallbackFocus.current?.focus({ preventScroll: true });
-        }
-      },
+      inspectedIndex: inspection.inspectedIndex,
+      detail: inspection.detail,
+      clear: (scope: DirectorySessionId) => dispatch({ type: "clear", scope }),
     }),
-    [inspection, dispatch, fallbackFocus],
+    [inspection, dispatch],
   );
 }
 
-export function FileInspectionProvider({
-  children,
-  fallbackFocus,
-}: {
-  children: ReactNode;
-  fallbackFocus: RefObject<HTMLElement | null>;
-}) {
-  const inspection = useInspection(fallbackFocus);
+export function FileInspectionProvider({ children }: { children: ReactNode }) {
+  const inspection = useInspection();
 
   return <FileInspectionContext value={inspection}>{children}</FileInspectionContext>;
 }

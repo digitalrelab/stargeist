@@ -1,6 +1,6 @@
 import * as RpcEndpoint from "@stargeist/application/rpc";
 import { ProviderConnections } from "@stargeist/ai";
-import { AgentModelCatalog, AgentModelPreferences } from "@stargeist/domain/ai";
+import { AgentModelCatalog, AgentModelPreferences } from "@stargeist/domain";
 import { AgentModelRpcs, ProviderConnectionRpcs } from "@stargeist/protocol/ai";
 import { Effect } from "effect";
 import { Rpc } from "effect/unstable/rpc";

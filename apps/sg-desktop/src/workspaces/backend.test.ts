@@ -11,12 +11,12 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Workspaces } from "@stargeist/domain";
+import { Files, Workspaces } from "@stargeist/domain";
 import { Deferred, Effect, Exit, Fiber, Layer, Scope, Stream } from "effect";
 import { RpcClient, RpcServer, RpcTest } from "effect/unstable/rpc";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { BackendApplication } from "../backend/application";
-import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
+import { TemporaryStorage, AppStorage, temporaryStorageLayer } from "@stargeist/storage";
 import { WorkspaceControlEndpoint, WorkspaceEndpoint } from "./index";
 
 it("opens, discovers, nests, reconnects and reopens workspaces through the real backend", async () => {
@@ -27,12 +27,14 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
   await mkdir(film, { recursive: true });
   await writeFile(join(film, "interview.txt"), "original");
   const profile = join(root, "profile");
-  const run = <A, E>(effect: Effect.Effect<A, E, Workspaces | TemporaryStorage | Scope.Scope>) =>
+  const run = <A, E>(
+    effect: Effect.Effect<A, E, Workspaces | Files | TemporaryStorage | Scope.Scope>,
+  ) =>
     Effect.runPromise(
       effect.pipe(
         Effect.scoped,
         Effect.provide(BackendApplication.layer),
-        Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+        Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(AppStorage.layer(profile)))),
       ),
     );
   const saved = await run(
@@ -65,7 +67,9 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.map((views) => views[0]),
       );
       expect(first.workspace).toEqual(parent);
-      expect(first.directory.entries).toEqual([{ name: "Film", kind: "directory" }]);
+      expect(first.directory.files).toMatchObject([
+        { name: "Film", type: "folder", mediaType: null, id: expect.stringMatching(/^fil_/) },
+      ]);
       const secondScope = yield* Scope.fork(yield* Effect.scope);
       const second = yield* client["workspaces.browse"]({ id: child.id }).pipe(
         Stream.toPull,
@@ -73,26 +77,33 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.map((views) => views[0]),
         Scope.provide(secondScope),
       );
-      expect(second.directory.entries).toEqual([{ name: "interview.txt", kind: "file" }]);
+      expect(second.directory.files).toMatchObject([
+        {
+          name: "interview.txt",
+          type: "file",
+          mediaType: "text/plain",
+          id: expect.stringMatching(/^fil_/),
+        },
+      ]);
       expect(
         yield* client["workspaces.readDirectory"]({
-          listingId: first.directory.listingId,
+          directorySessionId: first.directory.directorySessionId,
           offset: 0,
         }).pipe(Effect.flip),
-      ).toMatchObject({ code: "ListingExpired" });
+      ).toMatchObject({ code: "DirectorySessionExpired" });
       yield* Scope.close(secondScope, Exit.void);
       expect(
         yield* client["workspaces.readDirectory"]({
-          listingId: second.directory.listingId,
+          directorySessionId: second.directory.directorySessionId,
           offset: 0,
         }).pipe(Effect.flip),
-      ).toMatchObject({ code: "ListingExpired" });
+      ).toMatchObject({ code: "DirectorySessionExpired" });
       const reopened = yield* client["workspaces.browse"]({ id: child.id }).pipe(
         Stream.toPull,
         Effect.flatMap((pull) => pull),
         Effect.map((views) => views[0]),
       );
-      expect(reopened.directory.entries).toEqual(second.directory.entries);
+      expect(reopened.directory.files).toEqual(second.directory.files);
       const copyPath = join(root, "Copy");
       yield* Effect.promise(() => cp(film, copyPath, { recursive: true }));
       const copy = yield* host["workspaces.open"]({ path: copyPath });
@@ -117,19 +128,22 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.flatMap((pull) => pull),
         Effect.map((views) => views[0]),
       );
-      expect(independent.directory.entries).toEqual(reopened.directory.entries);
+      expect(independent.directory.files).toMatchObject([
+        { name: "interview.txt", type: "file", mediaType: "text/plain" },
+      ]);
+      expect(independent.directory.files[0]!.id).not.toBe(reopened.directory.files[0]!.id);
       expect(
         yield* client["workspaces.readDirectory"]({
-          listingId: reopened.directory.listingId,
+          directorySessionId: reopened.directory.directorySessionId,
           offset: 0,
         }),
       ).toEqual(reopened.directory);
       expect(
         yield* otherRenderer["workspaces.readDirectory"]({
-          listingId: reopened.directory.listingId,
+          directorySessionId: reopened.directory.directorySessionId,
           offset: 0,
         }).pipe(Effect.flip),
-      ).toMatchObject({ code: "ListingExpired" });
+      ).toMatchObject({ code: "DirectorySessionExpired" });
       expect(
         yield* host["workspaces.reconnect"]({ id: child.id, path: copyPath }).pipe(Effect.flip),
       ).toMatchObject({ code: "RootConflict" });
@@ -155,6 +169,12 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       });
       expect(reconnected.id).toBe(child.id);
       expect(reconnected.root).toBe(moved);
+      const movedView = yield* client["workspaces.browse"]({ id: child.id }).pipe(
+        Stream.toPull,
+        Effect.flatMap((pull) => pull),
+        Effect.map((views) => views[0]),
+      );
+      expect(movedView.directory.files[0]!.id).toBe(reopened.directory.files[0]!.id);
       yield* client["workspaces.forget"]({ id: parent.id });
       const remembered = yield* host["workspaces.open"]({ path: archive });
       expect(remembered.root).toBe(parent.root);
@@ -182,7 +202,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
   );
   expect(await readFile(join(saved.root, ".stargeist", "workspace.json"), "utf8")).toBe(manifest);
   expect(await readFile(join(saved.root, "interview.txt"), "utf8")).toBe("original");
-});
+}, 15000);
 
 it("rejects identity replacement at a remembered root until that folder is explicitly reopened", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "stargeist-replacement-")));
@@ -214,7 +234,7 @@ it("rejects identity replacement at a remembered root until that folder is expli
       });
     }).pipe(
       Effect.provide(BackendApplication.layer),
-      Effect.provide(pathsLayer(join(root, "profile"))),
+      Effect.provide(AppStorage.layer(join(root, "profile"))),
     ),
   );
 });
@@ -251,7 +271,7 @@ it("releases a directory when browsing is canceled before its response arrives",
     }).pipe(
       Effect.scoped,
       Effect.provide(BackendApplication.layer),
-      Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+      Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(AppStorage.layer(profile)))),
       Effect.timeout("5 seconds"),
     ),
   );

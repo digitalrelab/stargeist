@@ -3,7 +3,7 @@ import {
   type ProviderConnection,
   type ProviderModelCatalog,
 } from "@stargeist/ai";
-import { AgentModelPreferenceError } from "@stargeist/domain/ai";
+import { AgentModelPreferenceError } from "@stargeist/domain";
 import { Deferred, Effect, Redacted } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";

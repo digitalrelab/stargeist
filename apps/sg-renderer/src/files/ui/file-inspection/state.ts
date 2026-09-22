@@ -1,59 +1,99 @@
-import type { FileSystemEntry, WorkspaceId, ListingId } from "@stargeist/domain";
+import type { FileSnapshot, DirectorySessionId } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Effect, HashSet } from "effect";
-import { Atom } from "effect/unstable/reactivity";
+import { AsyncResult, Atom, type AtomRegistry } from "effect/unstable/reactivity";
 import type { FileInteraction, FileSelection } from "../../selection";
-import type { FileListing } from "../../state";
+import type { DirectoryContents } from "../../state";
+
+type ReadFile = (
+  index: number,
+) => Effect.Effect<FileSnapshot | undefined, unknown, AtomRegistry.AtomRegistry>;
 
 export interface FileInspection {
-  readonly files: FileSelection;
+  readonly selection: FileSelection;
   readonly total: number | undefined;
-  readonly entry: FileSystemEntry | undefined;
+  readonly file: FileSnapshot | undefined;
+  readonly index: number | undefined;
+  readonly read: ReadFile;
 }
 
 export interface FileInspectionInput {
   readonly interaction: FileInteraction;
-  readonly workspaceId: WorkspaceId;
   readonly folder: string | undefined;
-  readonly total: number | undefined;
+  readonly extent: DirectoryContents["extent"];
+  readonly read: ReadFile;
 }
 
 type Command =
   | { readonly type: "interact"; readonly input: FileInspectionInput }
-  | { readonly type: "close" | "cancel" };
+  | { readonly type: "clear"; readonly scope: DirectorySessionId };
 
-function resolveInspection(input: FileInspectionInput): FileInspection | undefined {
-  const { interaction, workspaceId, folder, total } = input;
-  const entry = interaction.focused?.item;
+function resolveInspection(
+  input: FileInspectionInput,
+  total: number | undefined,
+): FileInspection | undefined {
+  const { interaction, folder } = input;
+  const focused = interaction.focused;
   let members = interaction.selection;
 
-  if (interaction.type === "select") {
-    if (Selection.count(members, total) === 0) {
-      return undefined;
-    }
-  } else {
-    if (!entry) {
+  if (interaction.type !== "select") {
+    if (!focused) {
       return undefined;
     }
 
-    members = Selection.replace(members.scope, [entry.name]);
+    members = Selection.replace(members.scope, [focused.index]);
   }
 
-  let detail;
+  const count = Selection.count(members, total);
+  if (count === 0) return undefined;
 
-  if (entry && Selection.count(members, total) === 1 && Selection.contains(members, entry.name)) {
-    detail = entry;
+  let index;
+  if (count === 1) {
+    if (members.mode === "explicit") index = members.keys[Symbol.iterator]().next().value;
+    else if (focused && Selection.contains(members, focused.index)) index = focused.index;
+    else if (total !== undefined) {
+      for (let position = 0; position < total; position++) {
+        if (Selection.contains(members, position)) {
+          index = position;
+          break;
+        }
+      }
+    }
   }
 
-  return { files: { workspaceId, folder, members }, total, entry: detail };
+  let file;
+  if (focused && focused.index === index) file = focused.item;
+
+  return {
+    selection: { folder, members },
+    total,
+    file,
+    index,
+    read: input.read,
+  };
 }
 
 export function createFileInspection() {
-  const target = Atom.make<FileInspection | undefined>(undefined);
-  const navigate = Atom.fn((input: FileInspectionInput, get) =>
+  const input = Atom.make<FileInspectionInput | undefined>(undefined);
+  const scope = Atom.make<DirectorySessionId | undefined>(undefined);
+  const target = Atom.make((get) => {
+    const current = get(input);
+    if (!current) return undefined;
+    const extent = get(current.extent);
+    let total;
+    if (!extent.hasMore) total = extent.count;
+    return resolveInspection(current, total);
+  });
+  const detail = Atom.make((get) => {
+    const current = get(target);
+    if (!current || current.index === undefined) return Effect.succeed(undefined);
+    if (current.file) return Effect.succeed(current.file);
+    return current.read(current.index);
+  }).pipe(Atom.setIdleTTL(0));
+  const navigate = Atom.fn((next: FileInspectionInput, get) =>
     Effect.gen(function* () {
       yield* Effect.sleep(250);
-      get.set(target, resolveInspection(input));
+      get.set(input, next);
     }),
   ).pipe(Atom.setLazy(false), Atom.setIdleTTL(0));
 
@@ -65,57 +105,65 @@ export function createFileInspection() {
     (ctx, action: Command) => {
       switch (action.type) {
         case "interact": {
+          ctx.set(scope, action.input.interaction.selection.scope);
           if (action.input.interaction.type === "focus") {
             ctx.set(navigate, action.input);
           } else {
             ctx.set(navigate, Atom.Reset);
-            ctx.set(target, resolveInspection(action.input));
+            ctx.set(input, action.input);
           }
 
           return;
         }
 
-        case "close":
+        case "clear":
+          if (ctx.get(scope) !== action.scope) return;
+          ctx.set(scope, undefined);
           ctx.set(navigate, Atom.Reset);
-          ctx.set(target, undefined);
-          return;
-
-        case "cancel":
-          ctx.set(navigate, Atom.Reset);
+          ctx.set(input, undefined);
           return;
       }
     },
   ).pipe(Atom.setIdleTTL(0));
 
-  function bind(listing: FileListing, location: Pick<FileSelection, "workspaceId" | "folder">) {
+  function bind(contents: DirectoryContents, folder: string | undefined) {
     return Atom.writable(
       () => undefined,
       (ctx, interaction: FileInteraction) => {
-        const extent = ctx.get(listing.extent);
-        let total: number | undefined;
-
-        if (!extent.hasMore) {
-          total = extent.count;
-        }
-
         ctx.set(command, {
           type: "interact",
-          input: { interaction, ...location, total },
+          input: {
+            interaction,
+            folder,
+            extent: contents.extent,
+            read: (index) =>
+              contents.read(contents.pageOffset(index), { retry: true }).pipe(
+                Effect.map((page) => page.items[index - contents.pageOffset(index)]),
+                Effect.scoped,
+              ),
+          },
         });
       },
     );
   }
 
   return {
-    target: Atom.readable((get) => get(target)),
-    isOpen: Atom.map(target, (value) => value !== undefined),
-    inspectedName: Atom.family((scope: ListingId) =>
+    target: Atom.readable((get) => {
+      const current = get(target);
+      if (!current || current.file || current.index === undefined) return current;
+      const result = get(detail);
+      if (AsyncResult.isSuccess(result) && !result.waiting)
+        return { ...current, file: result.value };
+      return current;
+    }),
+    detail,
+    inspectedIndex: Atom.family((scope: DirectorySessionId) =>
       Atom.map(target, (value) => {
-        if (!value || value.files.members.scope !== scope) {
+        if (!value || value.selection.members.scope !== scope) {
           return undefined;
         }
 
-        return singleFileName(value);
+        return value.index;
       }),
     ),
     command,
@@ -124,12 +172,10 @@ export function createFileInspection() {
 }
 
 export function describeFileInspection(target: FileInspection) {
-  const { members } = target.files;
+  const { members } = target.selection;
   const count = Selection.count(members, target.total);
-  const name = singleFileName(target);
-
-  if (name !== undefined) {
-    return { type: "file" as const, name, kind: target.entry?.kind };
+  if (target.file) {
+    return { type: "file" as const, name: target.file.name };
   }
 
   if (count !== undefined) {
@@ -153,18 +199,4 @@ export function describeFileInspection(target: FileInspection) {
   }
 
   return { type: "selection" as const, label };
-}
-
-function singleFileName(target: FileInspection): string | undefined {
-  const { members } = target.files;
-
-  if (Selection.count(members, target.total) !== 1) {
-    return undefined;
-  }
-
-  if (members.mode === "explicit") {
-    return members.keys[Symbol.iterator]().next().value;
-  }
-
-  return target.entry?.name;
 }

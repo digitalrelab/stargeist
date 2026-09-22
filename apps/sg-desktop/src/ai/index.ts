@@ -1,6 +1,6 @@
 import { safeStorage } from "electron";
 import { connectionsLayer, modelCatalogLayer } from "@stargeist/ai";
-import { AgentModelCatalog } from "@stargeist/domain/ai";
+import { AgentModelCatalog } from "@stargeist/domain";
 import { Layer } from "effect";
 import { agentModelPreferencesLayer } from "./preferences";
 import { providersLayer } from "./providers";

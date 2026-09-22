@@ -99,7 +99,7 @@ export function create<A, Key, E, Scope>(
     let selection = before.selection;
 
     if (operation === "toggle") {
-      selection = Membership.toggle(selection, source.keyOf(value.item));
+      selection = Membership.toggle(selection, source.keyOf(value));
     }
 
     return {

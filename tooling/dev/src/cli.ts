@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Console as NodeConsole } from "node:console";
 import { parseArgs } from "node:util";
+import { StorageError } from "@stargeist/storage";
 import { ProfileError } from "./desktop/index";
 import { Cause, Console, Effect } from "effect";
 import {
@@ -38,14 +39,71 @@ function jsonRequested(args: string[]) {
 }
 
 function output(report: object, json: boolean, message: string) {
-  process.stdout.write(json ? `${JSON.stringify(report)}\n` : `${message}\n`);
+  if (json) {
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+    return;
+  }
+  process.stdout.write(`${message}\n`);
+}
+
+function workspaceTargets(report: ReturnType<typeof previewReset> | ReturnType<typeof resetData>) {
+  if (report.workspaces.length === 0) {
+    return ["No known workspaces."];
+  }
+  return report.workspaces.map((target) => {
+    if (target.status === "blocked") {
+      return `Blocked: ${target.path}\n  ${target.message}`;
+    }
+    if (target.status === "missing") {
+      return `Missing: ${target.path}`;
+    }
+    return `Reset: ${target.path}`;
+  });
+}
+
+function resetPreviewMessage(preview: ReturnType<typeof previewReset>) {
+  const lines = [`App data: ${preview.target}`, ...workspaceTargets(preview)];
+  if (preview.cleanupPending) {
+    lines.push(`Remaining data: ${preview.quarantine}`);
+  }
+  if (preview.access === "busy") {
+    lines.push("Close the app before resetting.");
+  }
+  lines.push(
+    "App settings and workspace data will be deleted. Your files are kept.",
+    "Only known workspaces are included.",
+  );
+  return lines.join("\n");
+}
+
+function resetResultMessage(report: ReturnType<typeof resetData>) {
+  let message;
+  switch (report.status) {
+    case "already-empty":
+      message = "Nothing to reset.";
+      break;
+    case "reset-complete":
+      message = "Reset complete.";
+      break;
+    case "reset-incomplete":
+      message = "Reset incomplete. App data was kept. Fix the errors below and retry.";
+      break;
+    case "cleanup-pending":
+      message = `Some data could not be removed. Retry reset.\n${report.quarantine}: ${report.message}`;
+      break;
+  }
+  return [message, ...workspaceTargets(report)].join("\n");
 }
 
 export function runCli(args: string[], createContext: () => ToolingContext = toolingContext) {
   return Effect.gen(function* () {
     const jsonOutput = yield* jsonRequested(args);
+    let diagnosticOutput: NodeJS.WriteStream = process.stdout;
+    if (jsonOutput) {
+      diagnosticOutput = process.stderr;
+    }
     const diagnostics = new NodeConsole({
-      stdout: jsonOutput ? process.stderr : process.stdout,
+      stdout: diagnosticOutput,
       stderr: process.stderr,
     });
 
@@ -114,11 +172,11 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
       {
         dryRun: Flag.Boolean("dry-run").pipe(
           Flag.withDefault(false),
-          Flag.withDescription("Preview application-data reset without changing files."),
+          Flag.withDescription("Preview what will be reset."),
         ),
         yes: Flag.Boolean("yes").pipe(
           Flag.withDefault(false),
-          Flag.withDescription("Confirm data deletion; all safety checks still apply."),
+          Flag.withDescription("Confirm reset."),
         ),
       },
       ({ dryRun, yes }) =>
@@ -128,11 +186,7 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
           const preview = yield* Effect.try(() => previewReset(profile));
 
           if (dryRun) {
-            output(
-              preview,
-              json,
-              `Profile: ${preview.profile}\nReset target: ${preview.target}\nAccess: ${preview.access}\n${preview.exists ? "Application data would be deleted." : "Application data is already empty."}`,
-            );
+            output(preview, json, resetPreviewMessage(preview));
 
             return;
           }
@@ -154,9 +208,10 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
               return;
             }
 
+            process.stdout.write(`${resetPreviewMessage(preview)}\n`);
             const confirmed = yield* Prompt.run(
               Prompt.Confirm({
-                message: `Delete development application data at ${profile.data}?`,
+                message: "Reset app data and the listed workspaces?",
                 initial: false,
               }),
             ).pipe(Effect.catchTag("QuitError", () => Effect.succeed(false)));
@@ -169,27 +224,15 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
             }
           }
 
-          const report = yield* Effect.try(() => resetData(profile));
+          const report = yield* Effect.try(() => resetData(profile, preview));
 
-          output(
-            report,
-            json,
-            report.status === "already-empty"
-              ? "Application data is already empty."
-              : report.status === "cleanup-pending"
-                ? `Application data reset. Cleanup remains at ${report.quarantine}: ${report.message}`
-                : "Development application data reset. The next launch recreates the database.",
-          );
+          output(report, json, resetResultMessage(report));
 
-          if (report.status === "cleanup-pending") {
+          if (report.status === "cleanup-pending" || report.status === "reset-incomplete") {
             process.exitCode = 1;
           }
         }),
-    ).pipe(
-      Command.withDescription(
-        "Reset this checkout's application data, preserving source folders and browser state.",
-      ),
-    );
+    ).pipe(Command.withDescription("Reset development data and known workspaces."));
 
     const command = root.pipe(Command.withSubcommands([dev, doctor, reset]));
 
@@ -198,19 +241,23 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
     ).pipe(
       Effect.catch((error) =>
         Effect.sync(() => {
-          const original = Cause.isUnknownError(error) ? error.cause : error;
+          let original: unknown = error;
+          if (Cause.isUnknownError(error)) {
+            original = error.cause;
+          }
 
-          const code =
-            original instanceof ProfileError
-              ? original.code
-              : CliError.isCliError(error)
-                ? "invalid-arguments"
-                : "operation-failed";
-          const message = CliError.isCliError(error)
-            ? "Invalid command. Run bun run sg --help."
-            : original instanceof Error
-              ? original.message
-              : String(original);
+          let code = "operation-failed";
+          if (original instanceof ProfileError || original instanceof StorageError) {
+            code = original.code;
+          } else if (CliError.isCliError(error)) {
+            code = "invalid-arguments";
+          }
+          let message = String(original);
+          if (CliError.isCliError(error)) {
+            message = "Invalid command. Run bun run sg --help.";
+          } else if (original instanceof Error) {
+            message = original.message;
+          }
 
           output({ command: "sg", status: "failed", code, message }, jsonOutput, message);
 

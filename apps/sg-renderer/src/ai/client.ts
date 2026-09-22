@@ -5,7 +5,7 @@ import type {
   ProviderConnectionError,
   ProviderModelCatalog,
 } from "@stargeist/ai";
-import type { AgentModelPreferenceError } from "@stargeist/domain/ai";
+import type { AgentModelPreferenceError } from "@stargeist/domain";
 import type { Effect } from "effect";
 import type { ClientUnavailableError } from "#src/client/index.ts";
 

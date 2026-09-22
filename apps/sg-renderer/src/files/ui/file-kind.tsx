@@ -1,19 +1,46 @@
-import type { FileSystemEntry } from "@stargeist/domain";
-import { FileIcon, FolderIcon, LinkIcon, UnknownFileIcon } from "@stargeist/ui";
+import { classifyFileKind, type FileKind as Kind, type FileSnapshot } from "@stargeist/domain";
+import {
+  FileIcon,
+  FolderIcon,
+  LinkIcon,
+  UnknownFileIcon,
+  ImageFileIcon,
+  VideoFileIcon,
+  AudioFileIcon,
+  DocumentFileIcon,
+  TextFileIcon,
+  SpreadsheetFileIcon,
+  PresentationFileIcon,
+  ArchiveFileIcon,
+  CodeFileIcon,
+} from "@stargeist/ui";
 import { colors } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 
 const kinds = {
-  directory: { label: "Folder", Icon: FolderIcon },
-  file: { label: "File", Icon: FileIcon },
-  symlink: { label: "Link", Icon: LinkIcon },
-  other: { label: "Other", Icon: UnknownFileIcon },
-} satisfies Record<FileSystemEntry["kind"], { label: string; Icon: typeof FileIcon }>;
+  image: { label: "Image", Icon: ImageFileIcon, color: colors.accentGreen },
+  video: { label: "Video", Icon: VideoFileIcon, color: colors.accentPurple },
+  audio: { label: "Audio", Icon: AudioFileIcon, color: colors.accentPurple },
+  document: { label: "Document", Icon: DocumentFileIcon, color: colors.accentBlue },
+  text: { label: "Text", Icon: TextFileIcon, color: colors.textMuted },
+  spreadsheet: { label: "Spreadsheet", Icon: SpreadsheetFileIcon, color: colors.accentGreen },
+  presentation: {
+    label: "Presentation",
+    Icon: PresentationFileIcon,
+    color: colors.accentOrange,
+  },
+  archive: { label: "Archive", Icon: ArchiveFileIcon, color: colors.accentAmber },
+  code: { label: "Code", Icon: CodeFileIcon, color: colors.accentBlue },
+  folder: { label: "Folder", Icon: FolderIcon, color: colors.accentAmber },
+  file: { label: "File", Icon: FileIcon, color: colors.textMuted },
+  link: { label: "Link", Icon: LinkIcon, color: colors.textMuted },
+  other: { label: "Other", Icon: UnknownFileIcon, color: colors.textMuted },
+} satisfies Record<Kind, { label: string; Icon: typeof FileIcon; color: string }>;
 
-type Props = { kind: FileSystemEntry["kind"] };
+type Props = { file: FileSnapshot };
 
-function Icon({ kind, decorative = false }: Props & { decorative?: boolean }) {
-  const { Icon: KindIcon, label } = kinds[kind];
+function Icon({ file, decorative = false }: Props & { decorative?: boolean }) {
+  const { Icon: KindIcon, label, color } = kinds[classifyFileKind(file)];
   let accessibleLabel;
 
   if (!decorative) {
@@ -22,7 +49,7 @@ function Icon({ kind, decorative = false }: Props & { decorative?: boolean }) {
 
   return (
     <KindIcon
-      {...stylex.props(styles.icon)}
+      {...stylex.props(styles.icon(color))}
       role="img"
       aria-hidden={decorative}
       aria-label={accessibleLabel}
@@ -30,12 +57,12 @@ function Icon({ kind, decorative = false }: Props & { decorative?: boolean }) {
   );
 }
 
-function Label({ kind }: Props) {
-  return <>{kinds[kind].label}</>;
+function Label({ file }: Props) {
+  return <>{kinds[classifyFileKind(file)].label}</>;
 }
 
 export const FileKind = { Icon, Label };
 
 const styles = stylex.create({
-  icon: { color: colors.textMuted, flexShrink: 0 },
+  icon: (color: string) => ({ color, flexShrink: 0 }),
 });

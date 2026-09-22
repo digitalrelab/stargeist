@@ -1,9 +1,9 @@
 import {
+  AgentModelPreferences,
   UserPreferences,
   UserPreferencesError,
   type UserPreferenceValues,
 } from "@stargeist/domain";
-import { AgentModelPreferences } from "@stargeist/domain/ai";
 import { Effect, Layer, Stream } from "effect";
 import { expect, it } from "vite-plus/test";
 import { agentModelPreferencesLayer } from "./preferences";

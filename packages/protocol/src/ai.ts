@@ -6,7 +6,7 @@ import {
   ProviderId,
   ProviderModelCatalog,
 } from "@stargeist/ai";
-import { AgentModelPreferenceError } from "@stargeist/domain/ai";
+import { AgentModelPreferenceError } from "@stargeist/domain";
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
 

@@ -103,6 +103,34 @@ describe("Cursor pagination", () => {
 });
 
 describe("Indexed pagination", () => {
+  it("publishes a completed page before announcing its extent to synchronous readers", () => {
+    const registry = createRegistry();
+    let requests = 0;
+    const paging = Pagination.makeIndexed({
+      pageSize: 2,
+      source: {
+        initial: first,
+        cursorAt: (offset) => offset,
+        read: () =>
+          Effect.sync(() => {
+            requests++;
+            return last;
+          }),
+      },
+    });
+    registry.mount(paging.extent);
+    const observed: Array<Pagination.Page<string, number>> = [];
+    registry.subscribe(paging.extent, (extent) => {
+      if (!extent.hasMore) {
+        const result = registry.get(paging.pages(2));
+        if (result._tag === "Success") observed.push(result.value);
+      }
+    });
+    registry.mount(paging.pages(2));
+    expect(observed).toEqual([last]);
+    expect(requests).toBe(1);
+  });
+
   it("shares concurrent reads and keeps the initial page available without fetching", async () => {
     const registry = createRegistry();
     const response = Effect.runSync(Deferred.make<Pagination.Page<string, number>>());

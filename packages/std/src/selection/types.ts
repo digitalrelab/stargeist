@@ -23,7 +23,7 @@ export interface ReadOptions {
 export interface Source<A, Key, E, CollectionScope> {
   readonly scope: CollectionScope;
   readonly extent: Atom.Atom<Extent>;
-  readonly keyOf: (item: A) => Key;
+  readonly keyOf: (position: Position<A>) => Key;
   readonly read: (index: number, options: ReadOptions) => ReadEffect<A | undefined, E>;
   readonly readRange: (
     from: number,

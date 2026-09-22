@@ -10,7 +10,7 @@ import { FileActionsPalette } from "./actions-palette";
 
 export function FileSelectionBar() {
   const browser = useFileBrowserContext();
-  const extent = useAtomValue(browser.listing.extent);
+  const extent = useAtomValue(browser.contents.extent);
   const selection = useAtomValue(browser.selection.selection);
   const request = useAtomValue(browser.selection.request);
   const operation = useAtomValue(browser.selection.operation);

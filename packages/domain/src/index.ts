@@ -1,12 +1,13 @@
+export { AgentModelCatalog, AgentModelPreferenceError, AgentModelPreferences } from "./ai";
 export * from "./workspaces";
 export {
-  FileSystemEntry,
-  DirectoryListingPage,
-  ListingId,
+  DirectoryPage,
+  DirectorySessionId,
   PageOffset,
-  entryPageSize,
+  directoryPageSize,
   DirectoryError,
 } from "./filesystem";
+export * from "./files";
 export {
   UserPreferences,
   UserPreferencesError,

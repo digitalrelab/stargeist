@@ -19,11 +19,10 @@ export function workspaceRecovery(cause: Cause.Cause<unknown>): ReadonlyArray<Wo
     case "RootConflict":
       return ["open"];
     case "BackendUnavailable":
-    case "UnsupportedFormat":
       return [];
     case "FolderPickerUnavailable":
     case "StorageUnavailable":
-    case "ListingExpired":
+    case "DirectorySessionExpired":
       return ["retry"];
   }
 }

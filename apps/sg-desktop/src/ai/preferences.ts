@@ -1,5 +1,8 @@
-import { AgentModelPreferenceError, AgentModelPreferences } from "@stargeist/domain/ai";
-import { UserPreferences } from "@stargeist/domain";
+import {
+  AgentModelPreferenceError,
+  AgentModelPreferences,
+  UserPreferences,
+} from "@stargeist/domain";
 import { Effect, Layer } from "effect";
 
 const unavailable = () =>

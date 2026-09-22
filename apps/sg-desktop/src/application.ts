@@ -6,7 +6,7 @@ import { RpcClient, RpcServer } from "effect/unstable/rpc";
 import { AgentModelsEndpoint, aiServicesLayer, ProviderConnectionsEndpoint } from "./ai";
 import { openBackend, servePort } from "./backend";
 import { folderPickerLayer } from "./filesystem/host";
-import { pathsLayer } from "./storage";
+import { AppStorage } from "@stargeist/storage";
 import { WindowsModule, WindowConnections, runWindows } from "./window";
 import { userPreferencesLayer } from "./user-preferences";
 import { workspaceCommandsLayer, WorkspaceDialogsEndpoint } from "./workspaces/host";
@@ -62,4 +62,4 @@ export const desktopProgram = Effect.gen(function* () {
     ],
     { concurrency: 2, discard: true },
   );
-}).pipe(Effect.provide(Layer.unwrap(Effect.sync(() => pathsLayer(app.getPath("userData"))))));
+}).pipe(Effect.provide(Layer.unwrap(Effect.sync(() => AppStorage.layer(app.getPath("userData"))))));

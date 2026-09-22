@@ -8,7 +8,7 @@ import {
   ProviderConfigurationStore,
 } from "@stargeist/ai";
 import { Effect, Layer, Predicate, RcMap, Redacted, Schema, Semaphore } from "effect";
-import { StoragePaths } from "../storage";
+import { AppStorage } from "@stargeist/storage";
 import { SecretProtection } from "./protection";
 
 const StoredCredential = Schema.Struct({
@@ -37,7 +37,7 @@ const maxCredentialBytes = 64 * 1024;
 export const providerConfigurationStoreLayer = Layer.effect(
   ProviderConfigurationStore,
   Effect.gen(function* () {
-    const { credentials: directory } = yield* StoragePaths;
+    const { credentials: directory } = yield* AppStorage;
     const protection = yield* SecretProtection;
     const locks = yield* RcMap.make({ lookup: (_id: string) => Semaphore.make(1) });
     const withLock = <A, E>(id: string, operation: Effect.Effect<A, E>) =>

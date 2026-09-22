@@ -2,9 +2,13 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import {
   existsSync,
+  chmodSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -23,13 +27,14 @@ import {
 } from "./desktop/index";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { previewReset, resetData } from "./reset";
+import { rememberWorkspaces } from "./workspaces.test-support";
 
 const require = createRequire(import.meta.url);
 const loader = pathToFileURL(require.resolve("tsx")).href;
 const worker = fileURLToPath(new URL("./fixtures/profile-process.ts", import.meta.url));
 
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "stargeist profile "));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "stargeist profile ")));
   const application = join(root, "checkout");
   const appData = join(root, "appData");
 
@@ -152,6 +157,284 @@ it("cleans an interrupted detached reset before resetting new data", () => {
   expect(existsSync(profile.data)).toBe(false);
 });
 
+it("resets after interrupted database publication without changing data through hard links", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const workspace = join(root, "workspace");
+  const metadata = join(workspace, ".stargeist");
+  mkdirSync(metadata, { recursive: true });
+  await rememberWorkspaces(profile, [workspace]);
+  const database = join(profile.data, "application.sqlite");
+  const staging = join(profile.data, ".application-database-interrupted");
+  mkdirSync(staging);
+  linkSync(database, join(staging, "application.sqlite"));
+  await rememberWorkspaces(profile, []);
+  const outside = join(root, "preserved.sqlite");
+  linkSync(database, outside);
+  const before = readFileSync(outside);
+
+  const preview = previewReset(profile);
+  expect(preview.workspaces).toEqual([{ root: workspace, path: metadata, status: "ready" }]);
+  expect(readFileSync(outside)).toEqual(before);
+  expect(existsSync(metadata)).toBe(true);
+  expect(resetData(profile, preview).status).toBe("reset-complete");
+  expect(existsSync(metadata)).toBe(false);
+  expect(existsSync(profile.data)).toBe(false);
+  expect(readFileSync(outside)).toEqual(before);
+});
+
+it("refuses a redirected workspace registry before deleting workspace or application data", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const workspace = join(root, "workspace");
+  const metadata = join(workspace, ".stargeist");
+  mkdirSync(metadata, { recursive: true });
+  await rememberWorkspaces(profile, [workspace]);
+  const database = join(profile.data, "application.sqlite");
+  const outside = join(root, "preserved.sqlite");
+  renameSync(database, outside);
+  symlinkSync(outside, database, "file");
+  const before = readFileSync(outside);
+
+  expect(() => previewReset(profile)).toThrow(/ordinary file/);
+  expect(() => resetData(profile)).toThrow(/ordinary file/);
+  expect(existsSync(metadata)).toBe(true);
+  expect(existsSync(profile.data)).toBe(true);
+  expect(readFileSync(outside)).toEqual(before);
+});
+
+it("previews and resets registered nested workspaces while preserving ordinary files and unknown workspaces", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const parent = join(root, "workspace");
+  const child = join(parent, "child");
+  const unknown = join(parent, "unknown");
+  const missing = join(root, "missing");
+  for (const folder of [parent, child, unknown]) {
+    mkdirSync(join(folder, ".stargeist"), { recursive: true });
+    writeFileSync(join(folder, ".stargeist", "workspace.json"), "old or invalid metadata");
+    writeFileSync(join(folder, "notes.txt"), "ordinary file");
+  }
+  await rememberWorkspaces(profile, [parent, child, missing]);
+  writeFileSync(join(profile.data, "user-preferences.json"), "preferences");
+  const before = readFileSync(join(profile.data, "application.sqlite"));
+
+  const preview = previewReset(profile);
+  expect(preview.workspaces).toEqual([
+    { root: missing, path: join(missing, ".stargeist"), status: "missing" },
+    { root: parent, path: join(parent, ".stargeist"), status: "ready" },
+    { root: child, path: join(child, ".stargeist"), status: "ready" },
+  ]);
+  expect(readFileSync(join(profile.data, "application.sqlite"))).toEqual(before);
+  expect(existsSync(join(parent, ".stargeist"))).toBe(true);
+
+  const result = resetData(profile, preview);
+  expect(result.status).toBe("reset-complete");
+  expect(result.workspaces.map(({ status }) => status)).toEqual(["missing", "removed", "removed"]);
+  for (const folder of [parent, child]) {
+    expect(existsSync(join(folder, ".stargeist"))).toBe(false);
+    expect(readFileSync(join(folder, "notes.txt"), "utf8")).toBe("ordinary file");
+  }
+  expect(readFileSync(join(unknown, ".stargeist", "workspace.json"), "utf8")).toBe(
+    "old or invalid metadata",
+  );
+  expect(existsSync(profile.data)).toBe(false);
+  expect(resetData(profile).status).toBe("already-empty");
+});
+
+it("preserves the registry after partial cleanup and retries the remaining workspace", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const first = join(root, "first");
+  const second = join(root, "second");
+  const outside = join(root, "outside");
+  mkdirSync(join(first, ".stargeist"), { recursive: true });
+  mkdirSync(second);
+  mkdirSync(outside);
+  writeFileSync(join(outside, "preserve.txt"), "preserve");
+  let linkType: "dir" | "junction" = "dir";
+  if (process.platform === "win32") {
+    linkType = "junction";
+  }
+  symlinkSync(outside, join(second, ".stargeist"), linkType);
+  await rememberWorkspaces(profile, [first, second]);
+  const before = readFileSync(join(profile.data, "application.sqlite"));
+
+  const failed = resetData(profile);
+  expect(failed.status).toBe("reset-incomplete");
+  expect(failed.workspaces.map(({ status }) => status)).toEqual(["removed", "blocked"]);
+  expect(readFileSync(join(profile.data, "application.sqlite"))).toEqual(before);
+  expect(readFileSync(join(outside, "preserve.txt"), "utf8")).toBe("preserve");
+
+  rmSync(join(second, ".stargeist"));
+  mkdirSync(join(second, ".stargeist"));
+  const retried = resetData(profile);
+  expect(retried.status).toBe("reset-complete");
+  expect(retried.workspaces.map(({ status }) => status)).toEqual(["missing", "removed"]);
+  expect(existsSync(profile.data)).toBe(false);
+});
+
+it.runIf(process.platform !== "win32" && process.getuid?.() !== 0)(
+  "preserves registry data when metadata deletion fails and completes after permissions are repaired",
+  async () => {
+    const { root, profile } = fixture();
+    initializeProfile(profile);
+    const workspace = join(root, "workspace");
+    const metadata = join(workspace, ".stargeist");
+    mkdirSync(metadata, { recursive: true });
+    writeFileSync(join(metadata, "workspace.json"), "old metadata");
+    await rememberWorkspaces(profile, [workspace]);
+    chmodSync(metadata, 0o555);
+    try {
+      expect(previewReset(profile).workspaces[0]?.status).toBe("ready");
+      const result = resetData(profile);
+      expect(result.status).toBe("reset-incomplete");
+      expect(result.workspaces[0]).toMatchObject({ status: "blocked", path: metadata });
+      expect(existsSync(join(profile.data, "application.sqlite"))).toBe(true);
+    } finally {
+      chmodSync(metadata, 0o755);
+    }
+    expect(resetData(profile).status).toBe("reset-complete");
+    expect(existsSync(metadata)).toBe(false);
+  },
+);
+
+it("requires a new preview if registered workspaces change before reset", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const first = join(root, "first");
+  const added = join(root, "added");
+  mkdirSync(join(first, ".stargeist"), { recursive: true });
+  mkdirSync(join(added, ".stargeist"), { recursive: true });
+  await rememberWorkspaces(profile, [first]);
+  const preview = previewReset(profile);
+  await rememberWorkspaces(profile, [added]);
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(existsSync(join(first, ".stargeist"))).toBe(true);
+  expect(existsSync(join(added, ".stargeist"))).toBe(true);
+  expect(existsSync(profile.data)).toBe(true);
+});
+
+it("keeps app data created after the preview", () => {
+  const { profile } = fixture();
+  initializeProfile(profile);
+  const preview = previewReset(profile);
+  mkdirSync(profile.data);
+  const file = join(profile.data, "new.txt");
+  writeFileSync(file, "keep");
+
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(readFileSync(file, "utf8")).toBe("keep");
+});
+
+it("keeps app data replaced after the preview", () => {
+  const { profile } = fixture();
+  initializeProfile(profile);
+  mkdirSync(profile.data);
+  writeFileSync(join(profile.data, "original.txt"), "original");
+  const preview = previewReset(profile);
+  renameSync(profile.data, `${profile.data}-previous`);
+  mkdirSync(profile.data);
+  const replacement = join(profile.data, "replacement.txt");
+  writeFileSync(replacement, "keep");
+
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(readFileSync(replacement, "utf8")).toBe("keep");
+});
+
+it("keeps workspace metadata replaced after the preview", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const workspace = join(root, "workspace");
+  const metadata = join(workspace, ".stargeist");
+  mkdirSync(metadata, { recursive: true });
+  await rememberWorkspaces(profile, [workspace]);
+  const preview = previewReset(profile);
+  renameSync(metadata, `${metadata}-previous`);
+  mkdirSync(metadata);
+  const replacement = join(metadata, "replacement.txt");
+  writeFileSync(replacement, "keep");
+
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(readFileSync(replacement, "utf8")).toBe("keep");
+  expect(existsSync(profile.data)).toBe(true);
+});
+
+it.each(["appears", "disappears"] as const)(
+  "requires a new preview if registered workspace metadata %s before reset",
+  async (change) => {
+    const { root, profile } = fixture();
+    initializeProfile(profile);
+    const workspace = join(root, "workspace");
+    const metadata = join(workspace, ".stargeist");
+    if (change === "disappears") {
+      mkdirSync(metadata, { recursive: true });
+    }
+    await rememberWorkspaces(profile, [workspace]);
+    const preview = previewReset(profile);
+
+    if (change === "disappears") {
+      rmSync(metadata, { recursive: true });
+    } else {
+      mkdirSync(metadata, { recursive: true });
+    }
+
+    expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+    if (change === "appears") {
+      expect(existsSync(metadata)).toBe(true);
+    }
+    expect(existsSync(profile.data)).toBe(true);
+  },
+);
+
+it("refuses a stale preview when the profile disappears before reset", async () => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const workspace = join(root, "workspace");
+  mkdirSync(join(workspace, ".stargeist"), { recursive: true });
+  await rememberWorkspaces(profile, [workspace]);
+  const preview = previewReset(profile);
+  rmSync(profile.root, { recursive: true });
+
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(existsSync(join(workspace, ".stargeist"))).toBe(true);
+});
+
+it("preserves application data when the workspace registry cannot be read", () => {
+  const { profile } = fixture();
+  initializeProfile(profile);
+  mkdirSync(profile.data);
+  const database = join(profile.data, "application.sqlite");
+  writeFileSync(database, "unreadable registry");
+  expect(() => previewReset(profile)).toThrow(/Known workspaces could not be read/);
+  expect(() => resetData(profile)).toThrow(/Known workspaces could not be read/);
+  expect(readFileSync(database, "utf8")).toBe("unreadable registry");
+});
+
+it.each(["root", "ancestor"])("refuses a workspace redirected through its %s", async (target) => {
+  const { root, profile } = fixture();
+  initializeProfile(profile);
+  const parent = join(root, "parent");
+  const workspace = join(parent, "workspace");
+  const outside = join(root, "outside");
+  mkdirSync(join(workspace, ".stargeist"), { recursive: true });
+  writeFileSync(join(workspace, ".stargeist", "workspace.json"), "preserve");
+  await rememberWorkspaces(profile, [workspace]);
+  let replaced = workspace;
+  if (target === "ancestor") {
+    replaced = parent;
+  }
+  renameSync(replaced, outside);
+  let linkType: "dir" | "junction" = "dir";
+  if (process.platform === "win32") {
+    linkType = "junction";
+  }
+  symlinkSync(outside, replaced, linkType);
+  expect(resetData(profile).status).toBe("reset-incomplete");
+  expect(readFileSync(join(workspace, ".stargeist", "workspace.json"), "utf8")).toBe("preserve");
+  expect(existsSync(profile.data)).toBe(true);
+});
+
 it.each(["data", "quarantine", "root"] as const)("refuses a redirected %s directory", (target) => {
   const { root, profile } = fixture();
   initializeProfile(profile);
@@ -162,7 +445,11 @@ it.each(["data", "quarantine", "root"] as const)("refuses a redirected %s direct
   if (target === "root") {
     rmSync(profile.root, { recursive: true });
   }
-  symlinkSync(external, profile[target], process.platform === "win32" ? "junction" : "dir");
+  let linkType: "dir" | "junction" = "dir";
+  if (process.platform === "win32") {
+    linkType = "junction";
+  }
+  symlinkSync(external, profile[target], linkType);
 
   expect(() => resetData(profile)).toThrow(/ordinary directory/);
   expect(readFileSync(join(external, "precious.txt"), "utf8")).toBe("preserve");
@@ -171,7 +458,8 @@ it.each(["data", "quarantine", "root"] as const)("refuses a redirected %s direct
 it("refuses reset until both independently running consumers exit, including abrupt host death", async () => {
   const { profile, application, appData } = fixture();
   initializeProfile(profile);
-  mkdirSync(profile.data);
+  mkdirSync(join(application, ".stargeist"));
+  await rememberWorkspaces(profile, [application]);
   writeFileSync(join(profile.data, "stargeist.sqlite"), "live database");
 
   const [host, backend] = await Promise.all([
@@ -184,10 +472,12 @@ it("refuses reset until both independently running consumers exit, including abr
 
   await kill(host);
   expect(() => resetData(profile)).toThrow(/in use/);
+  expect(existsSync(join(application, ".stargeist"))).toBe(true);
   expect(readFileSync(join(profile.data, "stargeist.sqlite"), "utf8")).toBe("live database");
 
   await kill(backend);
   expect(resetData(profile).status).toBe("reset-complete");
+  expect(existsSync(join(application, ".stargeist"))).toBe(false);
 });
 
 it("blocks startup and a second reset while maintenance holds exclusive access", async () => {

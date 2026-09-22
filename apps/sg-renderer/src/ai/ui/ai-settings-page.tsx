@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { ModelReference, ProviderModelCatalog } from "@stargeist/ai";
-import type { AgentModelPreferenceError } from "@stargeist/domain/ai";
+import type { AgentModelPreferenceError } from "@stargeist/domain";
 import { Button, Item, Skeleton, typography } from "@stargeist/ui";
 import { colors, control, fonts, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";

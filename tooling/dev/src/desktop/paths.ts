@@ -1,3 +1,4 @@
+import { AppStorage } from "@stargeist/storage";
 import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
@@ -67,10 +68,11 @@ export function developmentProfile(applicationPath: string, appData = applicatio
   const root = join(base, identity);
   const controls = join(base, ".control");
   const control = join(controls, identity);
+  const storage = AppStorage.at(root);
 
   return {
     root,
-    data: join(root, "data"),
+    data: storage.directory,
     application,
     identity,
     base,
@@ -78,7 +80,7 @@ export function developmentProfile(applicationPath: string, appData = applicatio
     control,
     lock: join(control, "profile.lock"),
     marker: join(root, ".development-owner.json"),
-    quarantine: join(control, "discarded-data"),
+    quarantine: storage.quarantine,
   };
 }
 

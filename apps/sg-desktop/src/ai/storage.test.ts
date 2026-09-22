@@ -15,7 +15,7 @@ import {
 import { Deferred, Effect, Fiber, Layer, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
-import { pathsLayer } from "../storage";
+import { AppStorage } from "@stargeist/storage";
 import { SecretProtection } from "./protection";
 import { providersLayer } from "./providers";
 import { providerConfigurationStoreLayer } from "./storage";
@@ -62,7 +62,7 @@ async function fixture() {
       }),
   };
   const layer = providerConfigurationStoreLayer.pipe(
-    Layer.provide(pathsLayer(profile)),
+    Layer.provide(AppStorage.layer(profile)),
     Layer.provide(Layer.succeed(SecretProtection, protection)),
   );
   return {
@@ -117,7 +117,7 @@ it("keeps other providers usable during key rotation and prevents rotation from 
       const started = yield* Deferred.make<void>();
       const finish = yield* Deferred.make<void>();
       const layer = providerConfigurationStoreLayer.pipe(
-        Layer.provide(pathsLayer(setup.profile)),
+        Layer.provide(AppStorage.layer(setup.profile)),
         Layer.provide(
           Layer.succeed(SecretProtection, {
             ...setup.protection,

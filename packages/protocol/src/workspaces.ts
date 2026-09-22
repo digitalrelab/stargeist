@@ -3,8 +3,8 @@ import {
   Workspace,
   WorkspaceView,
   WorkspaceId,
-  DirectoryListingPage,
-  ListingId,
+  DirectoryPage,
+  DirectorySessionId,
   PageOffset,
 } from "@stargeist/domain";
 import { Schema } from "effect";
@@ -24,8 +24,8 @@ export const WorkspaceRpcs = RpcGroup.make(
     error: WorkspaceError,
   }),
   Rpc.make("readDirectory", {
-    payload: { listingId: ListingId, offset: PageOffset },
-    success: DirectoryListingPage,
+    payload: { directorySessionId: DirectorySessionId, offset: PageOffset },
+    success: DirectoryPage,
     error: WorkspaceError,
   }),
 ).prefix("workspaces.");

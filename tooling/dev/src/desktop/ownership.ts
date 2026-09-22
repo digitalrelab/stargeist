@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync } from "node:fs";
 import { Schema } from "effect";
+import { AppStorage } from "@stargeist/storage";
 import { ProfileError } from "./errors";
 import type { DevelopmentProfile } from "./paths";
 
@@ -11,32 +12,10 @@ const Owner = Schema.Struct({
 
 const decodeOwner = Schema.decodeUnknownSync(Schema.fromJsonString(Owner));
 
-export function pathStat(path: string) {
-  try {
-    return lstatSync(path);
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return undefined;
-    }
-
-    throw error;
-  }
-}
-
-export function validateDirectory(path: string) {
-  const stat = pathStat(path);
-
-  if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) {
-    throw new ProfileError("unsafe-path", `Expected an ordinary directory: ${path}`);
-  }
-
-  return stat;
-}
-
 export function validateFile(path: string) {
-  const stat = pathStat(path);
+  const stat = lstatSync(path, { throwIfNoEntry: false });
 
-  if (stat && (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)) {
+  if (stat && (!stat.isFile() || stat.nlink !== 1)) {
     throw new ProfileError("unsafe-path", `Expected an ordinary file without hard links: ${path}`);
   }
 
@@ -44,16 +23,14 @@ export function validateFile(path: string) {
 }
 
 export function validateProfilePaths(profile: DevelopmentProfile) {
-  for (const path of [
-    profile.base,
-    profile.controls,
-    profile.control,
-    profile.root,
-    profile.data,
-    profile.quarantine,
-  ]) {
-    validateDirectory(path);
+  for (const path of [profile.base, profile.controls, profile.control]) {
+    const stat = lstatSync(path, { throwIfNoEntry: false });
+    if (stat && !stat.isDirectory()) {
+      throw new ProfileError("unsafe-path", `Expected an ordinary directory: ${path}`);
+    }
   }
+
+  AppStorage.at(profile.root).inspect();
 
   validateFile(profile.lock);
   validateFile(profile.marker);
@@ -70,11 +47,11 @@ export function profileOwner(profile: DevelopmentProfile) {
 export function inspectProfile(profile: DevelopmentProfile): "missing" | "unmanaged" | "ready" {
   validateProfilePaths(profile);
 
-  if (!pathStat(profile.root)) {
+  if (!lstatSync(profile.root, { throwIfNoEntry: false })) {
     return "missing";
   }
 
-  if (!pathStat(profile.marker)) {
+  if (!lstatSync(profile.marker, { throwIfNoEntry: false })) {
     return "unmanaged";
   }
 
