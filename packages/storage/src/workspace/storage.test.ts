@@ -62,12 +62,10 @@ it("preserves identity after a move or copy and resolves symlink aliases", async
     Effect.gen(function* () {
       expect(yield* WorkspaceStorage.at(alias).read).toEqual({
         identity: original.identity,
-        createdAt: original.createdAt,
         root: moved,
       });
       expect(yield* WorkspaceStorage.at(copied).read).toEqual({
         identity: original.identity,
-        createdAt: original.createdAt,
         root: copied,
       });
       expect(yield* WorkspaceStorage.at(folder).read.pipe(Effect.flip)).toMatchObject({
@@ -76,12 +74,12 @@ it("preserves identity after a move or copy and resolves symlink aliases", async
     }),
   );
   const manifest = JSON.parse(await readFile(join(moved, ".stargeist", "workspace.json"), "utf8"));
-  expect(Object.keys(manifest).sort()).toEqual(["createdAt", "id"]);
+  expect(Object.keys(manifest)).toEqual(["id"]);
 });
 
 it.each([
   ["{", "InvalidWorkspace"],
-  [JSON.stringify({ id: "invalid", createdAt: 1 }), "InvalidWorkspace"],
+  [JSON.stringify({ id: "invalid" }), "InvalidWorkspace"],
   [" ".repeat(65537), "InvalidWorkspace"],
 ])(
   "rejects invalid metadata without overwriting it or falling back to a parent",

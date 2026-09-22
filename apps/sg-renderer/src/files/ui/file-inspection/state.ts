@@ -171,7 +171,7 @@ export function describeFileInspection(target: FileInspection) {
   const { members } = target.selection;
   const count = Selection.count(members, target.total);
   if (target.file) {
-    return { type: "file" as const, name: target.file.name, id: target.file.id };
+    return { type: "file" as const, name: target.file.name };
   }
 
   if (count !== undefined) {

@@ -202,7 +202,6 @@ it("describes the remaining selected file and clears inspection when selection b
   expect(describeFileInspection(target()!)).toEqual({
     type: "file",
     name: "file-0",
-    id: fileAt(0).id,
   });
   interact(input("select", 1));
   expect(target()).toBeUndefined();
@@ -231,7 +230,6 @@ it("resolves the remaining select-all occurrence when the focused row is exclude
   expect(describeFileInspection(target()!)).toEqual({
     type: "file",
     name: "file-2",
-    id: fileAt(2).id,
   });
   expect(registry.get(inspection.inspectedIndex(listingId))).toBe(2);
   expect(reads).toEqual([2]);

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { WorkspaceError } from "@stargeist/domain";
 import * as Id from "@stargeist/std/id";
 import { reportFailure } from "@stargeist/std/errors";
-import { Clock, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { syncDirectory } from "../directory";
 
 export const workspaceDirectoryName = ".stargeist";
@@ -14,7 +14,6 @@ const maximumManifestBytes = 65536;
 const { schema: Identity, generate: makeIdentity } = Id.define("wsp");
 const Manifest = Schema.Struct({
   id: Identity,
-  createdAt: Schema.Number,
 });
 const decodeManifest = Schema.decodeUnknownSync(Manifest, { onExcessProperty: "error" });
 const invalid = () =>
@@ -59,7 +58,6 @@ async function markerExists(root: string) {
 export interface WorkspaceMetadata {
   readonly identity: string;
   readonly root: string;
-  readonly createdAt: number;
 }
 
 async function readManifest(root: string): Promise<WorkspaceMetadata> {
@@ -81,7 +79,7 @@ async function readManifest(root: string): Promise<WorkspaceMetadata> {
     try {
       value = JSON.parse(bytes.subarray(0, length).toString("utf8"));
       const manifest = decodeManifest(value);
-      return { identity: manifest.id, root, createdAt: manifest.createdAt };
+      return { identity: manifest.id, root };
     } catch {
       throw invalid();
     }
@@ -156,7 +154,6 @@ export const initialize = Effect.fnUntraced(function* (path: string) {
     if (existing) return existing;
 
     const id = yield* makeIdentity;
-    const createdAt = yield* Clock.currentTimeMillis;
     const temporary = yield* Effect.acquireRelease(
       Effect.tryPromise(() => mkdtemp(join(root, ".stargeist-initialize-"))),
       (path) => Effect.promise(() => rm(path, { recursive: true, force: true })),
@@ -164,7 +161,7 @@ export const initialize = Effect.fnUntraced(function* (path: string) {
     return yield* Effect.tryPromise(async () => {
       const file = await open(join(temporary, manifestName), "wx", 0o600);
       try {
-        await file.writeFile(`${JSON.stringify({ id, createdAt }, null, 2)}\n`);
+        await file.writeFile(`${JSON.stringify({ id }, null, 2)}\n`);
         await file.sync();
       } finally {
         await file.close();
