@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { AIProviderConnections, ProviderConnectionError } from "@stargeist/domain";
 import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { pathsLayer } from "../storage";
+import { AppStorage } from "@stargeist/storage";
 import { connectionsLayer } from "./connections";
 import { Credentials, type StoredCredential } from "./credentials";
 import { SecretProtection } from "./protection";
@@ -54,7 +54,7 @@ async function fixture() {
       }),
   };
   const layer = credentialsLayer.pipe(
-    Layer.provide(pathsLayer(profile)),
+    Layer.provide(AppStorage.layer(profile)),
     Layer.provide(Layer.succeed(SecretProtection, protection)),
   );
   return {
@@ -106,7 +106,7 @@ it("keeps other providers usable during key rotation and prevents rotation from 
       const started = yield* Deferred.make<void>();
       const finish = yield* Deferred.make<void>();
       const layer = credentialsLayer.pipe(
-        Layer.provide(pathsLayer(setup.profile)),
+        Layer.provide(AppStorage.layer(setup.profile)),
         Layer.provide(
           Layer.succeed(SecretProtection, {
             ...setup.protection,

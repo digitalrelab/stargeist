@@ -14,19 +14,18 @@ import { join } from "node:path";
 import { Effect, Layer, Exit, Scope } from "effect";
 import { directoryPageSize, Files } from "@stargeist/domain";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { pathsLayer, temporaryStorageLayer } from "../storage";
+import { AppStorage, temporaryStorageLayer, WorkspaceStorage } from "@stargeist/storage";
 import { openListing } from "../filesystem";
 import { BackendApplication } from "../backend/application";
-import { workspaceRoots } from "../workspaces/roots";
 
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), "stargeist-file-identities-"));
   onTestFinished(() => rm(base, { recursive: true, force: true }));
   const root = join(base, "workspace");
   await mkdir(root);
-  await Effect.runPromise(workspaceRoots.initialize(root));
+  await Effect.runPromise(WorkspaceStorage.at(root).initialize);
   const layer = Layer.merge(BackendApplication.layer, temporaryStorageLayer).pipe(
-    Layer.provide(pathsLayer(join(base, "profile"))),
+    Layer.provide(AppStorage.layer(join(base, "profile"))),
   );
   const listing = (path = root) =>
     openListing(path, { exclude: new Set([".stargeist"]) }).pipe(
@@ -88,7 +87,7 @@ it("shares IDs across moved, nested and overlapping workspace views", async () =
 
   const nested = join(moved, "nested");
   await mkdir(nested);
-  await Effect.runPromise(workspaceRoots.initialize(nested));
+  await Effect.runPromise(WorkspaceStorage.at(nested).initialize);
   await link(join(moved, "notes.txt"), join(nested, "notes.txt"));
   const child = (await list(nested)).find((file) => file.name === "notes.txt")!;
   expect(child.id).toBe(original.id);

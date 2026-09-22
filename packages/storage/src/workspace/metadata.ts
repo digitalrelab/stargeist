@@ -3,7 +3,6 @@ import { lstat, mkdtemp, open, realpath, rename, rm, rmdir, stat } from "node:fs
 import { dirname, join } from "node:path";
 import { WorkspaceError } from "@stargeist/domain";
 import * as Id from "@stargeist/std/id";
-import type { WorkspaceRoots } from "./storage";
 import { reportFailure } from "@stargeist/std/errors";
 import { Clock, Effect, Schema } from "effect";
 
@@ -66,7 +65,13 @@ async function markerExists(root: string) {
   }
 }
 
-async function readManifest(root: string) {
+export interface WorkspaceMetadata {
+  readonly identity: string;
+  readonly root: string;
+  readonly createdAt: number;
+}
+
+async function readManifest(root: string): Promise<WorkspaceMetadata> {
   const filename = join(root, workspaceDirectoryName, manifestName);
   let file;
   try {
@@ -112,83 +117,83 @@ const readOperation = <A>(operation: string, run: () => Promise<A>) =>
     }),
   );
 
-export const workspaceRoots: WorkspaceRoots = {
-  read: (path) =>
-    readOperation("workspaces.root.read", async () => {
-      const root = await canonicalDirectory(path);
-      if (!(await markerExists(root))) {
-        throw new WorkspaceError({
-          code: "InvalidWorkspace",
-          message: "Workspace data is missing. Locate or restore the workspace.",
-        });
-      }
-      return readManifest(root);
-    }),
-  discover: (path) =>
-    readOperation("workspaces.root.discover", async () => {
-      let root = await canonicalDirectory(path);
-      while (true) {
-        if (await markerExists(root)) return readManifest(root);
-        const parent = dirname(root);
-        if (parent === root) return null;
-        root = parent;
-      }
-    }),
-  initialize: Effect.fnUntraced(function* (path) {
-    const root = yield* readOperation("workspaces.root.resolve", () => canonicalDirectory(path));
-    const id = yield* makeIdentity;
-    const createdAt = yield* Clock.currentTimeMillis;
-    return yield* Effect.gen(function* () {
-      const directory = join(root, workspaceDirectoryName);
-      const existing = yield* Effect.tryPromise(async () => {
-        if (await markerExists(root)) {
-          let hasManifest = true;
-          try {
-            await lstat(join(directory, manifestName));
-          } catch (error) {
-            if (!hasCode(error, "ENOENT")) throw error;
-            hasManifest = false;
-          }
-          if (hasManifest) return readManifest(root);
-          try {
-            await rmdir(directory);
-          } catch (error) {
-            if (hasCode(error, "ENOTEMPTY") || hasCode(error, "EEXIST")) return readManifest(root);
-            if (!hasCode(error, "ENOENT")) throw error;
-          }
-        }
+export const read = (path: string) =>
+  readOperation("workspaces.root.read", async () => {
+    const root = await canonicalDirectory(path);
+    if (!(await markerExists(root))) {
+      throw new WorkspaceError({
+        code: "InvalidWorkspace",
+        message: "Workspace data is missing. Locate or restore the workspace.",
       });
-      if (existing) return existing;
+    }
+    return readManifest(root);
+  });
 
-      const temporary = yield* Effect.acquireRelease(
-        Effect.tryPromise(() => mkdtemp(join(root, ".stargeist-initialize-"))),
-        (path) => Effect.promise(() => rm(path, { recursive: true, force: true })),
-      );
-      return yield* Effect.tryPromise(async () => {
-        const file = await open(join(temporary, manifestName), "wx", 0o600);
+export const discover = (path: string) =>
+  readOperation("workspaces.root.discover", async () => {
+    let root = await canonicalDirectory(path);
+    while (true) {
+      if (await markerExists(root)) return readManifest(root);
+      const parent = dirname(root);
+      if (parent === root) return null;
+      root = parent;
+    }
+  });
+
+export const initialize = Effect.fnUntraced(function* (path: string) {
+  const root = yield* readOperation("workspaces.root.resolve", () => canonicalDirectory(path));
+  const id = yield* makeIdentity;
+  const createdAt = yield* Clock.currentTimeMillis;
+  return yield* Effect.gen(function* () {
+    const directory = join(root, workspaceDirectoryName);
+    const existing = yield* Effect.tryPromise(async () => {
+      if (await markerExists(root)) {
+        let hasManifest = true;
         try {
-          await file.writeFile(`${JSON.stringify({ id, createdAt }, null, 2)}\n`);
-          await file.sync();
-        } finally {
-          await file.close();
-        }
-        await syncDirectory(temporary);
-        try {
-          await rename(temporary, directory);
+          await lstat(join(directory, manifestName));
         } catch (error) {
-          if (!(await markerExists(root))) throw error;
+          if (!hasCode(error, "ENOENT")) throw error;
+          hasManifest = false;
         }
-        await syncDirectory(root);
-        return await readManifest(root);
-      });
-    }).pipe(
-      Effect.scoped,
-      Effect.onError((cause) => reportFailure("workspaces.root.initialize", cause)),
-      Effect.mapError((error) => {
-        if ("cause" in error && error.cause instanceof WorkspaceError) return error.cause;
-        return storageUnavailable();
-      }),
-      Effect.uninterruptible,
+        if (hasManifest) return readManifest(root);
+        try {
+          await rmdir(directory);
+        } catch (error) {
+          if (hasCode(error, "ENOTEMPTY") || hasCode(error, "EEXIST")) return readManifest(root);
+          if (!hasCode(error, "ENOENT")) throw error;
+        }
+      }
+    });
+    if (existing) return existing;
+
+    const temporary = yield* Effect.acquireRelease(
+      Effect.tryPromise(() => mkdtemp(join(root, ".stargeist-initialize-"))),
+      (path) => Effect.promise(() => rm(path, { recursive: true, force: true })),
     );
-  }),
-};
+    return yield* Effect.tryPromise(async () => {
+      const file = await open(join(temporary, manifestName), "wx", 0o600);
+      try {
+        await file.writeFile(`${JSON.stringify({ id, createdAt }, null, 2)}\n`);
+        await file.sync();
+      } finally {
+        await file.close();
+      }
+      await syncDirectory(temporary);
+      try {
+        await rename(temporary, directory);
+      } catch (error) {
+        if (!(await markerExists(root))) throw error;
+      }
+      await syncDirectory(root);
+      return await readManifest(root);
+    });
+  }).pipe(
+    Effect.scoped,
+    Effect.onError((cause) => reportFailure("workspaces.root.initialize", cause)),
+    Effect.mapError((error) => {
+      if ("cause" in error && error.cause instanceof WorkspaceError) return error.cause;
+      return storageUnavailable();
+    }),
+    Effect.uninterruptible,
+  );
+});

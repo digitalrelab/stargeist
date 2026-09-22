@@ -3,10 +3,11 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WorkspaceError, makeWorkspaceId } from "@stargeist/domain";
-import { Deferred, Effect, Fiber } from "effect";
+import { Deferred, Effect, Fiber, Layer } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { Database, databaseLayer } from "../database";
-import { makeWorkspaceStore, readWorkspaceRoots } from "./index";
+import { AppDatabase, openDatabase } from "../app/database";
+import { makeWorkspaceStore } from "./service";
+import { readWorkspaceRoots } from "./inspection";
 
 it("rolls back partial changes on domain failure and interruption", async () => {
   const folder = await mkdtemp(join(tmpdir(), "stargeist-store-"));
@@ -37,7 +38,7 @@ it("rolls back partial changes on domain failure and interruption", async () => 
       yield* Fiber.interrupt(fiber);
       expect(yield* store.list).toEqual([record]);
     }).pipe(
-      Effect.provide(databaseLayer(join(folder, "application.sqlite"))),
+      Effect.provide(Layer.effect(AppDatabase, openDatabase(join(folder, "application.sqlite")))),
       Effect.timeout("3 seconds"),
     ),
   );
@@ -48,7 +49,7 @@ it("participates in a transaction owned by the shared database", async () => {
   onTestFinished(() => rm(folder, { recursive: true, force: true }));
   await Effect.runPromise(
     Effect.gen(function* () {
-      const database = yield* Database;
+      const database = yield* AppDatabase;
       const store = yield* makeWorkspaceStore;
       const record = { id: yield* makeWorkspaceId, identity: "original", root: "/original" };
       const failure = new WorkspaceError({ code: "RootConflict", message: "Occupied" });
@@ -58,7 +59,9 @@ it("participates in a transaction owned by the shared database", async () => {
         )
         .pipe(Effect.flip);
       expect(yield* store.list).toEqual([]);
-    }).pipe(Effect.provide(databaseLayer(join(folder, "application.sqlite")))),
+    }).pipe(
+      Effect.provide(Layer.effect(AppDatabase, openDatabase(join(folder, "application.sqlite")))),
+    ),
   );
 });
 
@@ -71,7 +74,7 @@ it("reads known roots without changing the database or requiring unrelated table
       const store = yield* makeWorkspaceStore;
       const record = { id: yield* makeWorkspaceId, identity: "workspace", root: "/workspace" };
       yield* store.modify((records) => records.put(record));
-    }).pipe(Effect.provide(databaseLayer(filename))),
+    }).pipe(Effect.provide(Layer.effect(AppDatabase, openDatabase(filename)))),
   );
   {
     using database = new DatabaseSync(filename);

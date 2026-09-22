@@ -18,6 +18,7 @@
       "name": "@stargeist/desktop",
       "version": "0.0.0",
       "devDependencies": {
+        "@effect/sql-sqlite-node": "4.0.0-rc.116",
         "@electron-forge/cli": "7.11.2",
         "@electron-forge/maker-deb": "7.11.2",
         "@electron-forge/maker-rpm": "7.11.2",
@@ -26,13 +27,15 @@
         "@electron-forge/plugin-vite": "7.11.2",
         "@electron-forge/shared-types": "7.11.2",
         "@stargeist/application": "workspace:*",
-        "@stargeist/database": "workspace:*",
         "@stargeist/dev-tools": "workspace:*",
         "@stargeist/domain": "workspace:*",
         "@stargeist/protocol": "workspace:*",
         "@stargeist/renderer": "workspace:*",
         "@stargeist/std": "workspace:*",
+        "@stargeist/storage": "workspace:*",
         "@types/electron-squirrel-startup": "1.0.2",
+        "drizzle-kit": "1.0.0-rc.5-5935859",
+        "drizzle-orm": "1.0.0-rc.5-5935859",
         "effect": "catalog:",
         "electron": "44.4.3",
         "electron-squirrel-startup": "1.0.1",
@@ -75,20 +78,6 @@
         "effect": "catalog:",
       },
     },
-    "packages/database": {
-      "name": "@stargeist/database",
-      "version": "0.0.0",
-      "dependencies": {
-        "@effect/sql-sqlite-node": "4.0.0-rc.116",
-        "@stargeist/domain": "workspace:*",
-        "@stargeist/std": "workspace:*",
-        "drizzle-orm": "1.0.0-rc.5-5935859",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "drizzle-kit": "1.0.0-rc.5-5935859",
-      },
-    },
     "packages/domain": {
       "name": "@stargeist/domain",
       "version": "0.0.0",
@@ -123,6 +112,20 @@
         "@effect/atom-react",
         "react",
       ],
+    },
+    "packages/storage": {
+      "name": "@stargeist/storage",
+      "version": "0.0.0",
+      "dependencies": {
+        "@effect/sql-sqlite-node": "4.0.0-rc.116",
+        "@stargeist/domain": "workspace:*",
+        "@stargeist/std": "workspace:*",
+        "drizzle-orm": "1.0.0-rc.5-5935859",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "drizzle-kit": "1.0.0-rc.5-5935859",
+      },
     },
     "packages/ui": {
       "name": "@stargeist/ui",
@@ -163,8 +166,8 @@
       },
       "dependencies": {
         "@effect/platform-node": "4.0.0-rc.116",
-        "@stargeist/database": "workspace:*",
         "@stargeist/domain": "workspace:*",
+        "@stargeist/storage": "workspace:*",
         "effect": "catalog:",
         "fs-native-extensions": "1.5.1",
         "semver": "7.8.5",
@@ -581,8 +584,6 @@
 
     "@stargeist/checks": ["@stargeist/checks@workspace:tooling/checks"],
 
-    "@stargeist/database": ["@stargeist/database@workspace:packages/database"],
-
     "@stargeist/desktop": ["@stargeist/desktop@workspace:apps/sg-desktop"],
 
     "@stargeist/dev-tools": ["@stargeist/dev-tools@workspace:tooling/dev"],
@@ -594,6 +595,8 @@
     "@stargeist/renderer": ["@stargeist/renderer@workspace:apps/sg-renderer"],
 
     "@stargeist/std": ["@stargeist/std@workspace:packages/std"],
+
+    "@stargeist/storage": ["@stargeist/storage@workspace:packages/storage"],
 
     "@stargeist/ui": ["@stargeist/ui@workspace:packages/ui"],
 

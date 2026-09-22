@@ -2,7 +2,7 @@ import { WorkspaceError, WorkspaceId } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema } from "effect";
 import { eq } from "drizzle-orm";
-import { Database } from "../database";
+import { AppDatabase } from "../app/database";
 import { workspaces } from "./schema";
 
 const Record = Schema.Struct({
@@ -26,7 +26,7 @@ const storage = <A, E, R>(operation: string, effect: Effect.Effect<A, E, R>) =>
   );
 
 export const makeWorkspaceStore = Effect.gen(function* () {
-  const database = yield* Database;
+  const database = yield* AppDatabase;
   const records = (session: Pick<typeof database, "select" | "insert" | "delete">) => ({
     get: (id: WorkspaceId) =>
       storage(

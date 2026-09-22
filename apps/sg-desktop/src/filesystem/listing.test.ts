@@ -1,12 +1,15 @@
 import { mkdir, mkdtemp, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { databaseLayer } from "@stargeist/database";
-import { filesLayer } from "@stargeist/database/files";
+import {
+  filesLayer,
+  TemporaryStorage,
+  AppStorage,
+  temporaryStorageLayer,
+} from "@stargeist/storage";
 import { directoryPageSize } from "@stargeist/domain";
 import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { openListing } from "./index";
 
 async function createFixture(names: string[] = []) {
@@ -17,15 +20,13 @@ async function createFixture(names: string[] = []) {
   await mkdir(content);
   await Promise.all(names.map((name) => writeFile(join(content, name), "")));
 
-  const filename = join(root, "application.sqlite");
-
   return {
     content,
     open: () => openListing(content),
     layer: Layer.merge(
-      filesLayer.pipe(Layer.provide(databaseLayer(filename))),
-      temporaryStorageLayer.pipe(Layer.provide(pathsLayer(join(root, "profile")))),
-    ),
+      filesLayer.pipe(Layer.provide(AppStorage.database)),
+      temporaryStorageLayer,
+    ).pipe(Layer.provide(AppStorage.layer(join(root, "profile")))),
   };
 }
 

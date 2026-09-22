@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Console as NodeConsole } from "node:console";
 import { parseArgs } from "node:util";
+import { StorageError } from "@stargeist/storage";
 import { ProfileError } from "./desktop/index";
 import { Cause, Console, Effect } from "effect";
 import {
@@ -246,7 +247,7 @@ export function runCli(args: string[], createContext: () => ToolingContext = too
           }
 
           let code = "operation-failed";
-          if (original instanceof ProfileError) {
+          if (original instanceof ProfileError || original instanceof StorageError) {
             code = original.code;
           } else if (CliError.isCliError(error)) {
             code = "invalid-arguments";

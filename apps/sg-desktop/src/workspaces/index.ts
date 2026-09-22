@@ -1,15 +1,14 @@
 import { Module } from "@stargeist/application";
 import { Workspaces } from "@stargeist/domain";
-import { makeWorkspaceStore } from "@stargeist/database/workspaces";
+import { WorkspaceStorage, makeWorkspaceStore } from "@stargeist/storage";
 import { Effect, Layer } from "effect";
-import { workspaceRoots } from "./roots";
 import { makeWorkspaces } from "./service";
 
 const workspacesLayer = Layer.effect(
   Workspaces,
   Effect.gen(function* () {
     const store = yield* makeWorkspaceStore;
-    return makeWorkspaces(workspaceRoots, store);
+    return makeWorkspaces(WorkspaceStorage, store);
   }),
 );
 

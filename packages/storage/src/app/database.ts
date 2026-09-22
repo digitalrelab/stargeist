@@ -1,14 +1,12 @@
 import { link, lstat, mkdir, mkdtemp, open, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
 import * as Drizzle from "drizzle-orm/effect-sqlite-node";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
-import fileSchema from "./files/initial-schema.json";
-import workspaceSchema from "./workspaces/sqlite/initial-schema.json";
-
-export const databaseFilename = "application.sqlite";
+import fileSchema from "../files/initial-schema.json";
+import workspaceSchema from "../workspaces/initial-schema.json";
 
 const statements = [...workspaceSchema, ...fileSchema];
 const decodeSchema = Schema.decodeUnknownSync(
@@ -79,7 +77,7 @@ async function prepare(filename: string) {
 
   const temporary = await mkdtemp(join(directory, ".application-database-"));
   try {
-    const staged = join(temporary, databaseFilename);
+    const staged = join(temporary, basename(filename));
     const file = await open(staged, "wx", 0o600);
     await file.close();
     {
@@ -101,21 +99,17 @@ async function prepare(filename: string) {
   }
 }
 
-export class Database extends Context.Service<Database, Drizzle.EffectSQLiteNodeDatabase>()(
-  "@stargeist/database/Database",
+export class AppDatabase extends Context.Service<AppDatabase, Drizzle.EffectSQLiteNodeDatabase>()(
+  "@stargeist/storage/AppDatabase",
 ) {}
 
-export const databaseLayer = (filename: string) =>
-  Layer.effect(
-    Database,
-    Effect.gen(function* () {
-      yield* Effect.tryPromise(() => prepare(filename));
-      const context = yield* Layer.build(
-        SqliteClient.layer({ filename, prepareCacheSize: 32, busyTimeout: "1 second" }),
-      ).pipe(Effect.catchDefect((error) => Effect.fail(error)));
-      const database = yield* Drizzle.makeWithDefaults().pipe(Effect.provide(context));
-      yield* database.run(sql`PRAGMA foreign_keys = ON`);
-      yield* database.run(sql`PRAGMA synchronous = FULL`);
-      return database;
-    }),
-  );
+export const openDatabase = Effect.fnUntraced(function* (filename: string) {
+  yield* Effect.tryPromise(() => prepare(filename));
+  const context = yield* Layer.build(
+    SqliteClient.layer({ filename, prepareCacheSize: 32, busyTimeout: "1 second" }),
+  ).pipe(Effect.catchDefect((error) => Effect.fail(error)));
+  const database = yield* Drizzle.makeWithDefaults().pipe(Effect.provide(context));
+  yield* database.run(sql`PRAGMA foreign_keys = ON`);
+  yield* database.run(sql`PRAGMA synchronous = FULL`);
+  return database;
+});

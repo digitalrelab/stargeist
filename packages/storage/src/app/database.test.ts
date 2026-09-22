@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { makeWorkspaceId } from "@stargeist/domain";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { Database, databaseLayer } from "./database";
-import { makeWorkspaceStore } from "./workspaces";
+import { AppDatabase, openDatabase } from "./database";
+import { makeWorkspaceStore } from "../workspaces/service";
 
 async function fixture() {
   const folder = await mkdtemp(join(tmpdir(), "stargeist-database-"));
@@ -16,12 +16,12 @@ async function fixture() {
 
 it("initializes concurrently and retains records after the database is reopened", async () => {
   const { folder, filename } = await fixture();
-  const layer = databaseLayer(filename);
+  const layer = Layer.effect(AppDatabase, openDatabase(filename));
   await Effect.runPromise(
     Effect.all(
       [
-        Database.pipe(Effect.provide(layer)),
-        Database.pipe(Effect.provide(databaseLayer(filename))),
+        AppDatabase.pipe(Effect.provide(layer)),
+        AppDatabase.pipe(Effect.provide(Layer.effect(AppDatabase, openDatabase(filename)))),
       ],
       { concurrency: 2 },
     ),
@@ -37,7 +37,7 @@ it("initializes concurrently and retains records after the database is reopened"
   const records = await Effect.runPromise(
     makeWorkspaceStore.pipe(
       Effect.flatMap((store) => store.list),
-      Effect.provide(databaseLayer(filename)),
+      Effect.provide(Layer.effect(AppDatabase, openDatabase(filename))),
     ),
   );
   expect(records).toEqual([record]);
@@ -50,7 +50,7 @@ it.each(["invalid sqlite database", ""])(
     const { filename } = await fixture();
     await writeFile(filename, contents);
     const result = await Effect.runPromiseExit(
-      Database.pipe(Effect.provide(databaseLayer(filename))),
+      AppDatabase.pipe(Effect.provide(Layer.effect(AppDatabase, openDatabase(filename)))),
     );
     expect(Exit.isFailure(result)).toBe(true);
     expect(await readFile(filename, "utf8")).toBe(contents);
@@ -64,7 +64,7 @@ it("rejects an existing schema without repairing or changing it", async () => {
   existing.exec("INSERT INTO preserved VALUES ('original')");
   const before = await readFile(filename);
   const result = await Effect.runPromiseExit(
-    Database.pipe(Effect.provide(databaseLayer(filename))),
+    AppDatabase.pipe(Effect.provide(Layer.effect(AppDatabase, openDatabase(filename)))),
   );
   expect(Exit.isFailure(result)).toBe(true);
   expect(await readFile(filename)).toEqual(before);
@@ -73,14 +73,16 @@ it("rejects an existing schema without repairing or changing it", async () => {
 
 it("rejects extra tables whose names resemble SQLite's internal prefix", async () => {
   const { filename } = await fixture();
-  await Effect.runPromise(Database.pipe(Effect.provide(databaseLayer(filename))));
+  await Effect.runPromise(
+    AppDatabase.pipe(Effect.provide(Layer.effect(AppDatabase, openDatabase(filename)))),
+  );
   {
     using database = new DatabaseSync(filename);
     database.exec("CREATE TABLE sqliteextra (value TEXT)");
   }
   const before = await readFile(filename);
   const result = await Effect.runPromiseExit(
-    Database.pipe(Effect.provide(databaseLayer(filename))),
+    AppDatabase.pipe(Effect.provide(Layer.effect(AppDatabase, openDatabase(filename)))),
   );
   expect(Exit.isFailure(result)).toBe(true);
   expect(await readFile(filename)).toEqual(before);

@@ -16,7 +16,7 @@ import { Deferred, Effect, Exit, Fiber, Layer, Scope, Stream } from "effect";
 import { RpcClient, RpcServer, RpcTest } from "effect/unstable/rpc";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { BackendApplication } from "../backend/application";
-import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
+import { TemporaryStorage, AppStorage, temporaryStorageLayer } from "@stargeist/storage";
 import { WorkspaceControlEndpoint, WorkspaceEndpoint } from "./index";
 
 it("opens, discovers, nests, reconnects and reopens workspaces through the real backend", async () => {
@@ -34,7 +34,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       effect.pipe(
         Effect.scoped,
         Effect.provide(BackendApplication.layer),
-        Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+        Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(AppStorage.layer(profile)))),
       ),
     );
   const saved = await run(
@@ -228,7 +228,7 @@ it("rejects identity replacement at a remembered root until that folder is expli
       });
     }).pipe(
       Effect.provide(BackendApplication.layer),
-      Effect.provide(pathsLayer(join(root, "profile"))),
+      Effect.provide(AppStorage.layer(join(root, "profile"))),
     ),
   );
 });
@@ -265,7 +265,7 @@ it("releases a directory when browsing is canceled before its response arrives",
     }).pipe(
       Effect.scoped,
       Effect.provide(BackendApplication.layer),
-      Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+      Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(AppStorage.layer(profile)))),
       Effect.timeout("5 seconds"),
     ),
   );

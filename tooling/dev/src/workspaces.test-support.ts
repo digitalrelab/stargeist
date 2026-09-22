@@ -1,8 +1,6 @@
-import { join } from "node:path";
-import { databaseLayer } from "@stargeist/database";
-import { makeWorkspaceStore } from "@stargeist/database/workspaces";
+import { AppStorage, makeWorkspaceStore } from "@stargeist/storage";
 import { makeWorkspaceId } from "@stargeist/domain";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import type { DevelopmentProfile } from "./desktop/index";
 
 export function rememberWorkspaces(profile: DevelopmentProfile, roots: ReadonlyArray<string>) {
@@ -13,6 +11,8 @@ export function rememberWorkspaces(profile: DevelopmentProfile, roots: ReadonlyA
         const id = yield* makeWorkspaceId;
         yield* store.modify((records) => records.put({ id, identity: id, root }));
       }
-    }).pipe(Effect.provide(databaseLayer(join(profile.data, "application.sqlite")))),
+    }).pipe(
+      Effect.provide(AppStorage.database.pipe(Layer.provide(AppStorage.layer(profile.root)))),
+    ),
   );
 }

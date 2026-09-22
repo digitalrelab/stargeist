@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync } from "node:fs";
 import { Schema } from "effect";
+import { AppStorage } from "@stargeist/storage";
 import { ProfileError } from "./errors";
 import type { DevelopmentProfile } from "./paths";
 
@@ -44,16 +45,11 @@ export function validateFile(path: string) {
 }
 
 export function validateProfilePaths(profile: DevelopmentProfile) {
-  for (const path of [
-    profile.base,
-    profile.controls,
-    profile.control,
-    profile.root,
-    profile.data,
-    profile.quarantine,
-  ]) {
+  for (const path of [profile.base, profile.controls, profile.control]) {
     validateDirectory(path);
   }
+
+  AppStorage.at(profile.root).inspect();
 
   validateFile(profile.lock);
   validateFile(profile.marker);

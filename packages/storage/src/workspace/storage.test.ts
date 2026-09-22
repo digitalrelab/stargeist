@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { workspaceRoots as roots } from "./roots";
+import { WorkspaceStorage } from "../index";
 
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "stargeist-roots-")));
@@ -31,15 +31,19 @@ it("initializes once under concurrent callers and discovers the nearest nested r
   await run(
     Effect.gen(function* () {
       const [parent, again] = yield* Effect.all(
-        [roots.initialize(folder), roots.initialize(folder)],
+        [WorkspaceStorage.at(folder).initialize, WorkspaceStorage.at(folder).initialize],
         { concurrency: "unbounded" },
       );
       expect(parent).toEqual(again);
-      expect((yield* roots.discover(join(folder, "film", "raw")))?.identity).toBe(parent.identity);
-      const child = yield* roots.initialize(join(folder, "film"));
+      expect((yield* WorkspaceStorage.discover(join(folder, "film", "raw")))?.identity).toBe(
+        parent.identity,
+      );
+      const child = yield* WorkspaceStorage.at(join(folder, "film")).initialize;
       expect(child.identity).not.toBe(parent.identity);
-      expect((yield* roots.discover(join(folder, "film", "raw")))?.identity).toBe(child.identity);
-      expect((yield* roots.read(folder)).identity).toBe(parent.identity);
+      expect((yield* WorkspaceStorage.discover(join(folder, "film", "raw")))?.identity).toBe(
+        child.identity,
+      );
+      expect((yield* WorkspaceStorage.at(folder).read).identity).toBe(parent.identity);
     }),
   );
   expect((await readdir(join(folder, ".stargeist"))).sort()).toEqual(["workspace.json"]);
@@ -47,7 +51,7 @@ it("initializes once under concurrent callers and discovers the nearest nested r
 
 it("preserves identity after a move or copy and resolves symlink aliases", async () => {
   const { root, folder, run } = await fixture();
-  const original = await run(roots.initialize(folder));
+  const original = await run(WorkspaceStorage.at(folder).initialize);
   const moved = join(root, "moved");
   await rename(folder, moved);
   const copied = join(root, "copied");
@@ -56,17 +60,17 @@ it("preserves identity after a move or copy and resolves symlink aliases", async
   await symlink(moved, alias, "dir");
   await run(
     Effect.gen(function* () {
-      expect(yield* roots.read(alias)).toEqual({
+      expect(yield* WorkspaceStorage.at(alias).read).toEqual({
         identity: original.identity,
         createdAt: original.createdAt,
         root: moved,
       });
-      expect(yield* roots.read(copied)).toEqual({
+      expect(yield* WorkspaceStorage.at(copied).read).toEqual({
         identity: original.identity,
         createdAt: original.createdAt,
         root: copied,
       });
-      expect(yield* roots.read(folder).pipe(Effect.flip)).toMatchObject({
+      expect(yield* WorkspaceStorage.at(folder).read.pipe(Effect.flip)).toMatchObject({
         code: "FolderUnavailable",
       });
     }),
@@ -83,15 +87,19 @@ it.each([
   "rejects invalid metadata without overwriting it or falling back to a parent",
   async (contents, code) => {
     const { folder, run } = await fixture();
-    await run(roots.initialize(folder));
+    await run(WorkspaceStorage.at(folder).initialize);
     const child = join(folder, "film");
     await mkdir(join(child, ".stargeist"));
     const manifest = join(child, ".stargeist", "workspace.json");
     await writeFile(manifest, contents);
     await run(
       Effect.gen(function* () {
-        expect(yield* roots.discover(join(child, "raw")).pipe(Effect.flip)).toMatchObject({ code });
-        expect(yield* roots.initialize(child).pipe(Effect.flip)).toMatchObject({ code });
+        expect(
+          yield* WorkspaceStorage.discover(join(child, "raw")).pipe(Effect.flip),
+        ).toMatchObject({ code });
+        expect(yield* WorkspaceStorage.at(child).initialize.pipe(Effect.flip)).toMatchObject({
+          code,
+        });
       }),
     );
     expect(await readFile(manifest, "utf8")).toBe(contents);
@@ -103,23 +111,23 @@ it("allows explicit recovery of an empty initialization but does not initialize 
   await mkdir(join(folder, ".stargeist"));
   await run(
     Effect.gen(function* () {
-      expect(yield* roots.discover(folder).pipe(Effect.flip)).toMatchObject({
+      expect(yield* WorkspaceStorage.discover(folder).pipe(Effect.flip)).toMatchObject({
         code: "InvalidWorkspace",
       });
-      const initialized = yield* roots.initialize(folder);
-      expect(yield* roots.read(folder)).toEqual(initialized);
+      const initialized = yield* WorkspaceStorage.at(folder).initialize;
+      expect(yield* WorkspaceStorage.at(folder).read).toEqual(initialized);
     }),
   );
 });
 
 it("offers reset or restore for obsolete metadata without changing it", async () => {
   const { folder, run } = await fixture();
-  await run(roots.initialize(folder));
+  await run(WorkspaceStorage.at(folder).initialize);
   const filename = join(folder, ".stargeist", "workspace.json");
   const current = JSON.parse(await readFile(filename, "utf8"));
   const previous = JSON.stringify({ ...current, formatVersion: 1 });
   await writeFile(filename, previous);
-  expect(await run(roots.read(folder).pipe(Effect.flip))).toMatchObject({
+  expect(await run(WorkspaceStorage.at(folder).read.pipe(Effect.flip))).toMatchObject({
     code: "InvalidWorkspace",
     message: "This workspace needs to be reset or restored.",
   });
@@ -135,10 +143,10 @@ it("rejects redirected metadata and non-directory roots", async () => {
   await writeFile(file, "content");
   await run(
     Effect.gen(function* () {
-      expect(yield* roots.initialize(folder).pipe(Effect.flip)).toMatchObject({
+      expect(yield* WorkspaceStorage.at(folder).initialize.pipe(Effect.flip)).toMatchObject({
         code: "InvalidWorkspace",
       });
-      expect(yield* roots.discover(file).pipe(Effect.flip)).toMatchObject({
+      expect(yield* WorkspaceStorage.discover(file).pipe(Effect.flip)).toMatchObject({
         code: "FolderUnavailable",
       });
     }),
@@ -152,7 +160,7 @@ it("preserves unrelated metadata when initialization is incomplete", async () =>
   const existing = join(folder, ".stargeist", "notes.json");
   await writeFile(existing, "important");
   await run(
-    roots.initialize(folder).pipe(
+    WorkspaceStorage.at(folder).initialize.pipe(
       Effect.flip,
       Effect.tap((error) => Effect.sync(() => expect(error.code).toBe("InvalidWorkspace"))),
     ),
@@ -165,16 +173,18 @@ it.runIf(process.platform !== "win32" && process.getuid?.() !== 0)(
   "opens read-only workspaces and reports unwritable initialization without partial metadata",
   async () => {
     const { folder, run } = await fixture();
-    const workspace = await run(roots.initialize(folder));
+    const workspace = await run(WorkspaceStorage.at(folder).initialize);
     const uninitialized = join(folder, "film", "raw");
     await chmod(folder, 0o555);
     await chmod(uninitialized, 0o555);
     try {
       await run(
         Effect.gen(function* () {
-          expect(yield* roots.read(folder)).toEqual(workspace);
-          expect(yield* roots.initialize(folder)).toEqual(workspace);
-          expect(yield* roots.initialize(uninitialized).pipe(Effect.flip)).toMatchObject({
+          expect(yield* WorkspaceStorage.at(folder).read).toEqual(workspace);
+          expect(yield* WorkspaceStorage.at(folder).initialize).toEqual(workspace);
+          expect(
+            yield* WorkspaceStorage.at(uninitialized).initialize.pipe(Effect.flip),
+          ).toMatchObject({
             code: "StorageUnavailable",
           });
         }),

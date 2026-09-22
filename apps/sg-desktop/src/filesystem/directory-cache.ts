@@ -6,8 +6,8 @@ import { File, DirectoryError, directoryPageSize } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema } from "effect";
 import { Reactivity } from "effect/unstable/reactivity";
-import { listingFiles } from "./schema";
-import initialSchema from "./initial-schema.json";
+import { listingFiles } from "./cache-schema";
+import initialSchema from "./cache-schema.json";
 
 const storageUnavailable = () =>
   new DirectoryError({

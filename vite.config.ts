@@ -14,8 +14,8 @@ const iconImports = {
 const platformImports = [
   "node:*",
   ...electronImports,
-  "@stargeist/database",
-  "@stargeist/database/*",
+  "@stargeist/storage",
+  "@stargeist/storage/*",
   "@effect/sql-*",
   "effect/unstable/sql",
   "effect/unstable/sql/*",
@@ -60,7 +60,7 @@ const boundaries = [
   {
     files: ["tooling/checks/src/**"],
     portable: false,
-    patterns: [...appImports, ...featureImports, "@stargeist/database", "@stargeist/database/*"],
+    patterns: [...appImports, ...featureImports, "@stargeist/storage", "@stargeist/storage/*"],
   },
   {
     files: ["tooling/dev/src/**"],
@@ -203,7 +203,7 @@ const boundaries = [
     patterns: [...appImports, ...protocolImports, iconImports],
   },
   {
-    files: ["packages/database/src/**"],
+    files: ["packages/storage/src/**"],
     portable: false,
     patterns: [
       ...appImports,

@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { Layer, Effect } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "./index";
+import { TemporaryStorage, AppStorage, temporaryStorageLayer } from "../index";
 
 it("reclaims abandoned sessions while preserving live sessions and unrelated directories", async () => {
   const profile = await mkdtemp(join(tmpdir(), "stargeist-storage-test-"));
@@ -33,7 +33,7 @@ it("reclaims abandoned sessions while preserving live sessions and unrelated dir
       expect(names).toContain("unrelated");
       expect(names).toHaveLength(3);
       expect(names).toContain(basename(directories.directory));
-    }).pipe(Effect.provide(temporaryStorageLayer.pipe(Layer.provide(pathsLayer(profile))))),
+    }).pipe(Effect.provide(temporaryStorageLayer.pipe(Layer.provide(AppStorage.layer(profile))))),
   );
 
   expect(await readdir(temporary)).toEqual([active, "unrelated"].sort());
@@ -46,7 +46,7 @@ it("cleans a failed session without deleting another session or persistent data"
   await mkdir(data);
   const database = join(data, "stargeist.sqlite");
   await writeFile(database, "persistent data");
-  const layer = temporaryStorageLayer.pipe(Layer.provide(pathsLayer(profile)));
+  const layer = temporaryStorageLayer.pipe(Layer.provide(AppStorage.layer(profile)));
   const failure = new Error("session failed");
 
   await Effect.runPromise(

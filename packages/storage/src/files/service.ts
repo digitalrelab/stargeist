@@ -2,7 +2,7 @@ import { File, FileError, FileObservation, Files, makeFileId } from "@stargeist/
 import { reportFailure } from "@stargeist/std/errors";
 import { and, eq, or, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
-import { Database } from "../database";
+import { AppDatabase } from "../app/database";
 import { files } from "./schema";
 
 const decodeFile = Schema.decodeUnknownEffect(File);
@@ -27,7 +27,7 @@ const storage = <A, E, R>(operation: string, effect: Effect.Effect<A, E, R>) =>
 export const filesLayer = Layer.effect(
   Files,
   Effect.gen(function* () {
-    const database = yield* Database;
+    const database = yield* AppDatabase;
 
     return Files.of({
       get: (id) =>

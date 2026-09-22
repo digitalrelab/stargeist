@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Fiber, Queue, Stream } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { pathsLayer } from "../storage";
+import { AppStorage } from "@stargeist/storage";
 import { UserPreferences } from "@stargeist/domain";
 import { userPreferencesLayer } from "./index";
 import { Layer } from "effect";
@@ -46,7 +46,7 @@ async function fixture() {
   const open = () =>
     Effect.runPromise(
       UserPreferences.pipe(
-        Effect.provide(userPreferencesLayer.pipe(Layer.provide(pathsLayer(profile)))),
+        Effect.provide(userPreferencesLayer.pipe(Layer.provide(AppStorage.layer(profile)))),
       ),
     );
   return { profile, filename, open };

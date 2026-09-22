@@ -10,8 +10,8 @@ import {
 } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema, Semaphore } from "effect";
-import { TemporaryStorage } from "../storage";
-import { openDirectoryCache } from "@stargeist/database/filesystem";
+import { TemporaryStorage } from "@stargeist/storage";
+import { openDirectoryCache } from "./directory-cache";
 import { observeFile } from "./observation";
 
 const expired = () =>

@@ -6,10 +6,9 @@ import {
   WorkspaceError,
   Files,
 } from "@stargeist/domain";
-import { workspaceDirectoryName } from "./roots";
+import { WorkspaceStorage, TemporaryStorage } from "@stargeist/storage";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import { openListing } from "../filesystem";
-import { TemporaryStorage } from "../storage";
 
 const workspaceError = (error: DirectoryError) =>
   new WorkspaceError({ code: error.code, message: error.message });
@@ -50,7 +49,9 @@ export const makeWorkspaceBrowser = Effect.fnUntraced(function* (
 
     const scope = yield* Scope.fork(parent);
 
-    return yield* openListing(workspace.root, { exclude: new Set([workspaceDirectoryName]) }).pipe(
+    return yield* openListing(workspace.root, {
+      exclude: new Set([WorkspaceStorage.directoryName]),
+    }).pipe(
       Effect.mapError(workspaceError),
       Scope.provide(scope),
       Effect.provideService(TemporaryStorage, temporaryStorage),

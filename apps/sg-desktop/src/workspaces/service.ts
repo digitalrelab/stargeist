@@ -5,9 +5,8 @@ import {
   type WorkspaceId,
   type Workspaces,
 } from "@stargeist/domain";
-import type { WorkspaceStore } from "@stargeist/database/workspaces";
+import type { WorkspaceStore, WorkspaceStorage, WorkspaceMetadata } from "@stargeist/storage";
 import { Effect } from "effect";
-import type { WorkspaceRoot, WorkspaceRoots } from "./storage";
 
 const workspace = ({ id, root }: Pick<Workspace, "id" | "root">) => new Workspace({ id, root });
 const notFound = () =>
@@ -17,10 +16,10 @@ const notFound = () =>
   });
 
 export function makeWorkspaces(
-  roots: WorkspaceRoots,
+  storage: typeof WorkspaceStorage,
   store: WorkspaceStore,
 ): Workspaces["Service"] {
-  const remember = (root: WorkspaceRoot) =>
+  const remember = (root: WorkspaceMetadata) =>
     store.modify((records) =>
       Effect.gen(function* () {
         const existing = yield* records.atRoot(root.root);
@@ -37,7 +36,7 @@ export function makeWorkspaces(
     get: Effect.fnUntraced(function* (id) {
       const record = yield* store.get(id);
       if (!record) return yield* notFound();
-      const root = yield* roots.read(record.root);
+      const root = yield* storage.at(record.root).read;
       if (root.identity !== record.identity) {
         return yield* new WorkspaceError({
           code: "WorkspaceChanged",
@@ -48,15 +47,15 @@ export function makeWorkspaces(
       return workspace(record);
     }),
     open: Effect.fnUntraced(function* (path) {
-      let root = yield* roots.discover(path);
-      if (!root) root = yield* roots.initialize(path);
+      let root = yield* storage.discover(path);
+      if (!root) root = yield* storage.at(path).initialize;
       return yield* remember(root);
     }),
     initialize: Effect.fnUntraced(function* (path) {
-      return yield* remember(yield* roots.initialize(path));
+      return yield* remember(yield* storage.at(path).initialize);
     }),
     reconnect: Effect.fnUntraced(function* (id: WorkspaceId, path) {
-      const root = yield* roots.discover(path);
+      const root = yield* storage.discover(path);
       if (!root)
         return yield* new WorkspaceError({
           code: "NotFound",

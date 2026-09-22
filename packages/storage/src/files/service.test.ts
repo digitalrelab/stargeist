@@ -5,8 +5,8 @@ import { FileObservation, Files, makeFileId } from "@stargeist/domain";
 import { Effect, Layer } from "effect";
 import { sql } from "drizzle-orm";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { Database, databaseLayer } from "../database";
-import { filesLayer } from "./index";
+import { AppDatabase, openDatabase } from "../app/database";
+import { filesLayer } from "./service";
 
 const observation = (objectKey: string, name = "file.txt", source = "remote-account") =>
   FileObservation.make({ source, objectKey, name, type: "file", mediaType: "text/plain" });
@@ -15,8 +15,10 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "stargeist-files-"));
   onTestFinished(() => rm(root, { recursive: true, force: true }));
   const filename = join(root, "application.sqlite");
-  const layer = filesLayer.pipe(Layer.provideMerge(databaseLayer(filename)));
-  const run = <A, E>(effect: Effect.Effect<A, E, Files | Database>) =>
+  const layer = filesLayer.pipe(
+    Layer.provideMerge(Layer.effect(AppDatabase, openDatabase(filename))),
+  );
+  const run = <A, E>(effect: Effect.Effect<A, E, Files | AppDatabase>) =>
     Effect.runPromise(effect.pipe(Effect.provide(layer)));
   return { run, layer };
 }
@@ -79,7 +81,7 @@ it("rolls back a failed observation batch before exposing any file identities", 
   const { run } = await fixture();
   await run(
     Effect.gen(function* () {
-      const database = yield* Database;
+      const database = yield* AppDatabase;
       const files = yield* Files;
       const [original] = yield* files.remember([observation("object-0", "original.txt")]);
       yield* database.run(
