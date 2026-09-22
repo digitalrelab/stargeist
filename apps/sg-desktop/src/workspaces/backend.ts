@@ -1,7 +1,7 @@
 import * as RpcEndpoint from "@stargeist/application/rpc";
 import { Workspaces } from "@stargeist/domain";
 import { WorkspaceRpcs } from "@stargeist/protocol/workspaces";
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { WorkspaceControlRpcs } from "./control";
 import { makeWorkspaceBrowser } from "./browser";
 
@@ -25,9 +25,13 @@ export const WorkspaceEndpoint = RpcEndpoint.define(WorkspaceRpcs)({
     return {
       "workspaces.list": () => workspaces.list,
       "workspaces.forget": ({ id }) => workspaces.forget(id),
-      "workspaces.browse": ({ id }) => browser.browse(id),
+      "workspaces.browse": ({ id }) =>
+        Stream.unwrap(
+          browser
+            .browse(id)
+            .pipe(Effect.map((view) => Stream.concat(Stream.succeed(view), Stream.never))),
+        ),
       "workspaces.readDirectory": ({ listingId, offset }) => browser.read(listingId, offset),
-      "workspaces.closeDirectory": ({ listingId }) => browser.close(listingId),
     };
   }),
 });

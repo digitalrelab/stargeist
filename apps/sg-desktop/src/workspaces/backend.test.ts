@@ -12,11 +12,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Workspaces } from "@stargeist/domain";
-import { Effect, Layer } from "effect";
-import { RpcTest } from "effect/unstable/rpc";
+import { Deferred, Effect, Exit, Fiber, Layer, Scope, Stream } from "effect";
+import { RpcClient, RpcServer, RpcTest } from "effect/unstable/rpc";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { BackendApplication } from "../backend/application";
-import { pathsLayer, temporaryStorageLayer } from "../storage";
+import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { WorkspaceControlEndpoint, WorkspaceEndpoint } from "./index";
 
 it("opens, discovers, nests, reconnects and reopens workspaces through the real backend", async () => {
@@ -27,13 +27,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
   await mkdir(film, { recursive: true });
   await writeFile(join(film, "interview.txt"), "original");
   const profile = join(root, "profile");
-  const run = <A, E>(
-    effect: Effect.Effect<
-      A,
-      E,
-      Workspaces | import("../storage").TemporaryStorage | import("effect").Scope.Scope
-    >,
-  ) =>
+  const run = <A, E>(effect: Effect.Effect<A, E, Workspaces | TemporaryStorage | Scope.Scope>) =>
     Effect.runPromise(
       effect.pipe(
         Effect.scoped,
@@ -65,10 +59,20 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       const child = yield* host["workspaces.initialize"]({ path: film });
       expect(child.id).not.toBe(parent.id);
       expect(yield* host["workspaces.open"]({ path: film })).toEqual(child);
-      const first = yield* client["workspaces.browse"]({ id: parent.id });
+      const first = yield* client["workspaces.browse"]({ id: parent.id }).pipe(
+        Stream.toPull,
+        Effect.flatMap((pull) => pull),
+        Effect.map((views) => views[0]),
+      );
       expect(first.workspace).toEqual(parent);
       expect(first.directory.entries).toEqual([{ name: "Film", kind: "directory" }]);
-      const second = yield* client["workspaces.browse"]({ id: child.id });
+      const secondScope = yield* Scope.fork(yield* Effect.scope);
+      const second = yield* client["workspaces.browse"]({ id: child.id }).pipe(
+        Stream.toPull,
+        Effect.flatMap((pull) => pull),
+        Effect.map((views) => views[0]),
+        Scope.provide(secondScope),
+      );
       expect(second.directory.entries).toEqual([{ name: "interview.txt", kind: "file" }]);
       expect(
         yield* client["workspaces.readDirectory"]({
@@ -76,14 +80,18 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
           offset: 0,
         }).pipe(Effect.flip),
       ).toMatchObject({ code: "ListingExpired" });
-      yield* client["workspaces.closeDirectory"]({ listingId: second.directory.listingId });
+      yield* Scope.close(secondScope, Exit.void);
       expect(
         yield* client["workspaces.readDirectory"]({
           listingId: second.directory.listingId,
           offset: 0,
         }).pipe(Effect.flip),
       ).toMatchObject({ code: "ListingExpired" });
-      const reopened = yield* client["workspaces.browse"]({ id: child.id });
+      const reopened = yield* client["workspaces.browse"]({ id: child.id }).pipe(
+        Stream.toPull,
+        Effect.flatMap((pull) => pull),
+        Effect.map((views) => views[0]),
+      );
       expect(reopened.directory.entries).toEqual(second.directory.entries);
       const copyPath = join(root, "Copy");
       yield* Effect.promise(() => cp(film, copyPath, { recursive: true }));
@@ -104,7 +112,11 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
       );
       const independent = yield* otherRenderer["workspaces.browse"]({
         id: copy.id,
-      });
+      }).pipe(
+        Stream.toPull,
+        Effect.flatMap((pull) => pull),
+        Effect.map((views) => views[0]),
+      );
       expect(independent.directory.entries).toEqual(reopened.directory.entries);
       expect(
         yield* client["workspaces.readDirectory"]({
@@ -196,6 +208,44 @@ it("rejects identity replacement at a remembered root until that folder is expli
     }).pipe(
       Effect.provide(BackendApplication.layer),
       Effect.provide(pathsLayer(join(root, "profile"))),
+    ),
+  );
+});
+
+it("releases a directory when browsing is canceled before its response arrives", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "stargeist-cancel-")));
+  onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const folder = join(root, "workspace");
+  const profile = join(root, "profile");
+  await mkdir(folder);
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const workspace = yield* (yield* Workspaces).open(folder);
+      const { directory } = yield* TemporaryStorage;
+      const responseReady = yield* Deferred.make<void>();
+      const handlers = yield* Layer.build(WorkspaceEndpoint.layer);
+      const server = yield* RpcServer.makeNoSerialization(WorkspaceEndpoint.rpcs, {
+        onFromServer: () => Deferred.succeed(responseReady, undefined).pipe(Effect.asVoid),
+      }).pipe(Effect.provide(handlers));
+      const client = yield* RpcClient.makeNoSerialization(WorkspaceEndpoint.rpcs, {
+        supportsAck: true,
+        onFromClient: ({ message }) => server.write(0, message),
+      });
+      const pending = yield* client.client["workspaces.browse"]({ id: workspace.id }).pipe(
+        Stream.runDrain,
+        Effect.forkScoped,
+      );
+      yield* Deferred.await(responseReady);
+      expect(yield* Effect.promise(() => readdir(directory))).not.toEqual([]);
+      yield* Fiber.interrupt(pending);
+      yield* Effect.promise(() =>
+        expect.poll(() => readdir(directory), { timeout: 1000 }).toEqual([]),
+      );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(BackendApplication.layer),
+      Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+      Effect.timeout("5 seconds"),
     ),
   );
 });

@@ -39,7 +39,7 @@ describe("active workspace listing", () => {
     );
   });
 
-  it("expires replaced views and ignores their stale close requests", async () => {
+  it("expires replaced views without letting an older scope close the current view", async () => {
     const { workspace, layer } = await createFixture();
 
     await Effect.runPromise(
@@ -49,7 +49,9 @@ describe("active workspace listing", () => {
         const listing = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) }).pipe(
           Scope.provide(scope),
         );
-        const first = (yield* listing.browse(workspace.id)).directory;
+        const firstScope = yield* Scope.fork(yield* Effect.scope);
+        const first = (yield* listing.browse(workspace.id).pipe(Scope.provide(firstScope)))
+          .directory;
         const second = (yield* listing.browse(workspace.id)).directory;
 
         expect(second.listingId).not.toBe(first.listingId);
@@ -58,7 +60,7 @@ describe("active workspace listing", () => {
           "ListingExpired",
         );
 
-        yield* listing.close(first.listingId);
+        yield* Scope.close(firstScope, Exit.void);
         expect(yield* listing.read(second.listingId, 0)).toEqual(second);
 
         yield* Scope.close(scope, Exit.void);
@@ -74,9 +76,10 @@ describe("active workspace listing", () => {
       Effect.gen(function* () {
         const paths = yield* TemporaryStorage;
         const listing = yield* makeWorkspaceBrowser({ get: () => Effect.succeed(workspace) });
-        const page = (yield* listing.browse(workspace.id)).directory;
+        const viewScope = yield* Scope.fork(yield* Effect.scope);
+        const page = (yield* listing.browse(workspace.id).pipe(Scope.provide(viewScope))).directory;
 
-        yield* listing.close(page.listingId);
+        yield* Scope.close(viewScope, Exit.void);
 
         expect((yield* listing.read(page.listingId, 0).pipe(Effect.flip)).code).toBe(
           "ListingExpired",

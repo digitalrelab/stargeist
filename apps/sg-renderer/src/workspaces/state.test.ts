@@ -22,7 +22,6 @@ const createClient = (
     openWorkspace?: () => Effect.Effect<Workspace | null>;
     browse?: WorkspacesClient["browse"];
     readDirectory?: WorkspacesClient["readDirectory"];
-    closeDirectory?: WorkspacesClient["closeDirectory"];
   } = {},
 ): WorkspacesClient => {
   let workspaces: ReadonlyArray<Workspace> = [];
@@ -45,7 +44,6 @@ const createClient = (
       }),
     browse: handlers.browse ?? (() => Effect.die("Unexpected directory request")),
     readDirectory: handlers.readDirectory ?? (() => Effect.die("Unexpected directory request")),
-    closeDirectory: handlers.closeDirectory ?? (() => Effect.void),
   };
 };
 
@@ -106,19 +104,20 @@ describe("Workspace state", () => {
     const state = createWorkspaceState(
       createClient({
         browse: () =>
-          Effect.sync(() => ({ workspace: currentWorkspace, directory: currentListing })),
+          Effect.acquireRelease(
+            Effect.sync(() => ({ workspace: currentWorkspace, directory: currentListing })),
+            ({ directory }) => {
+              if (directory.listingId === first.listingId) {
+                return Deferred.succeed(firstClosed, undefined);
+              }
+              return Deferred.succeed(secondClosed, undefined);
+            },
+          ),
         readDirectory: ({ listingId, offset }) =>
           Effect.sync(() => {
             reads.push(listingId);
             return { listingId, offset, entries: [], hasMore: false };
           }),
-        closeDirectory: ({ listingId }) => {
-          if (listingId === first.listingId) {
-            return Deferred.succeed(firstClosed, undefined).pipe(Effect.asVoid);
-          }
-
-          return Deferred.succeed(secondClosed, undefined).pipe(Effect.asVoid);
-        },
       }),
     );
 

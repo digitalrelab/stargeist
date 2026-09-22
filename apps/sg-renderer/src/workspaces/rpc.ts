@@ -1,6 +1,7 @@
+import { ClientUnavailableError } from "#src/client/index.ts";
 import { connectionFailure } from "#src/desktop/errors.ts";
 import { WorkspaceRpcs, WorkspaceDialogRpcs } from "@stargeist/protocol/workspaces";
-import { Effect } from "effect";
+import { Effect, Pull, Stream } from "effect";
 import { RpcClient } from "effect/unstable/rpc";
 import type { WorkspacesClient } from "./client";
 
@@ -35,15 +36,20 @@ export const makeRpcWorkspacesClient = Effect.fnUntraced(function* (protocols: {
         Effect.catchTag("RpcClientError", connectionFailure),
       ),
     browse: (id) =>
-      backend["workspaces.browse"]({ id }).pipe(
+      Stream.toPull(backend["workspaces.browse"]({ id })).pipe(
+        Effect.flatMap((pull) => pull),
+        Effect.map((views) => views[0]),
+        Pull.catchDone(() =>
+          Effect.fail(
+            new ClientUnavailableError({
+              message: "The workspace connection closed before opening the folder.",
+            }),
+          ),
+        ),
         Effect.catchTag("RpcClientError", connectionFailure),
       ),
     readDirectory: (input) =>
       backend["workspaces.readDirectory"](input).pipe(
-        Effect.catchTag("RpcClientError", connectionFailure),
-      ),
-    closeDirectory: (input) =>
-      backend["workspaces.closeDirectory"](input).pipe(
         Effect.catchTag("RpcClientError", connectionFailure),
       ),
   };

@@ -1,6 +1,5 @@
 import type { WorkspaceId, Workspace } from "@stargeist/domain";
-import { reportFailure } from "@stargeist/std/errors";
-import { Cause, Effect } from "effect";
+import { Effect } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 import { workspaceRecovery, type WorkspaceRecovery } from "./recovery";
 import { createFileListing, type FileListing } from "#src/files/index.ts";
@@ -15,18 +14,7 @@ export const createWorkspaceState = (client: WorkspacesClient) => {
   const workspaces = Atom.make(client.list).pipe(Atom.keepAlive);
   const detail = Atom.family((id: WorkspaceId) => {
     const view = Atom.make(
-      Effect.acquireRelease(
-        Effect.suspend(() => client.browse(id)),
-        ({ directory }) =>
-          client
-            .closeDirectory({ listingId: directory.listingId })
-            .pipe(
-              Effect.catch((error) =>
-                reportFailure("workspaces.directory.close", Cause.fail(error)),
-              ),
-            ),
-        { interruptible: true },
-      ).pipe(
+      Effect.suspend(() => client.browse(id)).pipe(
         Effect.map(({ workspace, directory }): WorkspaceListing => ({
           workspace,
           files: createFileListing(directory, (offset) =>

@@ -26,6 +26,9 @@ it("uses the supplied backend and host protocols and preserves their failure dia
       const client = yield* makeRpcWorkspacesClient({ backend, host });
 
       const listError = yield* client.list.pipe(Effect.flip);
+      const browseError = yield* client
+        .browse(Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001"))
+        .pipe(Effect.flip);
       const openError = yield* client.openFromFolder().pipe(Effect.flip);
       const reconnectError = yield* client
         .reconnectFromFolder(
@@ -34,6 +37,10 @@ it("uses the supplied backend and host protocols and preserves their failure dia
         .pipe(Effect.flip);
 
       expect(listError).toMatchObject({
+        _tag: "ClientUnavailableError",
+        cause: { _tag: "RpcClientError", reason: { cause: backendCause } },
+      });
+      expect(browseError).toMatchObject({
         _tag: "ClientUnavailableError",
         cause: { _tag: "RpcClientError", reason: { cause: backendCause } },
       });

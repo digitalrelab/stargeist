@@ -76,8 +76,12 @@ export const makeWorkspaceBrowser = Effect.fnUntraced(function* (
     });
 
   return {
-    browse: (id: WorkspaceId) => lock.withPermit(browse(id)),
+    browse: (id: WorkspaceId) =>
+      Effect.acquireRelease(
+        lock.withPermit(browse(id)),
+        ({ directory }) => lock.withPermit(close(directory.listingId)),
+        { interruptible: true },
+      ),
     read: (id: ListingId, offset: number) => lock.withPermit(read(id, offset)),
-    close: (id: ListingId) => lock.withPermit(close(id)),
   };
 });

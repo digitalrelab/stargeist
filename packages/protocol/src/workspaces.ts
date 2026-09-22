@@ -20,6 +20,7 @@ export const WorkspaceRpcs = RpcGroup.make(
   Rpc.make("browse", {
     payload: { id: WorkspaceId },
     success: WorkspaceView,
+    stream: true,
     error: WorkspaceError,
   }),
   Rpc.make("readDirectory", {
@@ -27,7 +28,6 @@ export const WorkspaceRpcs = RpcGroup.make(
     success: DirectoryListingPage,
     error: WorkspaceError,
   }),
-  Rpc.make("closeDirectory", { payload: { listingId: ListingId }, success: Schema.Void }),
 ).prefix("workspaces.");
 
 export const WorkspaceDialogRpcs = RpcGroup.make(
