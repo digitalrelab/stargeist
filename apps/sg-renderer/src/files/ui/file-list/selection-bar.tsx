@@ -61,7 +61,7 @@ export function FileSelectionBar() {
       }}
     >
       <SelectionBar.Status>{label}</SelectionBar.Status>
-      <Button appearance="soft" size="sm" shape="pill" disabled={!hasSelection}>
+      <Button appearance="outlined" size="sm" shape="pill" disabled={!hasSelection}>
         <CommandIcon aria-hidden="true" />
         Actions
       </Button>
