@@ -1,9 +1,9 @@
 import { constants } from "node:fs";
 import { lstat, mkdtemp, open, realpath, rename, rm, rmdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { WorkspaceError } from "@stargeist/domain";
+import { WorkspaceError, workspaceDirectoryName } from "@stargeist/domain";
 import * as Id from "@stargeist/std/id";
-import { workspaceDirectoryName, type WorkspaceRoots } from "./storage";
+import type { WorkspaceRoots } from "./storage";
 import { reportFailure } from "@stargeist/std/errors";
 import { Clock, Effect, Schema } from "effect";
 
@@ -18,7 +18,7 @@ const decodeManifest = Schema.decodeUnknownSync(Manifest, { onExcessProperty: "e
 const invalid = () =>
   new WorkspaceError({
     code: "InvalidWorkspace",
-    message: "Workspace metadata is invalid. Restore .stargeist/workspace.json from a backup.",
+    message: "This workspace needs to be reset or restored.",
   });
 const unavailable = () =>
   new WorkspaceError({
@@ -91,8 +91,7 @@ async function readManifest(root: string) {
     if (hasCode(error, "ENOENT")) {
       throw new WorkspaceError({
         code: "InvalidWorkspace",
-        message:
-          "Workspace metadata is missing. Restore .stargeist/workspace.json, or use Initialize workspace to retry an empty initialization.",
+        message: "Workspace data is missing. Restore or reinitialize the workspace.",
       });
     }
     if (hasCode(error, "ELOOP")) throw invalid();
@@ -118,8 +117,7 @@ export const workspaceRoots: WorkspaceRoots = {
       if (!(await markerExists(root))) {
         throw new WorkspaceError({
           code: "InvalidWorkspace",
-          message:
-            "Workspace metadata is missing. Locate the workspace folder or restore its .stargeist directory.",
+          message: "Workspace data is missing. Locate or restore the workspace.",
         });
       }
       return readManifest(root);

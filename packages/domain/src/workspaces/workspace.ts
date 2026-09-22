@@ -2,6 +2,8 @@ import * as Id from "@stargeist/std/id";
 import { DirectoryListingPage } from "../filesystem";
 import { Schema } from "effect";
 
+export const workspaceDirectoryName = ".stargeist";
+
 export const { schema: WorkspaceId, generate: makeWorkspaceId } = Id.define("wsp");
 export type WorkspaceId = typeof WorkspaceId.Type;
 

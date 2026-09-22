@@ -112,6 +112,20 @@ it("allows explicit recovery of an empty initialization but does not initialize 
   );
 });
 
+it("offers reset or restore for obsolete metadata without changing it", async () => {
+  const { folder, run } = await fixture();
+  await run(roots.initialize(folder));
+  const filename = join(folder, ".stargeist", "workspace.json");
+  const current = JSON.parse(await readFile(filename, "utf8"));
+  const previous = JSON.stringify({ ...current, formatVersion: 1 });
+  await writeFile(filename, previous);
+  expect(await run(roots.read(folder).pipe(Effect.flip))).toMatchObject({
+    code: "InvalidWorkspace",
+    message: "This workspace needs to be reset or restored.",
+  });
+  expect(await readFile(filename, "utf8")).toBe(previous);
+});
+
 it("rejects redirected metadata and non-directory roots", async () => {
   const { root, folder, run } = await fixture();
   const outside = join(root, "outside");

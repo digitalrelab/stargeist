@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { databaseFilename } from "@stargeist/database";
 import { Context, Layer } from "effect";
 
 export class StoragePaths extends Context.Service<
@@ -15,7 +16,7 @@ export class StoragePaths extends Context.Service<
 export const pathsLayer = (profile: string) =>
   Layer.succeed(StoragePaths, {
     profile,
-    database: join(profile, "data", "application.sqlite"),
+    database: join(profile, "data", databaseFilename),
     userPreferences: join(profile, "data", "user-preferences.json"),
     credentials: join(profile, "data", "credentials"),
     temporary: join(profile, "temporary"),

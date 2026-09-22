@@ -1,6 +1,6 @@
 export { developmentProfile } from "./paths";
 export type { DevelopmentProfile } from "./paths";
-export { inspectProfile, validateProfilePaths } from "./ownership";
+export { inspectProfile, validateProfilePaths, validateDirectory, validateFile } from "./ownership";
 export { ProfileError } from "./errors";
 export {
   acquireProfileMaintenance,

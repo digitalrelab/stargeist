@@ -1,11 +1,12 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WorkspaceError, makeWorkspaceId } from "@stargeist/domain";
 import { Deferred, Effect, Fiber } from "effect";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { Database, databaseLayer } from "../database";
-import { makeWorkspaceStore } from "./index";
+import { makeWorkspaceStore, readWorkspaceRoots } from "./index";
 
 it("rolls back partial changes on domain failure and interruption", async () => {
   const folder = await mkdtemp(join(tmpdir(), "stargeist-store-"));
@@ -59,4 +60,24 @@ it("participates in a transaction owned by the shared database", async () => {
       expect(yield* store.list).toEqual([]);
     }).pipe(Effect.provide(databaseLayer(join(folder, "application.sqlite")))),
   );
+});
+
+it("reads known roots without changing the database or requiring unrelated tables to match", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "stargeist-inspect-store-"));
+  onTestFinished(() => rm(folder, { recursive: true, force: true }));
+  const filename = join(folder, "application.sqlite");
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const store = yield* makeWorkspaceStore;
+      const record = { id: yield* makeWorkspaceId, identity: "workspace", root: "/workspace" };
+      yield* store.modify((records) => records.put(record));
+    }).pipe(Effect.provide(databaseLayer(filename))),
+  );
+  {
+    using database = new DatabaseSync(filename);
+    database.exec("DROP TABLE files");
+  }
+  const before = await readFile(filename);
+  expect(readWorkspaceRoots(filename)).toEqual(["/workspace"]);
+  expect(await readFile(filename)).toEqual(before);
 });

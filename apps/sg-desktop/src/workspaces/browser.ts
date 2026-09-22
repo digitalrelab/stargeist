@@ -5,10 +5,10 @@ import {
   type Workspaces,
   WorkspaceError,
   Files,
+  workspaceDirectoryName,
 } from "@stargeist/domain";
 import { Effect, Exit, Scope, Semaphore } from "effect";
 import { openListing } from "../filesystem";
-import { workspaceDirectoryName } from "./storage";
 import { TemporaryStorage } from "../storage";
 
 const workspaceError = (error: DirectoryError) =>

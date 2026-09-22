@@ -1,8 +1,6 @@
 import type { WorkspaceError } from "@stargeist/domain";
 import type { Effect } from "effect";
 
-export const workspaceDirectoryName = ".stargeist";
-
 export interface WorkspaceRoot {
   readonly identity: string;
   readonly root: string;

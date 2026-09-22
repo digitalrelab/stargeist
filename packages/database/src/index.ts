@@ -1,1 +1,1 @@
-export { Database, databaseLayer } from "./database";
+export { Database, databaseLayer, databaseFilename } from "./database";

@@ -8,6 +8,8 @@ import { Context, Effect, Layer, Schema } from "effect";
 import fileSchema from "./files/initial-schema.json";
 import workspaceSchema from "./workspaces/sqlite/initial-schema.json";
 
+export const databaseFilename = "application.sqlite";
+
 const statements = [...workspaceSchema, ...fileSchema];
 const decodeSchema = Schema.decodeUnknownSync(
   Schema.Array(
@@ -77,7 +79,7 @@ async function prepare(filename: string) {
 
   const temporary = await mkdtemp(join(directory, ".application-database-"));
   try {
-    const staged = join(temporary, "application.sqlite");
+    const staged = join(temporary, databaseFilename);
     const file = await open(staged, "wx", 0o600);
     await file.close();
     {
