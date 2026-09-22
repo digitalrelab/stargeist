@@ -12,7 +12,11 @@ export const createAIState = (
   agentModelsClient: AgentModelsClient,
 ) => {
   const connections = Atom.make(connectionsClient.list).pipe(Atom.keepAlive);
-  const catalogs = Atom.make(agentModelsClient.list).pipe(Atom.keepAlive);
+  const catalogs = Atom.make(agentModelsClient.list).pipe(
+    Atom.keepAlive,
+    Atom.swr({ staleTime: "5 minutes" }),
+    Atom.withRefresh("5 minutes"),
+  );
   const defaultModel = Atom.make(agentModelsClient.getDefault).pipe(Atom.keepAlive);
   const healthCheck = Atom.family((providerId: string) =>
     Atom.fn((_arg: void) => connectionsClient.check(providerId)),

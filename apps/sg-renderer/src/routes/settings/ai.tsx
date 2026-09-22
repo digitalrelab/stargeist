@@ -16,7 +16,6 @@ export const Route = createFileRoute("/settings/ai")({
     const catalogs = AtomRegistry.getResult(
       context.registry,
       context.application.ai.agentModels.catalogs,
-      { suspendOnWaiting: true },
     ).pipe(Effect.ignore);
     const defaultModel = AtomRegistry.getResult(
       context.registry,

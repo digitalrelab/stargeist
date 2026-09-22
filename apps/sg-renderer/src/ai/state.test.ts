@@ -1,8 +1,12 @@
-import { ProviderConnectionError, type ProviderConnection } from "@stargeist/ai";
+import {
+  ProviderConnectionError,
+  type ProviderConnection,
+  type ProviderModelCatalog,
+} from "@stargeist/ai";
 import { AgentModelPreferenceError } from "@stargeist/domain/ai";
 import { Deferred, Effect, Redacted } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
-import { expect, it, onTestFinished } from "vite-plus/test";
+import { expect, it, onTestFinished, vi } from "vite-plus/test";
 import type { AgentModelsClient, AIProviderConnectionsClient } from "./client";
 import { createAIState } from "./state";
 
@@ -25,6 +29,18 @@ function registry() {
   const value = AtomRegistry.make();
   onTestFinished(() => value.dispose());
   return value;
+}
+
+function catalogState(list: AgentModelsClient["list"]) {
+  return createAIState(
+    {
+      list: Effect.succeed([]),
+      configure: () => Effect.die("Unexpected configuration"),
+      check: () => Effect.die("Unexpected health check"),
+      remove: () => Effect.die("Unexpected removal"),
+    },
+    { ...agentModels, list },
+  );
 }
 
 it("keeps prefetched AI settings data warm between route subscriptions", async () => {
@@ -80,6 +96,110 @@ it("keeps prefetched AI settings data warm between route subscriptions", async (
       });
     }),
   );
+});
+
+it("revalidates a stale model catalog when settings are revisited", async () => {
+  const store = registry();
+  const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+  onTestFinished(() => now.mockRestore());
+  let modelLists = 0;
+  const state = catalogState(
+    Effect.sync(() => {
+      modelLists += 1;
+      return [];
+    }),
+  );
+
+  const firstVisit = store.mount(state.agentModels.catalogs);
+  await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true }),
+  );
+  firstVisit();
+  await Effect.runPromise(Effect.yieldNow);
+
+  now.mockReturnValue(1_000 + 4 * 60_000);
+  const freshVisit = store.mount(state.agentModels.catalogs);
+  await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true }),
+  );
+  expect(modelLists).toBe(1);
+  freshVisit();
+  await Effect.runPromise(Effect.yieldNow);
+
+  now.mockReturnValue(1_000 + 6 * 60_000);
+  const staleVisit = store.mount(state.agentModels.catalogs);
+  await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true }),
+  );
+  expect(modelLists).toBe(2);
+  staleVisit();
+});
+
+it("refreshes an open model catalog without polling after leaving settings", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  const store = registry();
+  let modelLists = 0;
+  const state = catalogState(
+    Effect.sync(() => {
+      modelLists += 1;
+      return [];
+    }),
+  );
+
+  const leaveSettings = store.mount(state.agentModels.catalogs);
+  await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true }),
+  );
+  expect(modelLists).toBe(1);
+
+  await vi.advanceTimersByTimeAsync(5 * 60_000);
+  await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true }),
+  );
+  expect(modelLists).toBe(2);
+
+  leaveSettings();
+  await Effect.runPromise(Effect.yieldNow);
+  await vi.advanceTimersByTimeAsync(5 * 60_000);
+  expect(modelLists).toBe(2);
+});
+
+it("keeps the cached catalog available during revalidation", async () => {
+  const store = registry();
+  const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+  onTestFinished(() => now.mockRestore());
+  const refreshed = Effect.runSync(Deferred.make<ReadonlyArray<ProviderModelCatalog>>());
+  let modelLists = 0;
+  const state = catalogState(
+    Effect.suspend(() => {
+      modelLists += 1;
+      if (modelLists === 1) return Effect.succeed([]);
+      return Deferred.await(refreshed);
+    }),
+  );
+
+  const firstVisit = store.mount(state.agentModels.catalogs);
+  await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true }),
+  );
+  firstVisit();
+  await Effect.runPromise(Effect.yieldNow);
+
+  now.mockReturnValue(1_000 + 6 * 60_000);
+  const staleVisit = store.mount(state.agentModels.catalogs);
+  const cached = await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs).pipe(Effect.timeout("1 second")),
+  );
+  expect(cached).toEqual([]);
+  expect(modelLists).toBe(2);
+  await Effect.runPromise(Deferred.succeed(refreshed, []));
+  await Effect.runPromise(
+    AtomRegistry.getResult(store, state.agentModels.catalogs, { suspendOnWaiting: true }),
+  );
+  staleVisit();
 });
 
 it("refreshes saved connection summaries after configuring and removing a key", async () => {
