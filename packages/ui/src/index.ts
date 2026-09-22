@@ -10,6 +10,7 @@ export {
   AppearanceIcon,
   AIIcon,
   FileIcon,
+  FileSearchIcon,
   FolderIcon,
   LinkIcon,
   UnknownFileIcon,

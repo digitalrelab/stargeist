@@ -13,6 +13,7 @@ import {
   EllipsisVertical,
   File,
   FileQuestionMark,
+  FileSearch,
   Folder,
   Link,
   Minus,
@@ -30,6 +31,10 @@ export function CloseIcon(props: LucideProps) {
 
 export function FileIcon(props: LucideProps) {
   return <File size={control.iconSize} {...props} />;
+}
+
+export function FileSearchIcon(props: LucideProps) {
+  return <FileSearch size={control.iconSize} {...props} />;
 }
 
 export function FolderIcon(props: LucideProps) {

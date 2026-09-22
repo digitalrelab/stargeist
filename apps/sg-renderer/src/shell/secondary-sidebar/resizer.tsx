@@ -38,7 +38,7 @@ export function Layout({
 }: {
   children: ReactNode;
   panel?: ReactNode;
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
@@ -69,7 +69,7 @@ function Resizer({
   container: RefObject<HTMLDivElement | null>;
   pane: RefObject<HTMLDivElement | null>;
   paneId: string;
-  onClose: () => void;
+  onClose: (() => void) | undefined;
 }) {
   const handle = useRef<HTMLDivElement>(null);
   const drag = useRef<DragSession | null>(null);
@@ -130,12 +130,14 @@ function Resizer({
         event.clientX,
         current.limits,
       );
-      closePanel = shouldCloseFromPointer(
-        current.startWidth,
-        current.startX,
-        event.clientX,
-        current.limits,
-      );
+      if (onClose) {
+        closePanel = shouldCloseFromPointer(
+          current.startWidth,
+          current.startX,
+          event.clientX,
+          current.limits,
+        );
+      }
     }
 
     drag.current = null;
@@ -147,7 +149,7 @@ function Resizer({
       handleElement.releasePointerCapture(event.pointerId);
     }
 
-    if (closePanel) {
+    if (closePanel && onClose) {
       onClose();
     }
   };
