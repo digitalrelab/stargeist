@@ -3,6 +3,7 @@ import {
   Check,
   Command,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   ChevronsUpDown,
   Settings2,
@@ -68,6 +69,10 @@ export function MinusIcon(props: LucideProps) {
 
 export function ChevronDownIcon(props: LucideProps) {
   return <ChevronDown size={control.iconSize} {...props} />;
+}
+
+export function ChevronRightIcon(props: LucideProps) {
+  return <ChevronRight size={control.iconSize} {...props} />;
 }
 
 export function ChevronUpIcon(props: LucideProps) {

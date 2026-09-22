@@ -1,7 +1,10 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { SettingsSidebar } from "#src/settings/index.ts";
+import { createFileRoute } from "@tanstack/react-router";
+import { SettingsLayout, SettingsSidebar } from "#src/settings/index.ts";
 
 export const Route = createFileRoute("/settings")({
-  component: Outlet,
-  staticData: { primarySidebar: SettingsSidebar },
+  component: SettingsLayout,
+  staticData: {
+    primarySidebar: SettingsSidebar,
+    breadcrumb: { label: "Settings" },
+  },
 });

@@ -1,4 +1,5 @@
 export { Button, type ButtonProps, type ButtonLinkProps } from "./button";
+export * as Breadcrumbs from "./breadcrumbs";
 export * as Select from "./select";
 export * as Dialog from "./dialog";
 export * as ConfirmDialog from "./confirm-dialog";
@@ -18,6 +19,7 @@ export {
   EditIcon,
   ErrorIcon,
   TagsIcon,
+  ChevronRightIcon,
 } from "./icons";
 export * as Sidebar from "./sidebar";
 export { ScrollArea } from "./scroll-area";

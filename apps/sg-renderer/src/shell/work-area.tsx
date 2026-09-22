@@ -56,7 +56,7 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space[4],
     paddingBlock: space[4],
-    paddingInline: space[6],
+    paddingInline: space[4],
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
     borderBottomColor: colors.borderSubtle,
