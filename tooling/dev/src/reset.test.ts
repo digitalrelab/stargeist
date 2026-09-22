@@ -315,6 +315,18 @@ it("requires a new preview if registered workspaces change before reset", async 
   expect(existsSync(profile.data)).toBe(true);
 });
 
+it("keeps app data created after the preview", () => {
+  const { profile } = fixture();
+  initializeProfile(profile);
+  const preview = previewReset(profile);
+  mkdirSync(profile.data);
+  const file = join(profile.data, "new.txt");
+  writeFileSync(file, "keep");
+
+  expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+  expect(readFileSync(file, "utf8")).toBe("keep");
+});
+
 it.each(["appears", "disappears"] as const)(
   "requires a new preview if registered workspace metadata %s before reset",
   async (change) => {

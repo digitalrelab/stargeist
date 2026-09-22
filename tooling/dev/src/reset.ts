@@ -48,6 +48,13 @@ export function resetData(profile: DevelopmentProfile, preview = previewReset(pr
   try {
     validateProfilePaths(profile);
     const storage = AppStorage.at(profile.root);
+    const current = storage.inspect();
+    if (current.exists !== preview.exists || current.cleanupPending !== preview.cleanupPending) {
+      throw new ProfileError(
+        "reset-changed",
+        "App data changed after the preview. Preview again and retry.",
+      );
+    }
     const roots = storage.inspectWorkspaces();
     if (JSON.stringify(roots) !== JSON.stringify(preview.workspaces.map(({ root }) => root))) {
       throw new ProfileError(
