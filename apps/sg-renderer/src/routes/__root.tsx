@@ -3,7 +3,7 @@ import { createRootRouteWithContext, Outlet, useMatches } from "@tanstack/react-
 import { useRef, type ComponentType, type RefObject } from "react";
 import type { RendererServices } from "#src/application.ts";
 import { FileInspectionProvider, FileInspector, useFileInspection } from "#src/files/views.ts";
-import { AppShell, RouteError } from "#src/shell/index.ts";
+import { AppShell, RouteError, SecondarySidebar, WorkArea } from "#src/shell/index.ts";
 import { WorkspaceSidebar } from "#src/workspaces/index.ts";
 
 declare module "@tanstack/react-router" {
@@ -61,11 +61,9 @@ function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> 
   }
 
   return (
-    <AppShell
+    <AppShell.Root
       ref={frame}
       tabIndex={-1}
-      primarySidebar={primarySidebar}
-      secondarySidebar={secondarySidebar}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || event.defaultPrevented || !inspectorOpen) {
           return;
@@ -76,7 +74,12 @@ function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> 
         inspection.close();
       }}
     >
-      <Outlet />
-    </AppShell>
+      <AppShell.Navigation>{primarySidebar}</AppShell.Navigation>
+      <SecondarySidebar.Layout panel={secondarySidebar} onClose={inspection.close}>
+        <WorkArea.Root>
+          <Outlet />
+        </WorkArea.Root>
+      </SecondarySidebar.Layout>
+    </AppShell.Root>
   );
 }

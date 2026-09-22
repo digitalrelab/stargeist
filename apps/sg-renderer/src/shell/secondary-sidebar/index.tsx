@@ -2,7 +2,8 @@ import { ScrollArea } from "@stargeist/ui";
 import { colors, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps } from "react";
-import { surface } from "./surface";
+import { Layout } from "./resizer";
+import { surface } from "../surface";
 
 type Props<T extends "aside" | "div"> = Omit<ComponentProps<T>, "className" | "style">;
 
@@ -25,7 +26,7 @@ function Content(props: Props<"div">) {
   );
 }
 
-export const SecondarySidebar = { Root, Header, Content };
+export const SecondarySidebar = { Layout, Root, Header, Content };
 
 const styles = stylex.create({
   root: {

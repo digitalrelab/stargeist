@@ -33,3 +33,4 @@ export { Ping } from "./ping";
 export * as Field from "./field";
 export * as Form from "./form";
 export * as Tooltip from "./tooltip";
+export { ResizeHandle, type ResizeHandleProps } from "./resize-handle";
