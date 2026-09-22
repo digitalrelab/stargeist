@@ -6,8 +6,7 @@
   "type": "module",
   "exports": {
     "./ai": "./src/ai.ts",
-    "./workspaces": "./src/workspaces.ts",
-    "./libraries": "./src/libraries.ts"
+    "./workspaces": "./src/workspaces.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

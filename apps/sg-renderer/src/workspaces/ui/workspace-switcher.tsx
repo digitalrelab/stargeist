@@ -20,7 +20,7 @@ export function WorkspaceSwitcher({ workspaceId }: { workspaceId: WorkspaceId | 
   if (list._tag === "Success") {
     items = list.value.map((workspace) => ({
       value: workspace.id,
-      label: workspace.displayName,
+      label: workspace.root,
     }));
     placeholder = "Select workspace";
 

@@ -10,7 +10,6 @@
     ".": "./src/index.ts",
     "./filesystem": "./src/filesystem/index.ts",
     "./workspaces": "./src/workspaces/index.ts",
-    "./libraries": "./src/libraries/index.ts",
     "./user-preferences": "./src/user-preferences/index.ts"
   },
   "scripts": {

@@ -1,101 +1,77 @@
-import { TestClock } from "effect/testing";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Workspaces, WorkspaceError } from "@stargeist/domain";
-import { Cause, Effect, Layer, Logger, References, Schema } from "effect";
-import { describe, expect, it, onTestFinished } from "vite-plus/test";
-import { Database, sqliteLayer } from "../index";
-import { workspacesLayer } from "./index";
+import { DatabaseSync } from "node:sqlite";
+import { WorkspaceError, makeWorkspaceId } from "@stargeist/domain";
+import { Deferred, Effect, Fiber } from "effect";
+import { expect, it, onTestFinished } from "vite-plus/test";
+import { openWorkspaceStore } from "./index";
 
-async function createFixture() {
-  const root = await mkdtemp(join(tmpdir(), "stargeist-repository-test-"));
-  onTestFinished(() => rm(root, { recursive: true, force: true }));
-
-  const layer = workspacesLayer.pipe(
-    Layer.provideMerge(sqliteLayer({ filename: join(root, "stargeist.sqlite") })),
+it("reports an unreadable database as a storage failure and preserves it", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "stargeist-store-"));
+  onTestFinished(() => rm(folder, { recursive: true, force: true }));
+  const filename = join(folder, "store.sqlite");
+  await writeFile(filename, "invalid sqlite database");
+  const error = await Effect.runPromise(
+    openWorkspaceStore(filename).pipe(Effect.scoped, Effect.flip),
   );
-
-  const folder = { kind: "local-fs" as const, path: root };
-
-  return { layer: layer.pipe(Layer.provideMerge(TestClock.layer())), folder };
-}
-
-describe("workspace persistence", () => {
-  it("remembers workspace names after reopening the database", async () => {
-    const { layer, folder } = await createFixture();
-    const { workspace: saved } = await Effect.runPromise(
-      Workspaces.use((repository) =>
-        repository.create({ displayName: "Footage", source: folder }),
-      ).pipe(Effect.provide(layer)),
-    );
-
-    expect(saved).toMatchObject({ displayName: "Footage", createdAt: 0 });
-
-    const loaded = await Effect.runPromise(
-      Workspaces.use((repository) => repository.get(saved.id)).pipe(Effect.provide(layer)),
-    );
-
-    expect(loaded).toEqual(saved);
-  });
-
-  it("logs the original database failure and returns a safe public error", async () => {
-    const { layer } = await createFixture();
-    const entries: Array<{ cause: Cause.Cause<unknown>; operation: unknown }> = [];
-    const logger = Logger.make(({ cause, fiber }) => {
-      entries.push({ cause, operation: fiber.getRef(References.CurrentLogAnnotations).operation });
-    });
-
-    const error = await Effect.runPromise(
-      Effect.gen(function* () {
-        const database = yield* Database;
-
-        yield* database.run("DROP TABLE workspaces");
-
-        const repository = yield* Workspaces;
-
-        return yield* repository.list.pipe(Effect.flip);
-      }).pipe(Effect.provide(layer), Effect.provide(Logger.layer([logger]))),
-    );
-
-    expect(Schema.encodeSync(WorkspaceError)(error)).toEqual({
-      _tag: "WorkspaceError",
-      code: "StorageUnavailable",
-      message: "Workspace records could not be read or saved. Try again.",
-    });
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.operation).toBe("workspaces.list");
-    expect(Cause.pretty(entries[0]!.cause)).toContain("no such table: workspaces");
-  });
+  expect(error).toBeInstanceOf(WorkspaceError);
+  expect(error.code).toBe("StorageUnavailable");
+  expect(await readFile(filename, "utf8")).toBe("invalid sqlite database");
 });
 
-it("rolls back the workspace when its first library fails, then permits a clean retry", async () => {
-  const { layer, folder } = await createFixture();
+it.each([-1, 2])(
+  "rejects unsupported schema version %i without changing the database",
+  async (version) => {
+    const folder = await mkdtemp(join(tmpdir(), "stargeist-store-"));
+    onTestFinished(() => rm(folder, { recursive: true, force: true }));
+    const filename = join(folder, "store.sqlite");
+    using database = new DatabaseSync(filename);
+    database.exec("CREATE TABLE preserved (value TEXT NOT NULL)");
+    database.exec("INSERT INTO preserved VALUES ('original')");
+    database.exec(`PRAGMA user_version = ${version}`);
+    const schema = database.prepare("SELECT * FROM sqlite_schema").all();
 
+    const error = await Effect.runPromise(
+      openWorkspaceStore(filename).pipe(Effect.scoped, Effect.flip),
+    );
+
+    expect(error).toBeInstanceOf(WorkspaceError);
+    expect(error.code).toBe("StorageUnavailable");
+    expect(database.prepare("PRAGMA user_version").get()).toEqual({ user_version: version });
+    expect(database.prepare("SELECT * FROM sqlite_schema").all()).toEqual(schema);
+    expect(database.prepare("SELECT * FROM preserved").all()).toEqual([{ value: "original" }]);
+  },
+);
+
+it("rolls back partial changes on domain failure and interruption", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "stargeist-store-"));
+  onTestFinished(() => rm(folder, { recursive: true, force: true }));
   await Effect.runPromise(
     Effect.gen(function* () {
-      const database = yield* Database;
-      const repository = yield* Workspaces;
-
-      yield* database.run(
-        "CREATE TRIGGER fail_library BEFORE INSERT ON libraries BEGIN SELECT RAISE(ABORT, 'library write failed'); END",
-      );
-
-      expect(
-        yield* repository.create({ displayName: "Footage", source: folder }).pipe(Effect.flip),
-      ).toMatchObject({
-        code: "StorageUnavailable",
-      });
-      expect(yield* repository.list).toEqual([]);
-      expect(yield* database.all("SELECT id FROM libraries")).toEqual([]);
-
-      yield* database.run("DROP TRIGGER fail_library");
-
-      const created = yield* repository.create({ displayName: "Footage", source: folder });
-
-      expect(created.library.workspaceId).toBe(created.workspace.id);
-      expect(created.library.displayName).toBe(created.workspace.displayName);
-      expect(yield* repository.list).toEqual([created.workspace]);
-    }).pipe(Effect.provide(layer)),
+      const store = yield* openWorkspaceStore(join(folder, "store.sqlite"));
+      const record = { id: yield* makeWorkspaceId, identity: "original", root: "/original" };
+      yield* store.modify((records) => records.put(record));
+      const failure = new WorkspaceError({ code: "RootConflict", message: "Occupied" });
+      const result = yield* store
+        .modify((records) => records.remove(record.id).pipe(Effect.andThen(Effect.fail(failure))))
+        .pipe(Effect.flip);
+      expect(result).toBe(failure);
+      expect(yield* store.get(record.id)).toEqual(record);
+      const modified = yield* Deferred.make<void>();
+      const fiber = yield* store
+        .modify((records) =>
+          records
+            .remove(record.id)
+            .pipe(
+              Effect.andThen(Deferred.succeed(modified, undefined)),
+              Effect.andThen(Effect.never),
+            ),
+        )
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(modified);
+      yield* Fiber.interrupt(fiber);
+      expect(yield* store.list).toEqual([record]);
+    }).pipe(Effect.scoped, Effect.timeout("3 seconds")),
   );
 });

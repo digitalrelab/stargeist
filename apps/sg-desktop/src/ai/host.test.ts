@@ -6,7 +6,7 @@ import { Rpc, RpcClient, RpcGroup, RpcServer } from "effect/unstable/rpc";
 import { expect, it } from "vite-plus/test";
 import { connectionsLayer } from "./connections";
 import { Credentials, type StoredCredential } from "./credentials";
-import { providerConnectionHandlers } from "./host";
+import { ProviderConnectionsEndpoint } from "./host";
 
 const connect = (port: MessagePort): Connection => ({
   send: (message) => port.postMessage(message),
@@ -72,7 +72,7 @@ it("round-trips credentials privately and keeps host requests usable during vali
         },
       });
       yield* RpcServer.make(contract, { concurrency: 1 }).pipe(
-        Effect.provide(providerConnectionHandlers.pipe(Layer.provide(connections))),
+        Effect.provide(ProviderConnectionsEndpoint.layer.pipe(Layer.provide(connections))),
         Effect.provide(Ping.toLayer({ ping: () => Effect.succeed("pong") })),
         Effect.provideService(RpcServer.Protocol, protocol),
         Effect.forkScoped,

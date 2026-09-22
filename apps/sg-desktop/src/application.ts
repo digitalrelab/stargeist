@@ -1,25 +1,60 @@
-import { Application, Module } from "@stargeist/application";
+import { Application } from "@stargeist/application";
+import { reportFailure } from "@stargeist/std/errors";
 import { app } from "electron";
 import { Effect, Layer } from "effect";
-import { Backend, backendLayer } from "./backend";
+import { RpcClient, RpcServer } from "effect/unstable/rpc";
+import { aiProviderConnectionsLayer, ProviderConnectionsEndpoint } from "./ai";
+import { openBackend, servePort } from "./backend";
+import { folderPickerLayer } from "./filesystem/host";
 import { pathsLayer } from "./storage";
-import { WindowsModule } from "./window";
+import { WindowsModule, WindowConnections, runWindows } from "./window";
 import { userPreferencesLayer } from "./user-preferences";
-import { UserPreferences } from "@stargeist/domain";
-import { AIProviderConnections } from "@stargeist/domain/ai";
-import { aiProviderConnectionsLayer } from "./ai";
+import { workspaceCommandsLayer, WorkspaceDialogsEndpoint } from "./workspaces/host";
 
-const paths = Layer.unwrap(Effect.sync(() => pathsLayer(app.getPath("userData"))));
-const connections = aiProviderConnectionsLayer.pipe(Layer.provide(paths));
-const backend = backendLayer.pipe(Layer.provide(paths), Layer.provide(connections));
-const preferences = userPreferencesLayer.pipe(Layer.provide(paths));
+const HostRpcs = WorkspaceDialogsEndpoint.rpcs.merge(ProviderConnectionsEndpoint.rpcs);
+const serveHost = RpcServer.make(HostRpcs, { concurrency: 1 }).pipe(
+  Effect.provide(WorkspaceDialogsEndpoint.layer),
+  Effect.provide(ProviderConnectionsEndpoint.layer),
+  Effect.scoped,
+);
 
 export const DesktopApplication = Application.define({
-  modules: {
-    windows: WindowsModule,
-    backend: Module.define({ exports: Backend, layer: backend }),
-    userPreferences: Module.define({ exports: UserPreferences, layer: preferences }),
-    aiProviderConnections: Module.define({ exports: AIProviderConnections, layer: connections }),
-  },
-  provide: Layer.merge(backend, preferences),
+  modules: { windows: WindowsModule },
+  provide: userPreferencesLayer,
 });
+
+export const desktopProgram = Effect.gen(function* () {
+  const backend = yield* openBackend;
+  const providerConnections = yield* Layer.build(aiProviderConnectionsLayer);
+  yield* Effect.all(
+    [
+      Effect.gen(function* () {
+        const commands = yield* Layer.build(
+          workspaceCommandsLayer.pipe(
+            Layer.provide(Layer.succeed(RpcClient.Protocol, backend.protocol)),
+          ),
+        );
+        const connections = WindowConnections.of({
+          connect: (contents) =>
+            backend.connect(
+              contents,
+              servePort(
+                serveHost.pipe(
+                  Effect.provide(folderPickerLayer(contents)),
+                  Effect.provide(commands),
+                  Effect.provide(providerConnections),
+                  Effect.catchCause((cause) => reportFailure("desktop.connection", cause)),
+                ),
+              ),
+            ),
+        });
+        const application = yield* DesktopApplication.make.pipe(
+          Effect.provideService(WindowConnections, connections),
+        );
+        yield* runWindows(application.windows.open);
+      }),
+      backend.failure,
+    ],
+    { concurrency: 2, discard: true },
+  );
+}).pipe(Effect.provide(Layer.unwrap(Effect.sync(() => pathsLayer(app.getPath("userData"))))));

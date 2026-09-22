@@ -1,4 +1,4 @@
-import { LibraryId, ListingId } from "@stargeist/domain";
+import { WorkspaceId, ListingId } from "@stargeist/domain";
 import { Selection, type SelectionState } from "@stargeist/std/selection";
 import { Effect, HashSet, Schema } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
@@ -7,7 +7,7 @@ import { createFileSelectionController } from "../../selection";
 import { createFileListing } from "../../state";
 import { createFileInspection, describeFileInspection, type FileInspectionInput } from "./state";
 
-const libraryId = Schema.decodeUnknownSync(LibraryId)("lib_00000000000000000000000001");
+const workspaceId = Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001");
 const listingId = Schema.decodeUnknownSync(ListingId)("inspection");
 const empty = Selection.empty<string, typeof listingId>(listingId);
 
@@ -20,7 +20,12 @@ function input(
   if (index !== undefined) {
     focused = { index, item: { name: `file-${index}`, kind: "file" as const } };
   }
-  return { libraryId, folder: "/files", total: 10_000, interaction: { type, focused, selection } };
+  return {
+    workspaceId,
+    folder: "/files",
+    total: 10_000,
+    interaction: { type, focused, selection },
+  };
 }
 
 function setup() {
@@ -71,7 +76,7 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   );
   const selection = createFileSelectionController(
     listing,
-    inspection.bind(listing, { libraryId, folder: "/files" }),
+    inspection.bind(listing, { workspaceId, folder: "/files" }),
   );
   registry.mount(selection.command);
   registry.set(selection.command, { type: "replace", keys: ["file-2"] });
@@ -219,7 +224,7 @@ it("publishes selection and inspection together, then closes without changing me
   );
   const selection = createFileSelectionController(
     listing,
-    inspection.bind(listing, { libraryId, folder: "/files" }),
+    inspection.bind(listing, { workspaceId, folder: "/files" }),
   );
   registry.mount(selection.command);
   const visibility: boolean[] = [];

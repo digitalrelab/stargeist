@@ -1,35 +1,49 @@
 import type { WorkspacesClient } from "./client";
-import { Workspace, WorkspaceId, Library, LibraryId } from "@stargeist/domain";
-import { Effect, Schema } from "effect";
-import { AtomRegistry } from "effect/unstable/reactivity";
+import {
+  ListingId,
+  type DirectoryListingPage,
+  WorkspaceId,
+  Workspace,
+  WorkspaceError,
+  entryPageSize,
+} from "@stargeist/domain";
+import { Deferred, Effect, Schema } from "effect";
+import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { createWorkspaceState } from "./state";
 
 const workspace = new Workspace({
   id: Schema.decodeUnknownSync(WorkspaceId)("wsp_00000000000000000000000001"),
-  displayName: "Project",
-  createdAt: 1,
+  root: "/project",
 });
 
-const library = new Library({
-  id: Schema.decodeUnknownSync(LibraryId)("lib_00000000000000000000000001"),
-  workspaceId: workspace.id,
-  displayName: "Project",
-  source: { kind: "local-fs", path: "/project" },
-  createdAt: 1,
-});
-
-const createClient = (cancel = false): WorkspacesClient => {
-  let records: ReadonlyArray<Workspace> = [];
+const createClient = (
+  handlers: {
+    openWorkspace?: () => Effect.Effect<Workspace | null>;
+    browse?: WorkspacesClient["browse"];
+    readDirectory?: WorkspacesClient["readDirectory"];
+  } = {},
+): WorkspacesClient => {
+  let workspaces: ReadonlyArray<Workspace> = [];
+  const openFromFolder = () =>
+    (handlers.openWorkspace ?? (() => Effect.succeed(workspace)))().pipe(
+      Effect.tap((result) =>
+        Effect.sync(() => {
+          if (result) workspaces = [result];
+        }),
+      ),
+    );
   return {
-    list: Effect.sync(() => records),
-    get: () => Effect.succeed(workspace),
-    createFromFolder: () =>
+    list: Effect.sync(() => workspaces),
+    openFromFolder,
+    initializeFromFolder: openFromFolder,
+    reconnectFromFolder: openFromFolder,
+    forget: () =>
       Effect.sync(() => {
-        if (cancel) return null;
-        records = [workspace];
-        return { workspace, library };
+        workspaces = [];
       }),
+    browse: handlers.browse ?? (() => Effect.die("Unexpected directory request")),
+    readDirectory: handlers.readDirectory ?? (() => Effect.die("Unexpected directory request")),
   };
 };
 
@@ -41,39 +55,160 @@ function createRegistry() {
 }
 
 describe("Workspace state", () => {
-  it("refreshes the injected client's list without affecting another state in the same registry", async () => {
+  it("leaves a canceled folder choice unchanged and refreshes workspaces after a successful choice", async () => {
     const registry = createRegistry();
-    const first = createWorkspaceState(createClient());
-    const second = createWorkspaceState(createClient());
+    let selection: Workspace | null = null;
+    const state = createWorkspaceState(
+      createClient({ openWorkspace: () => Effect.sync(() => selection) }),
+    );
 
+    const workspaces = state.workspaces;
+    const add = state.openWorkspace("open");
     await Effect.runPromise(
       Effect.gen(function* () {
-        expect(yield* AtomRegistry.getResult(registry, first.workspaces)).toEqual([]);
-        expect(yield* AtomRegistry.getResult(registry, second.workspaces)).toEqual([]);
-
-        registry.set(first.createWorkspace, undefined);
-        const created = yield* AtomRegistry.getResult(registry, first.createWorkspace, {
-          suspendOnWaiting: true,
-        });
-
-        const refreshed = yield* AtomRegistry.getResult(registry, first.workspaces, {
-          suspendOnWaiting: true,
-        });
-
-        expect(created).toEqual({ workspace, library });
-        expect(refreshed).toEqual([workspace]);
-        expect(yield* AtomRegistry.getResult(registry, second.workspaces)).toEqual([]);
+        expect(yield* AtomRegistry.getResult(registry, workspaces)).toEqual([]);
+        registry.set(add, undefined);
+        expect(yield* AtomRegistry.getResult(registry, add, { suspendOnWaiting: true })).toBeNull();
+        expect(yield* AtomRegistry.getResult(registry, workspaces)).toEqual([]);
+        selection = workspace;
+        registry.set(add, undefined);
+        expect(yield* AtomRegistry.getResult(registry, add, { suspendOnWaiting: true })).toEqual(
+          workspace,
+        );
+        expect(
+          yield* AtomRegistry.getResult(registry, workspaces, { suspendOnWaiting: true }),
+        ).toEqual([workspace]);
       }).pipe(Effect.timeout("3 seconds")),
     );
   });
 
-  it("does not create a workspace when the folder picker is canceled", async () => {
+  it("refreshes the whole detail and closes each listing on refresh and unsubscribe", async () => {
     const registry = createRegistry();
-    const state = createWorkspaceState(createClient(true));
-    registry.set(state.createWorkspace, undefined);
-    expect(
-      await Effect.runPromise(AtomRegistry.getResult(registry, state.createWorkspace)),
-    ).toBeNull();
-    expect(await Effect.runPromise(AtomRegistry.getResult(registry, state.workspaces))).toEqual([]);
+    const first: DirectoryListingPage = {
+      listingId: Schema.decodeUnknownSync(ListingId)("first"),
+      offset: 0,
+      entries: Array.from({ length: entryPageSize }, (_, index) => ({
+        name: `file-${index}`,
+        kind: "file" as const,
+      })),
+      hasMore: true,
+    };
+    const second = { ...first, listingId: Schema.decodeUnknownSync(ListingId)("second") };
+    const renamed = new Workspace({ id: workspace.id, root: "/renamed" });
+
+    const firstClosed = Effect.runSync(Deferred.make<void>());
+    const secondClosed = Effect.runSync(Deferred.make<void>());
+    let currentWorkspace = workspace;
+    let currentListing = first;
+    const reads: ListingId[] = [];
+    const state = createWorkspaceState(
+      createClient({
+        browse: () =>
+          Effect.acquireRelease(
+            Effect.sync(() => ({ workspace: currentWorkspace, directory: currentListing })),
+            ({ directory }) => {
+              if (directory.listingId === first.listingId) {
+                return Deferred.succeed(firstClosed, undefined);
+              }
+              return Deferred.succeed(secondClosed, undefined);
+            },
+          ),
+        readDirectory: ({ listingId, offset }) =>
+          Effect.sync(() => {
+            reads.push(listingId);
+            return { listingId, offset, entries: [], hasMore: false };
+          }),
+      }),
+    );
+
+    const detail = state.detail(workspace.id);
+    const listing = Atom.map(detail, (value) => value.view);
+    const unsubscribe = registry.mount(detail);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const initial = yield* AtomRegistry.getResult(registry, listing);
+        expect(initial.files.id).toBe(first.listingId);
+        registry.mount(initial.files.extent);
+        expect(yield* AtomRegistry.getResult(registry, initial.files.pages(0))).toEqual({
+          items: first.entries,
+          next: entryPageSize,
+        });
+        yield* AtomRegistry.getResult(registry, initial.files.pages(entryPageSize));
+        expect(initial.workspace).toEqual(workspace);
+        expect(registry.get(detail).canRefresh).toBe(true);
+
+        currentWorkspace = renamed;
+        currentListing = second;
+        registry.refresh(detail);
+
+        const reopened = yield* AtomRegistry.getResult(registry, listing, {
+          suspendOnWaiting: true,
+        });
+        expect(reopened.files.id).toBe(second.listingId);
+        expect(reopened.files).not.toBe(initial.files);
+        registry.mount(reopened.files.extent);
+        yield* AtomRegistry.getResult(registry, reopened.files.pages(entryPageSize));
+        expect(reads).toEqual([first.listingId, second.listingId]);
+        expect(reopened.workspace).toEqual(renamed);
+        yield* Deferred.await(firstClosed);
+
+        unsubscribe();
+        yield* Deferred.await(secondClosed);
+      }).pipe(Effect.timeout("3 seconds")),
+    );
+  });
+
+  it.each([
+    ["FolderUnavailable", ["retry", "locate"], true],
+    ["InvalidWorkspace", ["retry", "locate"], true],
+    ["BackendUnavailable", [], false],
+  ] as const)("offers actionable recovery for %s", async (code, recovery, canRefresh) => {
+    const registry = createRegistry();
+    const failure = new WorkspaceError({
+      code,
+      message: "Workspace unavailable.",
+    });
+
+    const state = createWorkspaceState(
+      createClient({
+        browse: () => Effect.fail(failure),
+      }),
+    );
+
+    const detail = state.detail(workspace.id);
+    registry.mount(detail);
+
+    const error = await Effect.runPromise(
+      AtomRegistry.getResult(
+        registry,
+        Atom.map(detail, (value) => value.view),
+      ).pipe(Effect.flip, Effect.timeout("3 seconds")),
+    );
+
+    expect(error).toEqual(failure);
+    expect(registry.get(detail).recovery).toEqual(recovery);
+    expect(registry.get(detail).canRefresh).toBe(canRefresh);
+  });
+
+  it("cancels a pending directory request when its detail is no longer observed", async () => {
+    const registry = createRegistry();
+    const started = Effect.runSync(Deferred.make<void>());
+    const canceled = Effect.runSync(Deferred.make<void>());
+    const state = createWorkspaceState(
+      createClient({
+        browse: () =>
+          Deferred.succeed(started, undefined).pipe(
+            Effect.andThen(Effect.never),
+            Effect.ensuring(Deferred.succeed(canceled, undefined)),
+          ),
+      }),
+    );
+
+    const unsubscribe = registry.mount(state.detail(workspace.id));
+
+    await Effect.runPromise(Deferred.await(started).pipe(Effect.timeout("3 seconds")));
+    unsubscribe();
+    await Effect.runPromise(Deferred.await(canceled).pipe(Effect.timeout("3 seconds")));
   });
 });

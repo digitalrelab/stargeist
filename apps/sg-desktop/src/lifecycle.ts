@@ -1,32 +1,23 @@
-import type { Application } from "@stargeist/application";
 import { reportFailure } from "@stargeist/std/errors";
-import { app, BrowserWindow } from "electron";
-import { Cause, Deferred, Effect, FiberSet } from "effect";
+import { app } from "electron";
+import { Cause, Deferred, Effect, type Scope } from "effect";
 import { applicationIcon } from "./icon";
 
-interface DesktopServices {
-  readonly windows: { readonly open: Effect.Effect<void, unknown> };
-  readonly backend: { readonly failure: Effect.Effect<never, unknown> };
-}
-
-export const runDesktop = (application: Application.Application<DesktopServices, unknown>) =>
+export const runDesktop = (program: Effect.Effect<void, unknown, Scope.Scope>) =>
   Effect.gen(function* () {
     const shutdown = yield* Deferred.make<void>();
     const completion = yield* Deferred.make<void, unknown>();
     const fail = (cause: Cause.Cause<unknown>) => {
       if (Cause.hasInterruptsOnly(cause)) return Effect.void;
-
       return Deferred.failCause(completion, cause).pipe(
         Effect.andThen(Deferred.succeed(shutdown, undefined)),
       );
     };
-
     yield* Effect.gen(function* () {
       const quit = (event: Electron.Event) => {
         event.preventDefault();
         Effect.runSync(Deferred.succeed(shutdown, undefined));
       };
-
       yield* Effect.acquireRelease(
         Effect.sync(() => {
           app.on("before-quit", quit);
@@ -36,49 +27,14 @@ export const runDesktop = (application: Application.Application<DesktopServices,
             app.removeListener("before-quit", quit);
           }),
       );
-
-      const running = Effect.gen(function* () {
+      yield* Effect.gen(function* () {
         yield* Effect.promise(() => app.whenReady());
-
         if (process.platform === "darwin" && !app.isPackaged) {
           yield* Effect.sync(() => app.dock?.setIcon(applicationIcon()));
         }
-
-        const desktop = yield* application.make;
-        const runWindow = yield* FiberSet.makeRuntime();
-
-        const launchWindow = () => {
-          runWindow(desktop.windows.open.pipe(Effect.onError(fail)));
-        };
-
-        const activate = () => {
-          if (BrowserWindow.getAllWindows().length === 0) launchWindow();
-        };
-
-        const close = () => {
-          if (process.platform !== "darwin") app.quit();
-        };
-
-        yield* Effect.acquireRelease(
-          Effect.sync(() => {
-            app.on("activate", activate);
-            app.on("window-all-closed", close);
-          }),
-          () =>
-            Effect.sync(() => {
-              app.removeListener("activate", activate);
-              app.removeListener("window-all-closed", close);
-            }),
-        );
-
-        launchWindow();
-
-        yield* desktop.backend.failure;
-      });
-
-      yield* running.pipe(Effect.onError(fail), Effect.raceFirst(Deferred.await(shutdown)));
+        yield* program;
+      }).pipe(Effect.onError(fail), Effect.raceFirst(Deferred.await(shutdown)));
     }).pipe(Effect.scoped, Effect.catchCause(fail));
-
     yield* Deferred.succeed(completion, undefined);
     yield* Deferred.await(completion);
   }).pipe(

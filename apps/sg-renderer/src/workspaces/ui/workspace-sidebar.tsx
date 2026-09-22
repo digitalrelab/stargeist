@@ -1,7 +1,8 @@
-import { Button, SettingsIcon, Sidebar } from "@stargeist/ui";
+import { Button, SettingsIcon, Sidebar, typography } from "@stargeist/ui";
+import * as stylex from "@stylexjs/stylex";
+import { colors, space } from "@stargeist/ui/tokens.stylex";
 import { Link, useParams } from "@tanstack/react-router";
-import { LibraryNavigation } from "#src/libraries/index.ts";
-import { CreateWorkspace } from "./create-workspace";
+import { OpenWorkspace, ForgetWorkspace } from "./workspace-actions";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export function WorkspaceSidebar() {
@@ -11,10 +12,21 @@ export function WorkspaceSidebar() {
     <Sidebar.Root aria-label="Workspace navigation">
       <Sidebar.Header>
         <WorkspaceSwitcher workspaceId={workspaceId} />
-        <CreateWorkspace />
+        <OpenWorkspace />
       </Sidebar.Header>
       <Sidebar.Content key={workspaceId}>
-        {workspaceId && <LibraryNavigation workspaceId={workspaceId} />}
+        {workspaceId && (
+          <Button.Link appearance="ghost" render={<Link to="/" />}>
+            Close workspace
+          </Button.Link>
+        )}
+        <details>
+          <summary {...stylex.props(typography.label, styles.options)}>Workspace options</summary>
+          <div {...stylex.props(styles.actions)}>
+            <OpenWorkspace mode="initialize" />
+            {workspaceId && <ForgetWorkspace workspaceId={workspaceId} />}
+          </div>
+        </details>
       </Sidebar.Content>
       <Sidebar.Footer>
         <Sidebar.Nav aria-label="Application">
@@ -31,3 +43,12 @@ export function WorkspaceSidebar() {
     </Sidebar.Root>
   );
 }
+
+const styles = stylex.create({
+  options: {
+    color: colors.textMuted,
+    paddingBlock: space[2],
+    paddingInline: space[3],
+  },
+  actions: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: space[2] },
+});

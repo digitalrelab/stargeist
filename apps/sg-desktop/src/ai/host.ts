@@ -1,10 +1,12 @@
+import * as RpcEndpoint from "@stargeist/application/rpc";
 import { AIProviderConnections } from "@stargeist/domain/ai";
 import { ProviderConnectionRpcs } from "@stargeist/protocol/ai";
 import { Effect } from "effect";
 import { Rpc } from "effect/unstable/rpc";
 
-export const providerConnectionHandlers = ProviderConnectionRpcs.toLayer(
-  Effect.gen(function* () {
+export const ProviderConnectionsEndpoint = RpcEndpoint.define(ProviderConnectionRpcs)({
+  concurrency: 1,
+  implementation: Effect.gen(function* () {
     const connections = yield* AIProviderConnections;
     return {
       "ai.connections.list": () => Rpc.fork(connections.list),
@@ -13,4 +15,4 @@ export const providerConnectionHandlers = ProviderConnectionRpcs.toLayer(
       "ai.connections.remove": ({ providerId }) => Rpc.fork(connections.remove(providerId)),
     };
   }),
-);
+});

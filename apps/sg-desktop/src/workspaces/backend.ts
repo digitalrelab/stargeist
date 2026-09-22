@@ -1,27 +1,37 @@
+import * as RpcEndpoint from "@stargeist/application/rpc";
 import { Workspaces } from "@stargeist/domain";
 import { WorkspaceRpcs } from "@stargeist/protocol/workspaces";
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { WorkspaceControlRpcs } from "./control";
-import { selectedFolder } from "../libraries";
+import { makeWorkspaceBrowser } from "./browser";
 
-export const workspaceControlHandlers = WorkspaceControlRpcs.toLayer(
-  Effect.gen(function* () {
+export const WorkspaceControlEndpoint = RpcEndpoint.define(WorkspaceControlRpcs)({
+  concurrency: 1,
+  implementation: Effect.gen(function* () {
     const workspaces = yield* Workspaces;
-
     return {
-      "workspaces.create": ({ path }) =>
-        selectedFolder(path).pipe(Effect.flatMap((folder) => workspaces.create(folder))),
+      "workspaces.open": ({ path }) => workspaces.open(path),
+      "workspaces.initialize": ({ path }) => workspaces.initialize(path),
+      "workspaces.reconnect": ({ id, path }) => workspaces.reconnect(id, path),
     };
   }),
-);
+});
 
-export const workspaceHandlers = WorkspaceRpcs.toLayer(
-  Effect.gen(function* () {
+export const WorkspaceEndpoint = RpcEndpoint.define(WorkspaceRpcs)({
+  concurrency: 8,
+  implementation: Effect.gen(function* () {
     const workspaces = yield* Workspaces;
-
+    const browser = yield* makeWorkspaceBrowser(workspaces);
     return {
       "workspaces.list": () => workspaces.list,
-      "workspaces.get": ({ id }) => workspaces.get(id),
+      "workspaces.forget": ({ id }) => workspaces.forget(id),
+      "workspaces.browse": ({ id }) =>
+        Stream.unwrap(
+          browser
+            .browse(id)
+            .pipe(Effect.map((view) => Stream.concat(Stream.succeed(view), Stream.never))),
+        ),
+      "workspaces.readDirectory": ({ listingId, offset }) => browser.read(listingId, offset),
     };
   }),
-);
+});

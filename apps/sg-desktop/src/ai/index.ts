@@ -12,4 +12,4 @@ export const aiProviderConnectionsLayer = Layer.unwrap(
   makeProviderAdapters.pipe(Effect.map(connectionsLayer)),
 ).pipe(Layer.provide(credentialsLayer.pipe(Layer.provide(protection))));
 
-export { providerConnectionHandlers } from "./host";
+export { ProviderConnectionsEndpoint } from "./host";

@@ -1,9 +1,9 @@
 import { join } from "node:path";
-import { Application, Module } from "@stargeist/application";
 import { app, type BrowserWindow } from "electron";
-import { Context, Deferred, Effect, Fiber, Layer, Queue } from "effect";
+import { Deferred, Effect, Fiber, Queue } from "effect";
 import { beforeEach, expect, it, onTestFinished, vi } from "vite-plus/test";
 import { runDesktop } from "./lifecycle";
+import { runWindows } from "./window/lifecycle";
 
 const native = vi.hoisted(() => ({
   whenReady: vi.fn<() => Promise<void>>(),
@@ -28,14 +28,6 @@ vi.mock("electron", async () => {
     BrowserWindow: { getAllWindows: native.getAllWindows },
   };
 });
-
-class Backend extends Context.Service<Backend, { readonly failure: Effect.Effect<never, Error> }>()(
-  "test/desktop/Backend",
-) {}
-
-class Windows extends Context.Service<Windows, { readonly open: Effect.Effect<void, Error> }>()(
-  "test/desktop/Windows",
-) {}
 
 const signal = () => Effect.runSync(Deferred.make<void>());
 const complete = (deferred: Deferred.Deferred<void>) =>
@@ -71,21 +63,17 @@ function desktop(
     Array.from({ length: windowCount }, () => ({}) as BrowserWindow),
   );
 
-  const backend = Layer.effect(
-    Backend,
-    Effect.gen(function* () {
-      yield* Effect.acquireRelease(
-        Effect.sync(() => events.push("backend acquired")),
-        () =>
-          (options.release ?? Effect.void).pipe(
-            Effect.andThen(Effect.sync(() => events.push("backend released"))),
-          ),
-      );
-      yield* Deferred.succeed(acquired, undefined);
-      yield* options.initialize ?? Effect.void;
-      return { failure: Deferred.await(failure) };
-    }),
-  );
+  const acquireBackend = Effect.gen(function* () {
+    yield* Effect.acquireRelease(
+      Effect.sync(() => events.push("backend acquired")),
+      () =>
+        (options.release ?? Effect.void).pipe(
+          Effect.andThen(Effect.sync(() => events.push("backend released"))),
+        ),
+    );
+    yield* Deferred.succeed(acquired, undefined);
+    yield* options.initialize ?? Effect.void;
+  });
 
   const open = Effect.gen(function* () {
     const close = yield* Deferred.make<void>();
@@ -94,6 +82,7 @@ function desktop(
       Effect.sync(() => {
         windowCount++;
         events.push("window opened");
+        app.emit("browser-window-created");
       }),
       () =>
         Effect.sync(() => {
@@ -108,21 +97,14 @@ function desktop(
     );
   });
 
-  const application = Application.define({
-    modules: {
-      backend: Module.define({ exports: Backend, layer: backend }),
-      windows: Module.define({
-        exports: Windows,
-        layer: Layer.effect(
-          Windows,
-          Effect.map(Backend, () => ({ open: options.open ?? open })),
-        ),
-      }),
-    },
-    provide: backend,
+  const program = Effect.gen(function* () {
+    yield* acquireBackend;
+    yield* Effect.all([runWindows(options.open ?? open), Deferred.await(failure)], {
+      concurrency: 2,
+      discard: true,
+    });
   });
-
-  const fiber = Effect.runFork(runDesktop(application));
+  const fiber = Effect.runFork(runDesktop(program));
   onTestFinished(() => Effect.runPromise(Fiber.interrupt(fiber)));
   return { events, acquired, failure, opened, fiber };
 }
@@ -215,6 +197,51 @@ it("cancels unfinished initialization and waits for cleanup before allowing quit
   expect(native.exit).not.toHaveBeenCalled();
   expect(app.eventNames()).toEqual([]);
   expect(requestQuit().preventDefault).not.toHaveBeenCalled();
+});
+
+it("does not open duplicate windows while activation races with window startup", async () => {
+  const starting = signal();
+  const open = vi.fn(() => complete(starting));
+  const runtime = desktop({ open: Effect.sync(open).pipe(Effect.andThen(Effect.never)) });
+  await wait(Deferred.await(starting));
+  app.emit("activate");
+  app.emit("activate");
+  requestQuit();
+  await wait(Fiber.join(runtime.fiber));
+  expect(open).toHaveBeenCalledOnce();
+});
+
+it("reopens once when activation arrives while the closed window is still releasing", async () => {
+  vi.stubGlobal("process", { ...process, platform: "darwin" });
+  const releasing = signal();
+  const release = signal();
+  const runtime = desktop({
+    releaseWindow: Deferred.succeed(releasing, undefined).pipe(
+      Effect.andThen(Deferred.await(release)),
+    ),
+  });
+  onTestFinished(() => {
+    complete(release);
+  });
+  const first = await wait(Queue.take(runtime.opened));
+  complete(first.close);
+  await wait(Deferred.await(releasing));
+  app.emit("window-all-closed");
+  app.emit("activate");
+  app.emit("activate");
+  expect(runtime.events).toEqual(["backend acquired", "window opened", "window released"]);
+  complete(release);
+  await wait(Queue.take(runtime.opened));
+  requestQuit();
+  await wait(Fiber.join(runtime.fiber));
+  expect(runtime.events).toEqual([
+    "backend acquired",
+    "window opened",
+    "window released",
+    "window opened",
+    "window released",
+    "backend released",
+  ]);
 });
 
 it("keeps the backend on macOS and reopens a closed window on activation", async () => {

@@ -15,7 +15,7 @@ export class StoragePaths extends Context.Service<
 export const pathsLayer = (profile: string) =>
   Layer.succeed(StoragePaths, {
     profile,
-    database: join(profile, "data", "stargeist.sqlite"),
+    database: join(profile, "data", "workspaces.sqlite"),
     userPreferences: join(profile, "data", "user-preferences.json"),
     credentials: join(profile, "data", "credentials"),
     temporary: join(profile, "temporary"),
