@@ -11,8 +11,6 @@ import { FileNameSkeleton } from "./loading";
 import { FileRow } from "./row";
 import { FileSelectionBar } from "./selection-bar";
 
-const overlayInset = 12;
-
 export function FileList(props: FileListProps) {
   const list = useFileList(props);
   const { listing, gridId, active, column } = list;
@@ -236,8 +234,8 @@ const styles = stylex.create({
   },
   overlay: {
     position: "absolute",
-    insetInline: overlayInset,
-    bottom: overlayInset,
+    insetInline: space[3],
+    bottom: space[3],
     display: "flex",
     justifyContent: "center",
     pointerEvents: "none",

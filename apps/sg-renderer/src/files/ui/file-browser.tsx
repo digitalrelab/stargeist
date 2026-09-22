@@ -1,4 +1,3 @@
-import { useAtomMount } from "@effect/atom-react";
 import type { LibraryId } from "@stargeist/domain";
 import { useEffect, useMemo } from "react";
 import { createFileSelectionController } from "../selection";
@@ -21,7 +20,6 @@ export function FileBrowser({
     [listing, inspection.bind, libraryId, folder],
   );
 
-  useAtomMount(selection.command);
   useEffect(() => inspection.cancelNavigation, [inspection, listing]);
 
   return (
