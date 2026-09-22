@@ -23,6 +23,7 @@ function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
     () => ({
       target: inspection.target,
       isOpen: inspection.isOpen,
+      inspectedName: inspection.inspectedName,
       interact: (input: FileInspectionInput, trigger: HTMLElement) => {
         origin.current = trigger;
         dispatch({ type: "interact", input });

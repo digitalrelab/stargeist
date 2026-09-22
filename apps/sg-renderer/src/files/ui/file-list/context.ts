@@ -1,5 +1,6 @@
 import type { FileSystemEntry } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection/react";
+import type { Atom } from "effect/unstable/reactivity";
 import { createContext, useContext, useId, useState, type KeyboardEvent } from "react";
 import { canRetryFailure } from "#src/client/index.ts";
 import type { FileInteraction, FileSelectionController } from "../../selection";
@@ -9,10 +10,11 @@ import { rowHeight } from "./layout";
 export interface FileListProps {
   listing: FileListing;
   selection: FileSelectionController;
+  inspectedName: Atom.Atom<string | undefined>;
   onInteraction: (interaction: FileInteraction, trigger: HTMLElement) => void;
 }
 
-export function useFileList({ listing, selection, onInteraction }: FileListProps) {
+export function useFileList({ listing, selection, inspectedName, onInteraction }: FileListProps) {
   const gridId = useId();
   const [column, setColumn] = useState(1);
   const navigation = Selection.useController(selection, {
@@ -73,6 +75,7 @@ export function useFileList({ listing, selection, onInteraction }: FileListProps
     column,
     active: navigation.active,
     selection,
+    inspectedName,
     rowProps: navigation.itemProps,
     viewportProps: { ...navigation.props, onKeyDown },
     inspect: (index: number, entry: FileSystemEntry) => {

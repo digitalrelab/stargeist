@@ -1,6 +1,13 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { Atom } from "effect/unstable/reactivity";
-import { useEffect, useEffectEvent, useRef, type KeyboardEvent, type MouseEvent } from "react";
+import {
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import type { Command, Controller, Interaction } from "../index";
 
 function useController<A, Key, E, Scope>(
@@ -11,17 +18,21 @@ function useController<A, Key, E, Scope>(
   },
 ) {
   const active = useAtomValue(controller.active);
-  const interaction = useAtomValue(controller.interaction);
   const request = useAtomValue(controller.request);
   const send = useAtomSet(controller.command);
   const ref = useRef<HTMLDivElement>(null);
+  const registry = useContext(RegistryContext);
 
   const onInteraction = useEffectEvent(options.onInteraction);
   useEffect(() => {
-    if (interaction && ref.current) {
-      onInteraction(interaction, ref.current);
-    }
-  }, [interaction]);
+    registry.get(controller.interaction);
+
+    return registry.subscribe(controller.interaction, (interaction) => {
+      if (interaction && ref.current) {
+        onInteraction(interaction, ref.current);
+      }
+    });
+  }, [controller.interaction, registry]);
 
   const dispatch = (command: Command<A, Key>) => {
     send(command);
