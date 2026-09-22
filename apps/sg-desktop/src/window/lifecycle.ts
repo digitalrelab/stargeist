@@ -1,5 +1,5 @@
 import { app, BrowserWindow } from "electron";
-import { Cause, Deferred, Effect, Exit, FiberSet, Scope } from "effect";
+import { Cause, Deferred, Effect, Exit, FiberHandle, Scope } from "effect";
 
 export const runWindows = Effect.fnUntraced(function* (open: Effect.Effect<void, unknown>) {
   const failure = yield* Deferred.make<never, unknown>();
@@ -14,9 +14,9 @@ export const runWindows = Effect.fnUntraced(function* (open: Effect.Effect<void,
     });
   });
   yield* Effect.gen(function* () {
-    const run = yield* FiberSet.makeRuntime();
+    const run = yield* FiberHandle.makeRuntime<never>();
     const launch = () => {
-      run(open.pipe(Effect.onError(failed)));
+      run(open.pipe(Effect.onError(failed)), { onlyIfMissing: true });
     };
     const activate = () => {
       if (BrowserWindow.getAllWindows().length === 0) launch();

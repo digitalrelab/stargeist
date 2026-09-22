@@ -198,6 +198,18 @@ it("cancels unfinished initialization and waits for cleanup before allowing quit
   expect(requestQuit().preventDefault).not.toHaveBeenCalled();
 });
 
+it("does not open duplicate windows while activation races with window startup", async () => {
+  const starting = signal();
+  const open = vi.fn(() => complete(starting));
+  const runtime = desktop({ open: Effect.sync(open).pipe(Effect.andThen(Effect.never)) });
+  await wait(Deferred.await(starting));
+  app.emit("activate");
+  app.emit("activate");
+  requestQuit();
+  await wait(Fiber.join(runtime.fiber));
+  expect(open).toHaveBeenCalledOnce();
+});
+
 it("keeps the backend on macOS and reopens a closed window on activation", async () => {
   vi.stubGlobal("process", { ...process, platform: "darwin" });
   const runtime = desktop();

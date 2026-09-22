@@ -1,5 +1,5 @@
 import { reportFailure } from "@stargeist/std/errors";
-import { Deferred, Effect, Fiber, FiberSet, Layer } from "effect";
+import { Deferred, Effect, FiberMap, Layer } from "effect";
 import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
 import { BackendApplication } from "./application";
 import { backendIpc } from "./ipc";
@@ -14,11 +14,10 @@ const parent = process.parentPort;
 
 const program = Effect.gen(function* () {
   const stop = yield* Deferred.make<void>();
-  const run = yield* FiberSet.makeRuntime<
+  const sessions = yield* FiberMap.make<string>();
+  const run = yield* FiberMap.runtime(sessions)<
     TemporaryStorage | Layer.Success<typeof BackendApplication.layer>
   >();
-
-  const sessions = new Map<string, Fiber.Fiber<unknown, unknown>>();
 
   const receive = (event: Electron.MessageEvent) => {
     const data: unknown = event.data;
@@ -35,9 +34,8 @@ const program = Effect.gen(function* () {
     const id = data.id;
 
     if (data.type === "disconnect") {
-      const fiber = sessions.get(id);
-
-      if (fiber) run(Fiber.interrupt(fiber));
+      const fiber = FiberMap.getUnsafe(sessions, id);
+      if (fiber._tag === "Some") fiber.value.interruptUnsafe();
 
       return;
     }
@@ -48,19 +46,12 @@ const program = Effect.gen(function* () {
 
     if (!port) return;
 
-    const task = backendIpc[data.type](port);
-    const fiber = run(
-      task.pipe(
+    run(
+      id,
+      backendIpc[data.type](port).pipe(
         Effect.catchCause((cause) => reportFailure("backend.connection", cause)),
-        Effect.ensuring(
-          Effect.sync(() => {
-            sessions.delete(id);
-          }),
-        ),
       ),
     );
-
-    sessions.set(id, fiber);
   };
 
   yield* Effect.acquireRelease(
