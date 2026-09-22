@@ -1,9 +1,9 @@
 import { FileType } from "@stargeist/domain";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const entries = sqliteTable("entries", {
+export const listingFiles = sqliteTable("listing_files", {
   position: integer().primaryKey(),
-  id: text().notNull(),
+  fileId: text("file_id").notNull(),
   name: text().notNull(),
   type: text({ enum: FileType.literals }).notNull(),
   mediaType: text("media_type"),

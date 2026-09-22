@@ -6,7 +6,7 @@ import {
   WorkspaceId,
   Workspace,
   WorkspaceError,
-  entryPageSize,
+  directoryPageSize,
 } from "@stargeist/domain";
 import { Deferred, Effect, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
@@ -88,7 +88,7 @@ describe("Workspace state", () => {
     const first: DirectoryListingPage = {
       listingId: Schema.decodeUnknownSync(ListingId)("first"),
       offset: 0,
-      entries: Array.from({ length: entryPageSize }, (_, index) => ({
+      files: Array.from({ length: directoryPageSize }, (_, index) => ({
         name: `file-${index}`,
         id: Effect.runSync(makeFileId),
         type: "file" as const,
@@ -119,7 +119,7 @@ describe("Workspace state", () => {
         readDirectory: ({ listingId, offset }) =>
           Effect.sync(() => {
             reads.push(listingId);
-            return { listingId, offset, entries: [], hasMore: false };
+            return { listingId, offset, files: [], hasMore: false };
           }),
       }),
     );
@@ -131,13 +131,13 @@ describe("Workspace state", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const initial = yield* AtomRegistry.getResult(registry, listing);
-        expect(initial.files.id).toBe(first.listingId);
-        registry.mount(initial.files.extent);
-        expect(yield* AtomRegistry.getResult(registry, initial.files.pages(0))).toEqual({
-          items: first.entries,
-          next: entryPageSize,
+        expect(initial.listing.id).toBe(first.listingId);
+        registry.mount(initial.listing.extent);
+        expect(yield* AtomRegistry.getResult(registry, initial.listing.pages(0))).toEqual({
+          items: first.files,
+          next: directoryPageSize,
         });
-        yield* AtomRegistry.getResult(registry, initial.files.pages(entryPageSize));
+        yield* AtomRegistry.getResult(registry, initial.listing.pages(directoryPageSize));
         expect(initial.workspace).toEqual(workspace);
         expect(registry.get(detail).canRefresh).toBe(true);
 
@@ -148,10 +148,10 @@ describe("Workspace state", () => {
         const reopened = yield* AtomRegistry.getResult(registry, listing, {
           suspendOnWaiting: true,
         });
-        expect(reopened.files.id).toBe(second.listingId);
-        expect(reopened.files).not.toBe(initial.files);
-        registry.mount(reopened.files.extent);
-        yield* AtomRegistry.getResult(registry, reopened.files.pages(entryPageSize));
+        expect(reopened.listing.id).toBe(second.listingId);
+        expect(reopened.listing).not.toBe(initial.listing);
+        registry.mount(reopened.listing.extent);
+        yield* AtomRegistry.getResult(registry, reopened.listing.pages(directoryPageSize));
         expect(reads).toEqual([first.listingId, second.listingId]);
         expect(reopened.workspace).toEqual(renamed);
         yield* Deferred.await(firstClosed);

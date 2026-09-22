@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { databaseLayer } from "@stargeist/database";
 import { filesLayer } from "@stargeist/database/files";
-import { entryPageSize } from "@stargeist/domain";
+import { directoryPageSize } from "@stargeist/domain";
 import { Layer, Effect, Exit, Scope } from "effect";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
 import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
@@ -37,15 +37,15 @@ describe("directory listings", () => {
       Effect.gen(function* () {
         const listing = yield* open();
 
-        for (const offset of [-entryPageSize, 1, entryPageSize]) {
+        for (const offset of [-directoryPageSize, 1, directoryPageSize]) {
           expect((yield* listing.read(offset).pipe(Effect.flip)).code).toBe("ListingExpired");
         }
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
   });
 
-  it("pages only immediate entries and preserves earlier pages", async () => {
-    const names = Array.from({ length: entryPageSize + 4 }, (_, index) => `file-${index}.txt`);
+  it("pages only immediate files and preserves earlier pages", async () => {
+    const names = Array.from({ length: directoryPageSize + 4 }, (_, index) => `file-${index}.txt`);
     const { content, layer, open } = await createFixture(names);
     await mkdir(join(content, "nested"));
     await writeFile(join(content, "nested", "not-visible.txt"), "");
@@ -54,18 +54,18 @@ describe("directory listings", () => {
       Effect.gen(function* () {
         const listing = yield* open();
         const first = listing.firstPage;
-        const second = yield* listing.read(entryPageSize);
+        const second = yield* listing.read(directoryPageSize);
 
-        expect(first.entries).toHaveLength(entryPageSize);
+        expect(first.files).toHaveLength(directoryPageSize);
         expect(first.hasMore).toBe(true);
-        expect(second.entries).toHaveLength(5);
+        expect(second.files).toHaveLength(5);
         expect(second.hasMore).toBe(false);
-        expect([...first.entries, ...second.entries].map((entry) => entry.name).sort()).toEqual(
+        expect([...first.files, ...second.files].map((file) => file.name).sort()).toEqual(
           [...names, "nested"].sort(),
         );
-        expect(
-          [...first.entries, ...second.entries].find((entry) => entry.name === "nested")?.type,
-        ).toBe("folder");
+        expect([...first.files, ...second.files].find((file) => file.name === "nested")?.type).toBe(
+          "folder",
+        );
         expect(yield* listing.read(0)).toEqual(first);
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
@@ -88,7 +88,7 @@ describe("directory listings", () => {
         yield* Scope.close(firstScope, Exit.void);
 
         expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(1);
-        expect((yield* second.read(0)).entries).toMatchObject([
+        expect((yield* second.read(0)).files).toMatchObject([
           {
             name: "file.txt",
             type: "file",
@@ -105,7 +105,7 @@ describe("directory listings", () => {
 });
 
 it("expires a listing when its root is moved and replaced instead of mixing directory objects", async () => {
-  const names = Array.from({ length: entryPageSize + 4 }, (_, index) => `file-${index}.txt`);
+  const names = Array.from({ length: directoryPageSize + 4 }, (_, index) => `file-${index}.txt`);
   const { content, layer, open } = await createFixture(names);
   await Effect.runPromise(
     Effect.gen(function* () {
@@ -115,7 +115,7 @@ it("expires a listing when its root is moved and replaced instead of mixing dire
         await mkdir(content);
         await Promise.all(names.map((name) => writeFile(join(content, name), "replacement")));
       });
-      expect(yield* listing.read(entryPageSize).pipe(Effect.flip)).toMatchObject({
+      expect(yield* listing.read(directoryPageSize).pipe(Effect.flip)).toMatchObject({
         code: "ListingExpired",
       });
       expect(yield* listing.read(0)).toEqual(listing.firstPage);

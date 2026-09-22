@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer, Exit, Scope } from "effect";
-import { entryPageSize, Files } from "@stargeist/domain";
+import { directoryPageSize, Files } from "@stargeist/domain";
 import { expect, it, onTestFinished } from "vite-plus/test";
 import { pathsLayer, temporaryStorageLayer } from "../storage";
 import { openListing } from "../filesystem";
@@ -30,7 +30,7 @@ async function fixture() {
   );
   const listing = (path = root) =>
     openListing(path, { exclude: new Set([".stargeist"]) }).pipe(
-      Effect.map((listing) => listing.firstPage.entries),
+      Effect.map((listing) => listing.firstPage.files),
       Effect.scoped,
       Effect.provide(layer),
     );
@@ -97,7 +97,7 @@ it("shares IDs across moved, nested and overlapping workspace views", async () =
 
 it("assigns matching IDs when full initial pages open concurrently", async () => {
   const { root, layer } = await fixture();
-  for (let index = 0; index < entryPageSize; index++)
+  for (let index = 0; index < directoryPageSize; index++)
     await writeFile(join(root, `file-${index}.txt`), "");
   const [first, second] = await Effect.runPromise(
     Effect.all(
@@ -107,16 +107,16 @@ it("assigns matching IDs when full initial pages open concurrently", async () =>
       ],
       { concurrency: 2 },
     ).pipe(
-      Effect.map(([first, second]) => [first.firstPage.entries, second.firstPage.entries] as const),
+      Effect.map(([first, second]) => [first.firstPage.files, second.firstPage.files] as const),
       Effect.scoped,
       Effect.provide(layer),
     ),
   );
-  expect(first).toHaveLength(entryPageSize);
+  expect(first).toHaveLength(directoryPageSize);
   expect(new Map(first.map((file) => [file.name, file.id]))).toEqual(
     new Map(second.map((file) => [file.name, file.id])),
   );
-  expect(new Set(first.map((file) => file.id)).size).toBe(entryPageSize);
+  expect(new Set(first.map((file) => file.id)).size).toBe(directoryPageSize);
 });
 
 it("retains remembered file descriptions after listing closure and source removal", async () => {
@@ -129,7 +129,7 @@ it("retains remembered file descriptions after listing closure and source remova
       const listing = yield* openListing(root, { exclude: new Set([".stargeist"]) }).pipe(
         Scope.provide(scope),
       );
-      const observed = listing.firstPage.entries[0]!;
+      const observed = listing.firstPage.files[0]!;
       yield* Scope.close(scope, Exit.void);
       yield* Effect.promise(() => rm(root, { recursive: true }));
       expect(yield* files.get(observed.id)).toEqual(observed);

@@ -144,13 +144,13 @@ export function useFileList() {
       },
     },
     viewportProps: { ...viewProps, tabIndex: 0, onKeyDown },
-    inspect: (index: number, entry: File) => {
+    inspect: (index: number, file: File) => {
       setColumn(1);
-      dispatch({ type: "activate", value: { index, item: entry } });
+      dispatch({ type: "activate", value: { index, item: file } });
     },
-    toggle: (index: number, entry: File) => {
+    toggle: (index: number, file: File) => {
       setColumn(0);
-      dispatch({ type: "toggle", value: { index, item: entry } });
+      dispatch({ type: "toggle", value: { index, item: file } });
     },
     extend: (index: number, nextColumn: number) => {
       setColumn(nextColumn);

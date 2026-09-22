@@ -1,4 +1,4 @@
-import { entryPageSize, type DirectoryListingPage } from "@stargeist/domain";
+import { directoryPageSize, type DirectoryListingPage } from "@stargeist/domain";
 import * as Pagination from "@stargeist/std/pagination";
 import { Effect } from "effect";
 
@@ -7,7 +7,7 @@ export const createFileListing = (
   readPage: (offset: number) => Effect.Effect<DirectoryListingPage, unknown>,
 ) => {
   const { extent, pages, read, pageOffset } = Pagination.makeIndexed({
-    pageSize: entryPageSize,
+    pageSize: directoryPageSize,
     source: {
       initial: toPage(initial),
       cursorAt: (offset) => offset,
@@ -22,10 +22,10 @@ function toPage(page: DirectoryListingPage) {
   let next: number | null = null;
 
   if (page.hasMore) {
-    next = page.offset + page.entries.length;
+    next = page.offset + page.files.length;
   }
 
-  return { items: page.entries, next };
+  return { items: page.files, next };
 }
 
 export type FileListing = ReturnType<typeof createFileListing>;

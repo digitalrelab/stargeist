@@ -7,7 +7,7 @@ import type { WorkspacesClient } from "./client";
 
 export interface WorkspaceListing {
   readonly workspace: Workspace;
-  readonly files: FileListing;
+  readonly listing: FileListing;
 }
 
 export const createWorkspaceState = (client: WorkspacesClient) => {
@@ -17,7 +17,7 @@ export const createWorkspaceState = (client: WorkspacesClient) => {
       Effect.suspend(() => client.browse(id)).pipe(
         Effect.map(({ workspace, directory }): WorkspaceListing => ({
           workspace,
-          files: createFileListing(directory, (offset) =>
+          listing: createFileListing(directory, (offset) =>
             client.readDirectory({ listingId: directory.listingId, offset }),
           ),
         })),

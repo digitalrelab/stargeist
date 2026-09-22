@@ -55,8 +55,8 @@ async function canonicalDirectory(path: string) {
 
 async function markerExists(root: string) {
   try {
-    const entry = await lstat(join(root, workspaceDirectoryName));
-    if (!entry.isDirectory()) throw invalid();
+    const metadata = await lstat(join(root, workspaceDirectoryName));
+    if (!metadata.isDirectory()) throw invalid();
     return true;
   } catch (error) {
     if (hasCode(error, "ENOENT")) return false;
@@ -68,8 +68,8 @@ async function readManifest(root: string) {
   const filename = join(root, workspaceDirectoryName, manifestName);
   let file;
   try {
-    const entry = await lstat(filename);
-    if (!entry.isFile()) throw invalid();
+    const metadata = await lstat(filename);
+    if (!metadata.isFile()) throw invalid();
     file = await open(filename, constants.O_RDONLY | constants.O_NOFOLLOW);
     const bytes = Buffer.alloc(maximumManifestBytes + 1);
     let length = 0;

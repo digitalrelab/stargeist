@@ -1,5 +1,5 @@
 import { fileAt } from "./file.test-support";
-import { entryPageSize, ListingId, type DirectoryListingPage } from "@stargeist/domain";
+import { directoryPageSize, ListingId, type DirectoryListingPage } from "@stargeist/domain";
 import { Effect, Schema } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
 import { describe, expect, it, onTestFinished } from "vite-plus/test";
@@ -8,14 +8,14 @@ import { createFileListing } from "./index";
 const first: DirectoryListingPage = {
   listingId: Schema.decodeUnknownSync(ListingId)("files"),
   offset: 0,
-  entries: Array.from({ length: entryPageSize }, (_, index) => fileAt(index)),
+  files: Array.from({ length: directoryPageSize }, (_, index) => fileAt(index)),
   hasMore: true,
 };
 
 const last: DirectoryListingPage = {
   listingId: first.listingId,
-  offset: entryPageSize,
-  entries: [{ ...fileAt(entryPageSize, "last"), type: "folder" }],
+  offset: directoryPageSize,
+  files: [{ ...fileAt(directoryPageSize, "last"), type: "folder" }],
   hasMore: false,
 };
 
@@ -26,7 +26,7 @@ function createRegistry() {
 }
 
 describe("File listing", () => {
-  it("adapts directory entries and forwards page offsets to its source", async () => {
+  it("adapts directory files and forwards page offsets to its source", async () => {
     const registry = createRegistry();
     const requests: number[] = [];
     const listing = createFileListing(first, (offset) =>
@@ -40,24 +40,30 @@ describe("File listing", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         expect(yield* AtomRegistry.getResult(registry, listing.pages(0))).toEqual({
-          items: first.entries,
-          next: entryPageSize,
+          items: first.files,
+          next: directoryPageSize,
         });
         expect(requests).toEqual([]);
-        expect(registry.get(listing.extent)).toEqual({ count: entryPageSize, hasMore: true });
+        expect(registry.get(listing.extent)).toEqual({ count: directoryPageSize, hasMore: true });
 
-        expect(yield* AtomRegistry.getResult(registry, listing.pages(entryPageSize))).toEqual({
-          items: last.entries,
+        expect(yield* AtomRegistry.getResult(registry, listing.pages(directoryPageSize))).toEqual({
+          items: last.files,
           next: null,
         });
-        expect(requests).toEqual([entryPageSize]);
-        expect(registry.get(listing.extent)).toEqual({ count: entryPageSize + 1, hasMore: false });
+        expect(requests).toEqual([directoryPageSize]);
+        expect(registry.get(listing.extent)).toEqual({
+          count: directoryPageSize + 1,
+          hasMore: false,
+        });
 
         expect(yield* AtomRegistry.getResult(registry, listing.pages(0))).toEqual({
-          items: first.entries,
-          next: entryPageSize,
+          items: first.files,
+          next: directoryPageSize,
         });
-        expect(registry.get(listing.extent)).toEqual({ count: entryPageSize + 1, hasMore: false });
+        expect(registry.get(listing.extent)).toEqual({
+          count: directoryPageSize + 1,
+          hasMore: false,
+        });
       }).pipe(Effect.timeout("3 seconds")),
     );
   });

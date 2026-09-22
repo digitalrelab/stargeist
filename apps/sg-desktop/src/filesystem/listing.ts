@@ -5,7 +5,7 @@ import {
   type DirectoryListingPage,
   ListingId,
   DirectoryError,
-  entryPageSize,
+  directoryPageSize,
   Files,
 } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
@@ -31,7 +31,7 @@ export const openListing = Effect.fnUntraced(function* (
   options?: { readonly exclude: ReadonlySet<string> },
 ) {
   const temporaryStorage = yield* TemporaryStorage;
-  const files = yield* Files;
+  const fileService = yield* Files;
   const listingId = Schema.decodeUnknownSync(ListingId)(randomUUID());
   const filename = join(temporaryStorage.directory, `directory-listing-${listingId}.sqlite`);
   const cache = yield* openDirectoryCache(filename);
@@ -49,7 +49,7 @@ export const openListing = Effect.fnUntraced(function* (
   });
 
   const directory = yield* Effect.acquireRelease(
-    Effect.tryPromise(() => opendir(rootPath, { bufferSize: entryPageSize })).pipe(
+    Effect.tryPromise(() => opendir(rootPath, { bufferSize: directoryPageSize })).pipe(
       Effect.onError((cause) => reportFailure("directories.open", cause)),
       Effect.mapError(unavailable),
     ),
@@ -60,27 +60,27 @@ export const openListing = Effect.fnUntraced(function* (
   let pendingNames: string[] = [];
 
   const readNext = Effect.gen(function* () {
-    const entry = yield* Effect.tryPromise(() => directory.read()).pipe(
+    const file = yield* Effect.tryPromise(() => directory.read()).pipe(
       Effect.onError((cause) => reportFailure("directories.read", cause)),
       Effect.mapError(unavailable),
     );
 
-    if (!entry) {
+    if (!file) {
       complete = true;
       return;
     }
 
-    if (!options?.exclude.has(entry.name)) {
-      pendingNames.push(entry.name);
+    if (!options?.exclude.has(file.name)) {
+      pendingNames.push(file.name);
     }
   }).pipe(Effect.uninterruptible);
 
   const read = Effect.fnUntraced(function* (offset: number) {
-    if (offset < 0 || offset > cache.committedCount || offset % entryPageSize !== 0) {
+    if (offset < 0 || offset > cache.committedCount || offset % directoryPageSize !== 0) {
       return yield* Effect.fail(expired());
     }
 
-    const lookahead = offset + entryPageSize + 1;
+    const lookahead = offset + directoryPageSize + 1;
 
     while ((!complete || pendingNames.length > 0) && cache.totalCount < lookahead) {
       yield* validateRoot;
@@ -93,29 +93,29 @@ export const openListing = Effect.fnUntraced(function* (
         (name) => observeFile(rootPath, name),
         { concurrency: 8 },
       );
-      const present = observations.filter((entry) => entry !== null);
+      const present = observations.filter((file) => file !== null);
       yield* validateRoot;
 
       yield* Effect.gen(function* () {
-        const entries = yield* files
+        const files = yield* fileService
           .remember(present)
           .pipe(
             Effect.mapError(
               (error) => new DirectoryError({ code: error.code, message: error.message }),
             ),
           );
-        for (const entry of entries) cache.append(entry);
+        for (const file of files) cache.append(file);
         pendingNames = [];
       }).pipe(Effect.uninterruptible);
     }
 
-    const entries = yield* cache.read(offset);
+    const files = yield* cache.read(offset);
 
     return {
       listingId,
       offset,
-      entries,
-      hasMore: !complete || cache.committedCount > offset + entries.length,
+      files,
+      hasMore: !complete || cache.committedCount > offset + files.length,
     } satisfies DirectoryListingPage;
   });
 

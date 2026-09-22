@@ -12,7 +12,7 @@ export {
   DirectoryListingPage,
   ListingId,
   PageOffset,
-  entryPageSize,
+  directoryPageSize,
   DirectoryError,
 } from "./filesystem";
 export { File, FileId, FileType, makeFileId, FileError, FileObservation, Files } from "./files";

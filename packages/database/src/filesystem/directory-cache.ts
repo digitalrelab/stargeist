@@ -2,11 +2,11 @@ import { rm } from "node:fs/promises";
 import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
 import * as Drizzle from "drizzle-orm/effect-sqlite-node";
 import { gte, sql } from "drizzle-orm";
-import { File, DirectoryError, entryPageSize } from "@stargeist/domain";
+import { File, DirectoryError, directoryPageSize } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema } from "effect";
 import { Reactivity } from "effect/unstable/reactivity";
-import { entries } from "./schema";
+import { listingFiles } from "./schema";
 import initialSchema from "./initial-schema.json";
 
 const storageUnavailable = () =>
@@ -15,7 +15,7 @@ const storageUnavailable = () =>
     message: "Temporary storage could not be used. Check available disk space, then refresh.",
   });
 
-const decodeEntries = Schema.decodeUnknownEffect(Schema.Array(File));
+const decodeFiles = Schema.decodeUnknownEffect(Schema.Array(File));
 
 export const openDirectoryCache = Effect.fnUntraced(
   function* (filename: string) {
@@ -45,8 +45,14 @@ export const openDirectoryCache = Effect.fnUntraced(
       }
 
       yield* database
-        .insert(entries)
-        .values(pending.map((entry, index) => ({ position: count + index, ...entry })))
+        .insert(listingFiles)
+        .values(
+          pending.map(({ id, ...file }, index) => ({
+            position: count + index,
+            fileId: id,
+            ...file,
+          })),
+        )
         .run();
 
       count += pending.length;
@@ -59,17 +65,17 @@ export const openDirectoryCache = Effect.fnUntraced(
 
         const rows = yield* database
           .select({
-            id: entries.id,
-            name: entries.name,
-            type: entries.type,
-            mediaType: entries.mediaType,
+            id: listingFiles.fileId,
+            name: listingFiles.name,
+            type: listingFiles.type,
+            mediaType: listingFiles.mediaType,
           })
-          .from(entries)
-          .where(gte(entries.position, offset))
-          .orderBy(entries.position)
-          .limit(entryPageSize);
+          .from(listingFiles)
+          .where(gte(listingFiles.position, offset))
+          .orderBy(listingFiles.position)
+          .limit(directoryPageSize);
 
-        return yield* decodeEntries(rows);
+        return yield* decodeFiles(rows);
       },
       Effect.onError((cause) => reportFailure("directories.cache.read", cause)),
       Effect.mapError(storageUnavailable),
@@ -82,8 +88,8 @@ export const openDirectoryCache = Effect.fnUntraced(
       get totalCount() {
         return count + pending.length;
       },
-      append: (entry: File) => {
-        pending.push(entry);
+      append: (file: File) => {
+        pending.push(file);
       },
       read,
     };

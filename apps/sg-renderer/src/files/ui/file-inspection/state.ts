@@ -10,9 +10,9 @@ type ReadFile = (
 ) => Effect.Effect<File | undefined, unknown, AtomRegistry.AtomRegistry>;
 
 export interface FileInspection {
-  readonly files: FileSelection;
+  readonly selection: FileSelection;
   readonly total: number | undefined;
-  readonly entry: File | undefined;
+  readonly file: File | undefined;
   readonly index: number | undefined;
   readonly read: ReadFile;
 }
@@ -62,13 +62,13 @@ function resolveInspection(
     }
   }
 
-  let entry;
-  if (focused && focused.index === index) entry = focused.item;
+  let file;
+  if (focused && focused.index === index) file = focused.item;
 
   return {
-    files: { workspaceId, folder, members },
+    selection: { workspaceId, folder, members },
     total,
-    entry,
+    file,
     index,
     read: input.read,
   };
@@ -87,7 +87,7 @@ export function createFileInspection() {
   const detail = Atom.make((get) => {
     const current = get(target);
     if (!current || current.index === undefined) return Effect.succeed(undefined);
-    if (current.entry) return Effect.succeed(current.entry);
+    if (current.file) return Effect.succeed(current.file);
     return current.read(current.index);
   }).pipe(Atom.setIdleTTL(0));
   const navigate = Atom.fn((next: FileInspectionInput, get) =>
@@ -151,17 +151,17 @@ export function createFileInspection() {
   return {
     target: Atom.readable((get) => {
       const current = get(target);
-      if (!current || current.entry || current.index === undefined) return current;
+      if (!current || current.file || current.index === undefined) return current;
       const result = get(detail);
       if (AsyncResult.isSuccess(result) && !result.waiting)
-        return { ...current, entry: result.value };
+        return { ...current, file: result.value };
       return current;
     }),
     detail,
     isOpen: Atom.map(target, (value) => value !== undefined),
     inspectedIndex: Atom.family((scope: ListingId) =>
       Atom.map(target, (value) => {
-        if (!value || value.files.members.scope !== scope) {
+        if (!value || value.selection.members.scope !== scope) {
           return undefined;
         }
 
@@ -174,10 +174,10 @@ export function createFileInspection() {
 }
 
 export function describeFileInspection(target: FileInspection) {
-  const { members } = target.files;
+  const { members } = target.selection;
   const count = Selection.count(members, target.total);
-  if (target.entry) {
-    return { type: "file" as const, name: target.entry.name, id: target.entry.id };
+  if (target.file) {
+    return { type: "file" as const, name: target.file.name, id: target.file.id };
   }
 
   if (count !== undefined) {

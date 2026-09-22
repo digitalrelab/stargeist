@@ -57,45 +57,40 @@ export function WorkspacePage({ workspaceId }: { workspaceId: WorkspaceId }) {
         </Button>
       </WorkArea.Header>
       <WorkArea.Content>
-        <WorkspaceEntries
-          entries={view}
-          retry={retry}
-          workspaceId={workspaceId}
-          recovery={recovery}
-        />
+        <WorkspaceFiles view={view} retry={retry} workspaceId={workspaceId} recovery={recovery} />
       </WorkArea.Content>
     </WorkArea.Page>
   );
 }
 
-function WorkspaceEntries({
-  entries,
+function WorkspaceFiles({
+  view,
   retry,
   workspaceId,
   recovery,
 }: {
-  entries: AsyncResult.AsyncResult<WorkspaceListing, unknown>;
+  view: AsyncResult.AsyncResult<WorkspaceListing, unknown>;
   retry: (() => void) | undefined;
   workspaceId: WorkspaceId;
   recovery: ReadonlyArray<WorkspaceRecovery>;
 }) {
-  if (entries._tag === "Success" && !entries.waiting) {
+  if (view._tag === "Success" && !view.waiting) {
     return (
       <FileBrowser.Root
-        key={entries.value.files.id}
-        listing={entries.value.files}
-        workspaceId={entries.value.workspace.id}
-        folder={entries.value.workspace.root}
+        key={view.value.listing.id}
+        listing={view.value.listing}
+        workspaceId={view.value.workspace.id}
+        folder={view.value.workspace.root}
       >
         <FileList />
       </FileBrowser.Root>
     );
   }
 
-  if (entries._tag === "Failure" && !entries.waiting) {
+  if (view._tag === "Failure" && !view.waiting) {
     return (
       <div {...stylex.props(styles.failure)}>
-        <p role="alert">{failureMessage(entries.cause)}</p>
+        <p role="alert">{failureMessage(view.cause)}</p>
         {recovery.includes("locate") && <ReconnectWorkspace workspaceId={workspaceId} />}
         {recovery.includes("open") && <OpenWorkspace />}
         {retry && (

@@ -42,7 +42,7 @@ function InspectionContent({ target }: { target: FileInspection }) {
   const retry = useAtomRefresh(inspection.detail);
   const description = describeFileInspection(target);
 
-  if (target.index !== undefined && !target.entry) {
+  if (target.index !== undefined && !target.file) {
     if (detail._tag === "Failure")
       return (
         <div {...stylex.props(styles.field)}>
@@ -67,7 +67,7 @@ function InspectionContent({ target }: { target: FileInspection }) {
     return <p {...stylex.props(typography.label)}>{description.label}</p>;
   }
 
-  const { folder } = target.files;
+  const { folder } = target.selection;
 
   return (
     <dl {...stylex.props(typography.label, styles.details)}>
@@ -77,12 +77,12 @@ function InspectionContent({ target }: { target: FileInspection }) {
           {description.name}
         </dd>
       </div>
-      {target.entry && (
+      {target.file && (
         <div {...stylex.props(styles.field)}>
           <dt {...stylex.props(styles.label)}>Kind</dt>
           <dd {...stylex.props(styles.kind)}>
-            <FileKind.Icon entry={target.entry} decorative />
-            <FileKind.Label entry={target.entry} />
+            <FileKind.Icon file={target.file} decorative />
+            <FileKind.Label file={target.file} />
           </dd>
         </div>
       )}

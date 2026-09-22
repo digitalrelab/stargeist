@@ -10,15 +10,15 @@ import { FileKind } from "../file-kind";
 import { useFileListContext } from "./context";
 import { layout } from "./layout";
 
-export function FileRow({ entry, index }: { entry: File; index: number }) {
+export function FileRow({ file, index }: { file: File; index: number }) {
   const list = useFileListContext();
   const browser = useFileBrowserContext();
   const selected = Selection.useSelected(browser.selection, index);
-  const matchesEntry = useCallback(
+  const matchesRow = useCallback(
     (inspectedIndex: number | undefined) => inspectedIndex === index,
     [index],
   );
-  const inspected = useAtomValue(browser.inspectedIndex, matchesEntry);
+  const inspected = useAtomValue(browser.inspectedIndex, matchesRow);
   const active = index === list.active;
   const id = `${list.gridId}-${index}`;
 
@@ -36,9 +36,9 @@ export function FileRow({ entry, index }: { entry: File; index: number }) {
         if (event.shiftKey) {
           list.extend(index, 1);
         } else if (event.metaKey || event.ctrlKey) {
-          list.toggle(index, entry);
+          list.toggle(index, file);
         } else {
-          list.inspect(index, entry);
+          list.inspect(index, file);
         }
       }}
     >
@@ -46,7 +46,7 @@ export function FileRow({ entry, index }: { entry: File; index: number }) {
         <Checkbox.Root
           tabIndex={-1}
           checked={selected}
-          aria-label={`Select ${entry.name}`}
+          aria-label={`Select ${file.name}`}
           onClick={(event) => event.stopPropagation()}
           onCheckedChange={(_checked, details) => {
             if ("shiftKey" in details.event && details.event.shiftKey) {
@@ -56,7 +56,7 @@ export function FileRow({ entry, index }: { entry: File; index: number }) {
               return;
             }
 
-            list.toggle(index, entry);
+            list.toggle(index, file);
           }}
         >
           <Checkbox.Indicator />
@@ -68,8 +68,8 @@ export function FileRow({ entry, index }: { entry: File; index: number }) {
           {...stylex.props(typography.label, layout.name, styles.action)}
           tabIndex={-1}
         >
-          <FileKind.Icon entry={entry} />
-          <span {...stylex.props(styles.name)}>{entry.name}</span>
+          <FileKind.Icon file={file} />
+          <span {...stylex.props(styles.name)}>{file.name}</span>
         </button>
       </span>
     </div>

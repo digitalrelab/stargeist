@@ -38,10 +38,10 @@ const kinds = {
   other: { label: "Other", Icon: UnknownFileIcon, color: colors.textMuted },
 } satisfies Record<Kind, { label: string; Icon: typeof FileIcon; color: string }>;
 
-type Props = { entry: File };
+type Props = { file: File };
 
-function Icon({ entry, decorative = false }: Props & { decorative?: boolean }) {
-  const { Icon: KindIcon, label, color } = kinds[classifyFileKind(entry)];
+function Icon({ file, decorative = false }: Props & { decorative?: boolean }) {
+  const { Icon: KindIcon, label, color } = kinds[classifyFileKind(file)];
   let accessibleLabel;
 
   if (!decorative) {
@@ -58,8 +58,8 @@ function Icon({ entry, decorative = false }: Props & { decorative?: boolean }) {
   );
 }
 
-function Label({ entry }: Props) {
-  return <>{kinds[classifyFileKind(entry)].label}</>;
+function Label({ file }: Props) {
+  return <>{kinds[classifyFileKind(file)].label}</>;
 }
 
 export const FileKind = { Icon, Label };

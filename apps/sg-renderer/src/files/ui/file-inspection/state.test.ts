@@ -1,5 +1,5 @@
 import { fileAt } from "../../file.test-support";
-import { WorkspaceId, ListingId, entryPageSize } from "@stargeist/domain";
+import { WorkspaceId, ListingId, directoryPageSize } from "@stargeist/domain";
 import { Selection, type SelectionState } from "@stargeist/std/selection";
 import { Deferred, Effect, HashSet, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
@@ -70,7 +70,7 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   const listing = createFileListing(
     {
       listingId,
-      entries: [0, 1, 2].map((index) => fileAt(index)),
+      files: [0, 1, 2].map((index) => fileAt(index)),
       offset: 0,
       hasMore: false,
     },
@@ -91,19 +91,19 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   navigate(1);
   expect(target()).toBeUndefined();
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.entry?.name).toBe("file-0");
+  expect(target()?.file?.name).toBe("file-0");
   expect(registry.get(inspection.isOpen)).toBe(true);
   navigate(1);
   expect(registry.get(selection.active)).toBe(1);
-  expect(target()?.entry?.name).toBe("file-0");
+  expect(target()?.file?.name).toBe("file-0");
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.entry?.name).toBe("file-1");
+  expect(target()?.file?.name).toBe("file-1");
   expect(registry.get(selection.selection)).toBe(membership);
   expect(Selection.count(membership)).toBe(1);
   send({ type: "close" });
   navigate(-1);
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.entry?.name).toBe("file-0");
+  expect(target()?.file?.name).toBe("file-0");
   registry.set(selection.command, { type: "all" });
   expect(describeFileInspection(target()!)).toEqual({
     type: "selection",
@@ -116,11 +116,11 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   await vi.advanceTimersByTimeAsync(249);
   expect(describeFileInspection(target()!).type).toBe("selection");
   await vi.advanceTimersByTimeAsync(1);
-  expect(target()?.entry?.name).toBe("file-0");
+  expect(target()?.file?.name).toBe("file-0");
   expect(registry.get(selection.selection).mode).toBe("all");
   navigate(1);
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.entry?.name).toBe("file-1");
+  expect(target()?.file?.name).toBe("file-1");
 });
 
 it("inspects the navigated file inside or outside a group without changing its selection", async () => {
@@ -128,20 +128,20 @@ it("inspects the navigated file inside or outside a group without changing its s
   const members = Selection.replace(listingId, [0, 1]);
   interact(input("select", 1, members));
   const group = target();
-  expect(group?.files.members).toBe(members);
+  expect(group?.selection.members).toBe(members);
   expect(updates).toEqual(["2 files selected"]);
   interact(input("focus", 0, members));
   await vi.advanceTimersByTimeAsync(249);
   expect(target()).toBe(group);
   await vi.advanceTimersByTimeAsync(1);
-  expect(target()?.entry?.name).toBe("file-0");
+  expect(target()?.file?.name).toBe("file-0");
   interact(input("focus", 2, members));
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.entry?.name).toBe("file-2");
-  expect(Selection.count(target()!.files.members)).toBe(1);
+  expect(target()?.file?.name).toBe("file-2");
+  expect(Selection.count(target()!.selection.members)).toBe(1);
   expect(Selection.count(members)).toBe(2);
   interact(input("select", 1, members));
-  expect(target()?.files.members).toBe(members);
+  expect(target()?.selection.members).toBe(members);
   expect(updates).toEqual(["2 files selected", "file-0", "file-2", "2 files selected"]);
 });
 
@@ -149,7 +149,7 @@ it("keeps select-all and exceptions compact, including an unknown total", async 
   const { interact, target, updates } = setup();
   const members = Selection.set(Selection.all<number, typeof listingId>(listingId), 5, false);
   interact(input("select", 5, members));
-  expect(target()?.files.members).toBe(members);
+  expect(target()?.selection.members).toBe(members);
   expect(members.mode).toBe("all");
   if (members.mode !== "all") {
     throw new Error("Expected compact select-all");
@@ -163,7 +163,7 @@ it("keeps select-all and exceptions compact, including an unknown total", async 
   expect(updates).toEqual(["9,999 files selected", "All files selected except 1"]);
   interact(input("focus", 5, members));
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.entry?.name).toBe("file-5");
+  expect(target()?.file?.name).toBe("file-5");
 });
 
 it("waits until 250ms after navigation stops, including a burst of 5,000 intents", async () => {
@@ -179,7 +179,7 @@ it("waits until 250ms after navigation stops, including a burst of 5,000 intents
     expect(updates).toEqual(["file-9999"]);
   }
   await vi.advanceTimersByTimeAsync(249);
-  expect(target()?.entry?.name).toBe("file-9999");
+  expect(target()?.file?.name).toBe("file-9999");
   await vi.advanceTimersByTimeAsync(1);
   expect(updates).toEqual(["file-9999", "file-5009"]);
 });
@@ -190,12 +190,12 @@ it("selection supersedes pending navigation, and activation explicitly inspects 
   interact(input("focus", 1));
   const members = Selection.replace(listingId, [2, 3]);
   interact(input("select", 3, members));
-  expect(target()?.files.members).toBe(members);
+  expect(target()?.selection.members).toBe(members);
   await vi.advanceTimersByTimeAsync(300);
   expect(updates).toEqual(["file-0", "2 files selected"]);
   interact(input("activate", 2, members));
-  expect(target()?.entry?.name).toBe("file-2");
-  expect(Selection.count(target()!.files.members)).toBe(1);
+  expect(target()?.file?.name).toBe("file-2");
+  expect(Selection.count(target()!.selection.members)).toBe(1);
   expect(Selection.count(members)).toBe(2);
 });
 
@@ -229,7 +229,7 @@ it("resolves the remaining select-all occurrence when the focused row is exclude
       return Effect.succeed(fileAt(position));
     },
   });
-  expect(target()?.files.members).toBe(members);
+  expect(target()?.selection.members).toBe(members);
   expect(target()?.index).toBe(2);
   expect(describeFileInspection(target()!)).toEqual({
     type: "file",
@@ -246,7 +246,7 @@ it("resolves the remaining select-all occurrence when the final page arrives", a
   const listing = createFileListing(
     {
       listingId,
-      entries: Array.from({ length: entryPageSize }, (_, index) => fileAt(index)),
+      files: Array.from({ length: directoryPageSize }, (_, index) => fileAt(index)),
       offset: 0,
       hasMore: true,
     },
@@ -255,7 +255,7 @@ it("resolves the remaining select-all occurrence when the final page arrives", a
         requests.push(offset);
         return {
           listingId,
-          entries: [fileAt(entryPageSize, "remaining.txt")],
+          files: [fileAt(directoryPageSize, "remaining.txt")],
           offset,
           hasMore: false,
         };
@@ -263,23 +263,23 @@ it("resolves the remaining select-all occurrence when the final page arrives", a
   );
   registry.mount(listing.extent);
   let members = Selection.all<number, typeof listingId>(listingId);
-  for (let index = 0; index < entryPageSize; index++) {
+  for (let index = 0; index < directoryPageSize; index++) {
     members = Selection.set(members, index, false);
   }
   registry.set(
     inspection.bind(listing, { workspaceId, folder: "/files" }),
-    input("select", entryPageSize - 1, members).interaction,
+    input("select", directoryPageSize - 1, members).interaction,
   );
   expect(target()?.index).toBeUndefined();
   expect(requests).toEqual([]);
-  registry.mount(listing.pages(entryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(entryPageSize)));
-  expect(target()?.files.members).toBe(members);
-  expect(target()?.total).toBe(entryPageSize + 1);
-  expect(target()?.index).toBe(entryPageSize);
-  expect(target()?.entry?.name).toBe("remaining.txt");
-  expect(registry.get(inspection.inspectedIndex(listingId))).toBe(entryPageSize);
-  expect(requests).toEqual([entryPageSize]);
+  registry.mount(listing.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
+  expect(target()?.selection.members).toBe(members);
+  expect(target()?.total).toBe(directoryPageSize + 1);
+  expect(target()?.index).toBe(directoryPageSize);
+  expect(target()?.file?.name).toBe("remaining.txt");
+  expect(registry.get(inspection.inspectedIndex(listingId))).toBe(directoryPageSize);
+  expect(requests).toEqual([directoryPageSize]);
 });
 
 it("loads a selected occurrence without interpreting its key as a name and discards an obsolete result", async () => {
@@ -294,13 +294,13 @@ it("loads a selected occurrence without interpreting its key as a name and disca
     },
   });
   expect(target()?.index).toBe(0);
-  expect(target()?.entry).toBeUndefined();
+  expect(target()?.file).toBeUndefined();
   expect(registry.get(inspection.detail).waiting).toBe(true);
   expect(reads).toEqual([0]);
   interact(input("activate", 2));
   await Effect.runPromise(Deferred.succeed(pending, fileAt(0, "obsolete.txt")));
-  expect(target()?.entry?.id).toBe(fileAt(2).id);
-  expect(target()?.entry?.name).toBe("file-2");
+  expect(target()?.file?.id).toBe(fileAt(2).id);
+  expect(target()?.file?.name).toBe("file-2");
 });
 
 it("exposes detail read failures and retries the selected occurrence", async () => {
@@ -309,7 +309,7 @@ it("exposes detail read failures and retries the selected occurrence", async () 
   const listing = createFileListing(
     {
       listingId,
-      entries: Array.from({ length: entryPageSize }, (_, index) => fileAt(index)),
+      files: Array.from({ length: directoryPageSize }, (_, index) => fileAt(index)),
       offset: 0,
       hasMore: true,
     },
@@ -318,31 +318,31 @@ it("exposes detail read failures and retries the selected occurrence", async () 
         if (!available) return Effect.fail(new Error("Unavailable"));
         return Effect.succeed({
           listingId,
-          entries: [fileAt(entryPageSize, "remaining.txt")],
-          offset: entryPageSize,
+          files: [fileAt(directoryPageSize, "remaining.txt")],
+          offset: directoryPageSize,
           hasMore: false,
         });
       }),
   );
-  registry.mount(listing.pages(entryPageSize));
+  registry.mount(listing.pages(directoryPageSize));
   registry.set(
     inspection.bind(listing, { workspaceId, folder: "/files" }),
-    input("select", 0, Selection.replace(listingId, [entryPageSize])).interaction,
+    input("select", 0, Selection.replace(listingId, [directoryPageSize])).interaction,
   );
   expect(registry.get(inspection.detail)._tag).toBe("Failure");
-  expect(target()?.entry).toBeUndefined();
+  expect(target()?.file).toBeUndefined();
   available = true;
   registry.refresh(inspection.detail);
   await Effect.runPromise(
     AtomRegistry.getResult(registry, inspection.detail, { suspendOnWaiting: true }),
   );
-  expect(target()?.entry?.name).toBe("remaining.txt");
+  expect(target()?.file?.name).toBe("remaining.txt");
 });
 
 it("publishes selection and inspection together, then closes without changing membership", async () => {
   const { registry, inspection, send, target, updates } = setup();
-  const entries = Array.from({ length: 10 }, (_, index) => fileAt(index));
-  const listing = createFileListing({ listingId, entries, offset: 0, hasMore: false }, () =>
+  const files = Array.from({ length: 10 }, (_, index) => fileAt(index));
+  const listing = createFileListing({ listingId, files, offset: 0, hasMore: false }, () =>
     Effect.die("Selection must use the cached page"),
   );
   const selection = createFileSelectionController(
@@ -381,7 +381,7 @@ it("publishes selection and inspection together, then closes without changing me
   expect(registry.get(selection.active)).toBe(9);
 
   registry.set(selection.command, { type: "activate" });
-  expect(target()?.entry?.name).toBe("file-9");
+  expect(target()?.file?.name).toBe("file-9");
   registry.set(selection.command, { type: "all" });
   registry.set(selection.command, { type: "move", by: -1 });
   registry.set(selection.command, { type: "clear" });
@@ -402,7 +402,7 @@ it("closing cancels queued navigation and remains closed until a new intent", as
   expect(updates).toEqual(["file-0", undefined]);
   interact(input("focus", 2));
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.entry?.name).toBe("file-2");
+  expect(target()?.file?.name).toBe("file-2");
 });
 
 it("derives a listing-scoped row indicator from the displayed inspection", async () => {
@@ -443,7 +443,7 @@ it("cancels pending navigation on departure and disposal while preserving displa
   interact(input("focus", 1));
   send({ type: "cancel" });
   await vi.advanceTimersByTimeAsync(300);
-  expect(target()?.entry?.name).toBe("file-0");
+  expect(target()?.file?.name).toBe("file-0");
   interact(input("focus", 2));
   await vi.advanceTimersByTimeAsync(250);
   interact(input("focus", 3));
@@ -462,7 +462,7 @@ it("retains only the latest target and distinguishes identical names across list
   const nextScope = Schema.decodeUnknownSync(ListingId)("refreshed");
   interact(input("focus", 0, Selection.empty(nextScope)));
   await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.files.members.scope).toBe(nextScope);
+  expect(target()?.selection.members.scope).toBe(nextScope);
   interact({ ...input("activate", 0), folder: "/other" });
-  expect(target()?.files.folder).toBe("/other");
+  expect(target()?.selection.folder).toBe("/other");
 });

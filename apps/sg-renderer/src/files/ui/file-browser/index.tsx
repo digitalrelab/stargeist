@@ -44,10 +44,10 @@ function Content({ children }: { children: ReactNode }) {
 function Footer() {
   const { listing } = useFileBrowserContext();
   const extent = useAtomValue(listing.extent);
-  let label = `${extent.count.toLocaleString()} entries`;
+  let label = `${extent.count.toLocaleString()} files`;
 
   if (extent.count === 1) {
-    label = "1 entry";
+    label = "1 file";
   }
 
   if (extent.hasMore) {

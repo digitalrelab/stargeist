@@ -1,5 +1,5 @@
 import { fileAt } from "./file.test-support";
-import { entryPageSize, ListingId, type DirectoryListingPage } from "@stargeist/domain";
+import { directoryPageSize, ListingId, type DirectoryListingPage } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Deferred, Effect, Schema } from "effect";
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
@@ -8,7 +8,7 @@ import { createFileListing, createFileSelectionController, type FileInteraction 
 
 const initial: DirectoryListingPage = {
   listingId: Schema.decodeUnknownSync(ListingId)("selection"),
-  entries: Array.from({ length: entryPageSize }, (_, index) => fileAt(index)),
+  files: Array.from({ length: directoryPageSize }, (_, index) => fileAt(index)),
   offset: 0,
   hasMore: true,
 };
@@ -25,7 +25,7 @@ it("selects listing occurrences independently when file IDs or display names rep
   const alias = { ...fileAt(1, "alias.txt"), id: first.id };
   const duplicateName = fileAt(2, "same.txt");
   const listing = createFileListing(
-    { ...initial, entries: [first, alias, duplicateName], hasMore: false },
+    { ...initial, files: [first, alias, duplicateName], hasMore: false },
     () => Effect.die("Unexpected read"),
   );
   const selection = createFileSelectionController(listing);
@@ -47,7 +47,7 @@ it("crosses a cached page boundary without changing membership and distinguishes
       return {
         listingId: initial.listingId,
         offset,
-        entries: [fileAt(entryPageSize, "next"), fileAt(entryPageSize + 1, "last")],
+        files: [fileAt(directoryPageSize, "next"), fileAt(directoryPageSize + 1, "last")],
         hasMore: false,
       };
     }),
@@ -55,15 +55,15 @@ it("crosses a cached page boundary without changing membership and distinguishes
   const received = Atom.make<FileInteraction | undefined>(undefined);
   const selection = createFileSelectionController(listing, received);
   registry.mount(selection.command);
-  registry.mount(listing.pages(entryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(entryPageSize)));
+  registry.mount(listing.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
   registry.set(selection.command, {
     type: "focus",
-    value: { index: entryPageSize - 1, item: fileAt(entryPageSize - 1) },
+    value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
   });
   registry.set(selection.command, { type: "move", by: 1 });
   await Effect.runPromise(AtomRegistry.getResult(registry, selection.request));
-  expect(registry.get(selection.active)).toBe(entryPageSize);
+  expect(registry.get(selection.active)).toBe(directoryPageSize);
   expect(Selection.count(registry.get(selection.selection))).toBe(0);
   expect(registry.get(received)?.type).toBe("focus");
   registry.set(selection.command, { type: "activate" });
@@ -73,12 +73,12 @@ it("crosses a cached page boundary without changing membership and distinguishes
   });
   registry.set(selection.command, { type: "move", by: 1 });
   await Effect.runPromise(AtomRegistry.getResult(registry, selection.request));
-  expect(registry.get(selection.active)).toBe(entryPageSize + 1);
+  expect(registry.get(selection.active)).toBe(directoryPageSize + 1);
   expect(registry.get(received)).toMatchObject({
     type: "focus",
     focused: { item: { name: "last" } },
   });
-  expect(requests).toEqual([entryPageSize]);
+  expect(requests).toEqual([directoryPageSize]);
 });
 
 it("cancels a cross-page range without committing a placeholder or late selection", async () => {
@@ -89,7 +89,7 @@ it("cancels a cross-page range without committing a placeholder or late selectio
   registry.mount(selection.command);
   registry.set(selection.command, {
     type: "toggle",
-    value: { index: entryPageSize - 1, item: fileAt(entryPageSize - 1) },
+    value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
   });
   registry.set(selection.command, { type: "move", by: 1, extend: true });
   expect(registry.get(selection.request).waiting).toBe(true);
@@ -98,13 +98,13 @@ it("cancels a cross-page range without committing a placeholder or late selectio
   await Effect.runPromise(
     Deferred.succeed(pending, {
       listingId: initial.listingId,
-      offset: entryPageSize,
-      entries: [fileAt(entryPageSize, "late")],
+      offset: directoryPageSize,
+      files: [fileAt(directoryPageSize, "late")],
       hasMore: false,
     }),
   );
   expect(Selection.count(registry.get(selection.selection))).toBe(0);
-  expect(registry.get(selection.active)).toBe(entryPageSize - 1);
+  expect(registry.get(selection.active)).toBe(directoryPageSize - 1);
 });
 
 it("selects all without fetching and applies membership to subsequently loaded pages", async () => {
@@ -116,7 +116,7 @@ it("selects all without fetching and applies membership to subsequently loaded p
       return {
         listingId: initial.listingId,
         offset,
-        entries: [fileAt(entryPageSize, "unloaded")],
+        files: [fileAt(directoryPageSize, "unloaded")],
         hasMore: false,
       };
     }),
@@ -126,15 +126,17 @@ it("selects all without fetching and applies membership to subsequently loaded p
   registry.set(selection.command, { type: "all" });
   expect(requests).toEqual([]);
   expect(registry.get(selection.selection).scope).toBe(initial.listingId);
-  registry.mount(listing.pages(entryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(entryPageSize)));
-  expect(registry.get(selection.isSelected(entryPageSize))).toBe(true);
+  registry.mount(listing.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
+  expect(registry.get(selection.isSelected(directoryPageSize))).toBe(true);
   registry.set(selection.command, {
     type: "toggle",
-    value: { index: entryPageSize, item: fileAt(entryPageSize, "unloaded") },
+    value: { index: directoryPageSize, item: fileAt(directoryPageSize, "unloaded") },
   });
-  expect(registry.get(selection.isSelected(entryPageSize))).toBe(false);
-  expect(Selection.count(registry.get(selection.selection), entryPageSize + 1)).toBe(entryPageSize);
+  expect(registry.get(selection.isSelected(directoryPageSize))).toBe(false);
+  expect(Selection.count(registry.get(selection.selection), directoryPageSize + 1)).toBe(
+    directoryPageSize,
+  );
 });
 
 it("retries a failed range page once and reuses it to resolve focus and membership", async () => {
@@ -149,25 +151,25 @@ it("retries a failed range page once and reuses it to resolve focus and membersh
       return Effect.succeed({
         listingId: initial.listingId,
         offset,
-        entries: [fileAt(entryPageSize, "next")],
+        files: [fileAt(directoryPageSize, "next")],
         hasMore: false,
       });
     }),
   );
   const selection = createFileSelectionController(listing);
   registry.mount(selection.command);
-  registry.mount(listing.pages(entryPageSize));
+  registry.mount(listing.pages(directoryPageSize));
   registry.set(selection.command, {
     type: "focus",
-    value: { index: entryPageSize - 1, item: fileAt(entryPageSize - 1) },
+    value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
   });
-  registry.set(selection.command, { type: "range", index: entryPageSize });
+  registry.set(selection.command, { type: "range", index: directoryPageSize });
   expect(registry.get(selection.request)._tag).toBe("Failure");
   registry.set(selection.command, { type: "retry" });
   await Effect.runPromise(
     AtomRegistry.getResult(registry, selection.request, { suspendOnWaiting: true }),
   );
-  expect(requests).toEqual([entryPageSize, entryPageSize]);
+  expect(requests).toEqual([directoryPageSize, directoryPageSize]);
   expect(Selection.count(registry.get(selection.selection))).toBe(2);
   expect(registry.get(selection.current)?.item.name).toBe("next");
 });
@@ -181,35 +183,35 @@ it("resolves a multi-page range by page and preserves its anchor when shrinking"
       return {
         listingId: initial.listingId,
         offset,
-        entries: Array.from({ length: entryPageSize }, (_, i) => fileAt(offset + i)),
-        hasMore: offset === entryPageSize,
+        files: Array.from({ length: directoryPageSize }, (_, i) => fileAt(offset + i)),
+        hasMore: offset === directoryPageSize,
       };
     }),
   );
   const selection = createFileSelectionController(listing);
   registry.mount(selection.command);
-  registry.mount(listing.pages(entryPageSize));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(entryPageSize)));
-  registry.mount(listing.pages(entryPageSize * 2));
-  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(entryPageSize * 2)));
+  registry.mount(listing.pages(directoryPageSize));
+  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize)));
+  registry.mount(listing.pages(directoryPageSize * 2));
+  await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(directoryPageSize * 2)));
   registry.set(selection.command, {
     type: "focus",
-    value: { index: entryPageSize - 1, item: fileAt(entryPageSize - 1) },
+    value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
   });
-  registry.set(selection.command, { type: "range", index: entryPageSize * 2 + 1 });
+  registry.set(selection.command, { type: "range", index: directoryPageSize * 2 + 1 });
   await Effect.runPromise(AtomRegistry.getResult(registry, selection.request));
-  expect(Selection.count(registry.get(selection.selection))).toBe(entryPageSize + 3);
+  expect(Selection.count(registry.get(selection.selection))).toBe(directoryPageSize + 3);
   expect(registry.get(selection.isSelected(254))).toBe(false);
   expect(registry.get(selection.isSelected(255))).toBe(true);
   expect(registry.get(selection.isSelected(513))).toBe(true);
   registry.set(selection.command, { type: "move", by: -2, extend: true });
   await Effect.runPromise(AtomRegistry.getResult(registry, selection.request));
-  expect(Selection.count(registry.get(selection.selection))).toBe(entryPageSize + 1);
+  expect(Selection.count(registry.get(selection.selection))).toBe(directoryPageSize + 1);
   expect(registry.get(selection.isSelected(513))).toBe(false);
-  expect(requests).toEqual([entryPageSize, entryPageSize * 2]);
+  expect(requests).toEqual([directoryPageSize, directoryPageSize * 2]);
 });
 
-it("finishes a range across an unloaded page without activating the newly focused entry", async () => {
+it("finishes a range across an unloaded page without activating the newly focused file", async () => {
   const registry = registryForTest();
   const pending = Effect.runSync(Deferred.make<DirectoryListingPage>());
   const listing = createFileListing(initial, () => Deferred.await(pending));
@@ -218,7 +220,7 @@ it("finishes a range across an unloaded page without activating the newly focuse
   registry.mount(selection.command);
   registry.set(selection.command, {
     type: "focus",
-    value: { index: entryPageSize - 1, item: fileAt(entryPageSize - 1) },
+    value: { index: directoryPageSize - 1, item: fileAt(directoryPageSize - 1) },
   });
   registry.set(selection.command, { type: "move", by: 1, extend: true });
   expect(registry.get(selection.request).waiting).toBe(true);
@@ -226,8 +228,8 @@ it("finishes a range across an unloaded page without activating the newly focuse
   await Effect.runPromise(
     Deferred.succeed(pending, {
       listingId: initial.listingId,
-      offset: entryPageSize,
-      entries: [fileAt(entryPageSize, "arrived")],
+      offset: directoryPageSize,
+      files: [fileAt(directoryPageSize, "arrived")],
       hasMore: false,
     }),
   );
@@ -236,7 +238,7 @@ it("finishes a range across an unloaded page without activating the newly focuse
   );
   expect(Selection.count(registry.get(selection.selection))).toBe(2);
   expect(registry.get(selection.isSelected(255))).toBe(true);
-  expect(registry.get(selection.isSelected(entryPageSize))).toBe(true);
-  expect(registry.get(selection.active)).toBe(entryPageSize);
+  expect(registry.get(selection.isSelected(directoryPageSize))).toBe(true);
+  expect(registry.get(selection.active)).toBe(directoryPageSize);
   expect(registry.get(received)?.type).toBe("select");
 });

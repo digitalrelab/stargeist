@@ -67,7 +67,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.map((views) => views[0]),
       );
       expect(first.workspace).toEqual(parent);
-      expect(first.directory.entries).toMatchObject([
+      expect(first.directory.files).toMatchObject([
         { name: "Film", type: "folder", mediaType: null, id: expect.stringMatching(/^fil_/) },
       ]);
       const secondScope = yield* Scope.fork(yield* Effect.scope);
@@ -77,7 +77,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.map((views) => views[0]),
         Scope.provide(secondScope),
       );
-      expect(second.directory.entries).toMatchObject([
+      expect(second.directory.files).toMatchObject([
         {
           name: "interview.txt",
           type: "file",
@@ -103,7 +103,7 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.flatMap((pull) => pull),
         Effect.map((views) => views[0]),
       );
-      expect(reopened.directory.entries).toEqual(second.directory.entries);
+      expect(reopened.directory.files).toEqual(second.directory.files);
       const copyPath = join(root, "Copy");
       yield* Effect.promise(() => cp(film, copyPath, { recursive: true }));
       const copy = yield* host["workspaces.open"]({ path: copyPath });
@@ -128,10 +128,10 @@ it("opens, discovers, nests, reconnects and reopens workspaces through the real 
         Effect.flatMap((pull) => pull),
         Effect.map((views) => views[0]),
       );
-      expect(independent.directory.entries).toMatchObject([
+      expect(independent.directory.files).toMatchObject([
         { name: "interview.txt", type: "file", mediaType: "text/plain" },
       ]);
-      expect(independent.directory.entries[0]!.id).not.toBe(reopened.directory.entries[0]!.id);
+      expect(independent.directory.files[0]!.id).not.toBe(reopened.directory.files[0]!.id);
       expect(
         yield* client["workspaces.readDirectory"]({
           listingId: reopened.directory.listingId,

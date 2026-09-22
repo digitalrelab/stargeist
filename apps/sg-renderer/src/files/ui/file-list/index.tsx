@@ -75,7 +75,7 @@ export function FileList() {
           {...list.viewportProps}
           render={<div {...stylex.props(stylex.defaultMarker())} />}
           role="grid"
-          aria-label="Folder entries"
+          aria-label="Files"
           aria-rowcount={total}
           aria-colcount={2}
           aria-multiselectable
@@ -175,15 +175,15 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
   }
 
   return items.map((item) => {
-    const entry = result.value.items[item.index - offset];
+    const file = result.value.items[item.index - offset];
 
-    if (!entry) {
+    if (!file) {
       return null;
     }
 
     return (
       <div key={item.index} {...stylex.props(styles.row(item.start))}>
-        <FileRow entry={entry} index={item.index} />
+        <FileRow file={file} index={item.index} />
       </div>
     );
   });
