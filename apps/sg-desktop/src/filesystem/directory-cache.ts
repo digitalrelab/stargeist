@@ -67,8 +67,7 @@ export const openDirectoryCache = Effect.fnUntraced(
           .select({
             id: cachedFiles.fileId,
             name: cachedFiles.name,
-            type: cachedFiles.type,
-            mediaType: cachedFiles.mediaType,
+            kind: cachedFiles.kind,
           })
           .from(cachedFiles)
           .where(gte(cachedFiles.position, offset))

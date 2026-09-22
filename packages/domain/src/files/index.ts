@@ -1,3 +1,5 @@
-export { File, FileId, FileReference, FileSnapshot, FileType, makeFileId } from "./file";
-export { classifyFileKind, type FileKind } from "./kind";
+export { File, FileId, FileReference, FileType, makeFileId } from "./file";
+export { FileSnapshot } from "./snapshot";
+export { classifyFileKind, FileKind, FileKindMetadata } from "./kind";
+export { FileMetadataError, type FileMetadata, type MetadataDefinition } from "./metadata";
 export { FileError, Files } from "./service";

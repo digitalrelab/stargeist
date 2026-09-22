@@ -9,6 +9,8 @@ import {
   DirectoryError,
   directoryPageSize,
   Files,
+  FileKindMetadata,
+  classifyFileKind,
 } from "@stargeist/domain";
 import { reportFailure } from "@stargeist/std/errors";
 import { Effect, Schema, Semaphore } from "effect";
@@ -104,14 +106,26 @@ export const openDirectorySession = Effect.fnUntraced(function* (
           ),
         );
       yield* validateRoot;
-      for (const [index, entry] of pending.entries()) {
+      const snapshots = pending.map((entry, index) => {
         const type = fileType(entry);
         let mediaType: string | null = null;
         if (type === "file" && entry.name.lastIndexOf(".") > 0) {
           mediaType = mime.getType(entry.name);
         }
-        cache.append({ id: identities[index]!.id, name: entry.name, type, mediaType });
-      }
+        return {
+          id: identities[index]!.id,
+          name: entry.name,
+          kind: classifyFileKind({ type, mediaType }),
+        };
+      });
+      yield* files.metadata
+        .write(FileKindMetadata, new Map(snapshots.map((file) => [file.id, file.kind])))
+        .pipe(
+          Effect.mapError(
+            (error) => new DirectoryError({ code: "StorageUnavailable", message: error.message }),
+          ),
+        );
+      for (const snapshot of snapshots) cache.append(snapshot);
       pending = [];
     }
 

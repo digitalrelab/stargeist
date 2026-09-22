@@ -1,19 +1,28 @@
-import type { FileSnapshot } from "./file";
+import { Schema } from "effect";
+import type { FileType } from "./file";
+import type { MetadataDefinition } from "./metadata";
 
-export type FileKind =
-  | "image"
-  | "video"
-  | "audio"
-  | "document"
-  | "text"
-  | "spreadsheet"
-  | "presentation"
-  | "archive"
-  | "code"
-  | "file"
-  | "folder"
-  | "link"
-  | "other";
+export const FileKind = Schema.Literals([
+  "image",
+  "video",
+  "audio",
+  "document",
+  "text",
+  "spreadsheet",
+  "presentation",
+  "archive",
+  "code",
+  "file",
+  "folder",
+  "link",
+  "other",
+]);
+export type FileKind = typeof FileKind.Type;
+
+export const FileKindMetadata = {
+  key: "kind",
+  schema: FileKind,
+} as const satisfies MetadataDefinition<FileKind>;
 
 const mediaKinds = new Map<string, FileKind>([
   ["application/pdf", "document"],
@@ -57,7 +66,7 @@ const mediaFamilies: ReadonlyArray<readonly [string, FileKind]> = [
   ["text/", "text"],
 ];
 
-export function classifyFileKind(file: Pick<FileSnapshot, "type" | "mediaType">): FileKind {
+export function classifyFileKind(file: { type: FileType; mediaType: string | null }): FileKind {
   if (file.type !== "file") return file.type;
   if (file.mediaType === null) return "file";
 

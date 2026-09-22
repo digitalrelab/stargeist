@@ -91,8 +91,7 @@ describe("Workspace state", () => {
       files: Array.from({ length: directoryPageSize }, (_, index) => ({
         name: `file-${index}`,
         id: Effect.runSync(makeFileId),
-        type: "file" as const,
-        mediaType: null,
+        kind: "file" as const,
       })),
       hasMore: true,
     };
