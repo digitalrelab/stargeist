@@ -1,16 +1,17 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { Selection } from "@stargeist/std/selection";
-import { HashSet } from "effect";
 import { Button, ScrollArea, typography } from "@stargeist/ui";
 import { colors, fonts, radii, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { useEffect } from "react";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { FileListContext, useFileList, useFileListContext, type FileListProps } from "./context";
 import { layout, rowHeight } from "./layout";
 import { FileNameSkeleton } from "./loading";
 import { FileRow } from "./row";
+import { FileSelectionBar } from "./selection-bar";
+
+const overlayInset = 12;
 
 export function FileList(props: FileListProps) {
   const list = useFileList(props);
@@ -24,13 +25,37 @@ export function FileList(props: FileListProps) {
     total = -1;
   }
 
+  const [overlayHeight, setOverlayHeight] = useState(0);
+  const observeOverlay = useCallback((element: HTMLDivElement | null) => {
+    if (!element) {
+      return;
+    }
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) {
+        setOverlayHeight(entry.contentRect.height);
+      }
+    });
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
+  let bottomPadding = 8;
+
+  if (overlayHeight > 0) {
+    bottomPadding += overlayHeight + overlayInset;
+  }
+
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => list.viewportProps.ref.current,
     estimateSize: () => rowHeight,
     overscan: 8,
     paddingStart: 8,
-    paddingEnd: 8,
+    paddingEnd: bottomPadding,
+    scrollPaddingEnd: bottomPadding,
     rangeExtractor: (range) => {
       const indexes = defaultRangeExtractor(range);
 
@@ -51,6 +76,28 @@ export function FileList(props: FileListProps) {
       virtualizer.scrollToIndex(active, { align: "auto" });
     }
   }, [active, virtualizer]);
+
+  const keepVisibleRowAboveBar = useEffectEvent(() => {
+    const viewport = list.viewportProps.ref.current;
+    const item = virtualizer.getVirtualItems().find((item) => item.index === active);
+
+    if (!viewport || !item) {
+      return;
+    }
+
+    const top = viewport.scrollTop;
+    const bottom = top + viewport.clientHeight;
+
+    if (item.start >= top && item.end <= bottom) {
+      virtualizer.scrollToIndex(item.index, { align: "auto" });
+    }
+  });
+
+  useEffect(() => {
+    if (overlayHeight > 0) {
+      keepVisibleRowAboveBar();
+    }
+  }, [overlayHeight]);
 
   const groups = new Map<number, VirtualItem[]>();
 
@@ -96,7 +143,12 @@ export function FileList(props: FileListProps) {
 
   return (
     <FileListContext value={list}>
-      {content}
+      <div {...stylex.props(styles.viewport)}>
+        {content}
+        <div ref={observeOverlay} {...stylex.props(styles.overlay)}>
+          <FileSelectionBar />
+        </div>
+      </div>
       <ListFooter />
     </FileListContext>
   );
@@ -205,16 +257,6 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
 function ListFooter() {
   const list = useFileListContext();
   const extent = useAtomValue(list.listing.extent);
-  const selection = useAtomValue(list.selection.selection);
-  const request = useAtomValue(list.selection.request);
-  const operation = useAtomValue(list.selection.operation);
-  let total: number | undefined;
-
-  if (!extent.hasMore) {
-    total = extent.count;
-  }
-
-  const count = Selection.count(selection, total);
   let label = `${extent.count.toLocaleString()} entries`;
 
   if (extent.count === 1) {
@@ -225,61 +267,33 @@ function ListFooter() {
     label += " · Scroll for more";
   }
 
-  let hasSelection = false;
-
-  if (selection.mode === "all") {
-    hasSelection = true;
-    label = "All entries selected";
-    const excluded = HashSet.size(selection.excludedKeys);
-
-    if (excluded > 0) {
-      label += ` except ${excluded.toLocaleString()}`;
-    }
-  }
-
-  if (count !== undefined && (count > 0 || selection.mode === "all")) {
-    hasSelection = true;
-    label = `${count.toLocaleString()} selected`;
-  }
-
-  let action;
-
-  if (hasSelection) {
-    action = (
-      <Button appearance="ghost" size="sm" onClick={list.clear}>
-        Clear selection
-      </Button>
-    );
-  }
-
-  if (request.waiting && operation === "range") {
-    label = "Selecting range…";
-    action = (
-      <Button appearance="ghost" size="sm" onClick={list.cancel}>
-        Cancel
-      </Button>
-    );
-  }
-
   return (
     <div {...stylex.props(typography.label, layout.footer, styles.footer)}>
       <span role="status">{label}</span>
-      {action}
-      {request._tag === "Failure" && (
-        <>
-          <span role="alert">{failureMessage(request.cause)}</span>
-          {canRetryFailure(request.cause) && (
-            <Button appearance="soft" size="sm" onClick={list.retry} disabled={request.waiting}>
-              Retry
-            </Button>
-          )}
-        </>
-      )}
     </div>
   );
 }
 
 const styles = stylex.create({
+  viewport: {
+    display: "flex",
+    flexDirection: "column",
+    position: "relative",
+    isolation: "isolate",
+    flexGrow: 1,
+    flexBasis: 0,
+    minHeight: 0,
+    minWidth: 0,
+  },
+  overlay: {
+    position: "absolute",
+    insetInline: overlayInset,
+    bottom: overlayInset,
+    display: "flex",
+    justifyContent: "center",
+    pointerEvents: "none",
+    zIndex: 1,
+  },
   content: (height: number) => ({ height, position: "relative", width: "100%" }),
   row: (top: number) => ({
     position: "absolute",
