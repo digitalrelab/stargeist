@@ -1,14 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { Atom } from "effect/unstable/reactivity";
-import {
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-  type FocusEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-} from "react";
+import { useEffect, useEffectEvent, useRef, type KeyboardEvent, type MouseEvent } from "react";
 import type { Command, Controller, Interaction } from "../index";
 
 function useController<A, Key, E, Scope>(
@@ -23,7 +15,6 @@ function useController<A, Key, E, Scope>(
   const request = useAtomValue(controller.request);
   const send = useAtomSet(controller.command);
   const ref = useRef<HTMLDivElement>(null);
-  const [focused, setFocused] = useState(false);
 
   const onInteraction = useEffectEvent(options.onInteraction);
   useEffect(() => {
@@ -137,7 +128,6 @@ function useController<A, Key, E, Scope>(
     active,
     request,
     dispatch,
-    focused,
     itemProps: {
       onMouseDown: (event: MouseEvent<HTMLElement>) => {
         if (event.button === 0) {
@@ -149,10 +139,6 @@ function useController<A, Key, E, Scope>(
       ref,
       tabIndex: 0,
       onKeyDown,
-      onFocus: (event: FocusEvent<HTMLDivElement>) => {
-        setFocused(event.target === event.currentTarget);
-      },
-      onBlur: () => setFocused(false),
     },
   };
 }

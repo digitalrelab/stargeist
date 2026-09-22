@@ -72,7 +72,6 @@ export function useFileList({ listing, selection, onInteraction }: FileListProps
     gridId,
     column,
     active: navigation.active,
-    focused: navigation.focused,
     selection,
     rowProps: navigation.itemProps,
     viewportProps: { ...navigation.props, onKeyDown },

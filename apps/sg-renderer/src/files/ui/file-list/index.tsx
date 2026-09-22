@@ -118,6 +118,7 @@ export function FileList(props: FileListProps) {
     <ScrollArea.Root>
       <ScrollArea.Viewport
         {...list.viewportProps}
+        render={<div {...stylex.props(stylex.defaultMarker())} />}
         role="grid"
         aria-label="Folder entries"
         aria-rowcount={total}
@@ -155,14 +156,7 @@ export function FileList(props: FileListProps) {
 }
 
 function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
-  const {
-    listing,
-    gridId,
-    active,
-    focused,
-    selection,
-    retry: retrySelection,
-  } = useFileListContext();
+  const { listing, gridId, active, selection, retry: retrySelection } = useFileListContext();
   const atom = listing.pages(offset);
   const result = useAtomValue(atom);
   const request = useAtomValue(selection.request);
@@ -175,7 +169,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
         {...stylex.props(
           styles.row(item.start),
           layout.row,
-          focused && item.index === active && styles.activeStatus,
+          item.index === active && styles.activeStatus,
         )}
         role="row"
         aria-rowindex={item.index + 1}
@@ -217,7 +211,7 @@ function PageRows({ offset, items }: { offset: number; items: VirtualItem[] }) {
           typography.label,
           styles.row(first.start),
           styles.status,
-          focused && first.index === active && styles.activeStatus,
+          first.index === active && styles.activeStatus,
         )}
         role="row"
         aria-rowindex={first.index + 1}
@@ -312,12 +306,20 @@ const styles = stylex.create({
     color: colors.textMuted,
   },
   activeStatus: {
-    backgroundColor: `color-mix(in srgb, ${colors.text} 10%, transparent)`,
+    backgroundColor: {
+      [stylex.when.ancestor(':is([role="grid"]):focus-visible')]:
+        `color-mix(in srgb, ${colors.text} 10%, transparent)`,
+    },
     borderRadius: radii.md,
     outlineColor: "Highlight",
     outlineWidth: 1,
     outlineOffset: -1,
-    outlineStyle: { default: "none", "@media (forced-colors: active)": "solid" },
+    outlineStyle: {
+      default: "none",
+      "@media (forced-colors: active)": {
+        [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: "solid",
+      },
+    },
   },
   empty: { padding: space[6], color: colors.textMuted, flexGrow: 1 },
   footer: {

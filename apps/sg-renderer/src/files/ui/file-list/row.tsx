@@ -10,19 +10,13 @@ import { layout } from "./layout";
 export function FileRow({ entry, index }: { entry: FileSystemEntry; index: number }) {
   const list = useFileListContext();
   const selected = Selection.useSelected(list.selection, entry.name);
-  const active = list.focused && index === list.active;
+  const active = index === list.active;
   const id = `${list.gridId}-${index}`;
 
   return (
     <div
       {...list.rowProps}
-      {...stylex.props(
-        stylex.defaultMarker(),
-        layout.row,
-        styles.row,
-        selected && styles.selected,
-        active && styles.active,
-      )}
+      {...stylex.props(stylex.defaultMarker(), layout.row, styles.row)}
       role="row"
       aria-rowindex={index + 1}
       aria-selected={selected}
@@ -87,28 +81,27 @@ const styles = stylex.create({
       backgroundColor: {
         default: "transparent",
         ":hover": colors.surfaceRaised,
-      },
-    },
-  },
-  selected: {
-    "::before": {
-      backgroundColor: {
-        default: `color-mix(in srgb, ${colors.text} 6%, transparent)`,
-        ":hover": `color-mix(in srgb, ${colors.text} 8%, transparent)`,
-      },
-    },
-  },
-  active: {
-    "::before": {
-      backgroundColor: {
-        default: `color-mix(in srgb, ${colors.text} 10%, transparent)`,
-        ":hover": `color-mix(in srgb, ${colors.text} 12%, transparent)`,
+        '[data-selected="true"]': {
+          default: `color-mix(in srgb, ${colors.text} 6%, transparent)`,
+          ":hover": `color-mix(in srgb, ${colors.text} 8%, transparent)`,
+        },
+        '[data-active="true"]': {
+          [stylex.when.ancestor(':is([role="grid"]):focus-visible')]:
+            `color-mix(in srgb, ${colors.text} 10%, transparent)`,
+        },
       },
     },
     outlineColor: "Highlight",
     outlineWidth: 1,
     outlineOffset: -1,
-    outlineStyle: { default: "none", "@media (forced-colors: active)": "solid" },
+    outlineStyle: {
+      default: "none",
+      "@media (forced-colors: active)": {
+        '[data-active="true"]': {
+          [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: "solid",
+        },
+      },
+    },
   },
   selection: {
     display: "grid",
@@ -117,9 +110,11 @@ const styles = stylex.create({
     height: "100%",
     opacity: {
       default: 0,
-      [stylex.when.ancestor(
-        ':is(:hover, :focus-within, [data-selected="true"], [data-active="true"])',
-      )]: 1,
+      [stylex.when.ancestor(':is([role="row"]):is(:hover, :focus-within, [data-selected="true"])')]:
+        1,
+      [stylex.when.ancestor(':is([role="grid"]):focus-visible')]: {
+        [stylex.when.ancestor(':is([role="row"])[data-active="true"]')]: 1,
+      },
       "@media (hover: none)": 1,
     },
   },
