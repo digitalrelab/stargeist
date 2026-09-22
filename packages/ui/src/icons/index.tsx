@@ -10,6 +10,7 @@ import {
   Palette,
   Astroid,
   CircleAlert,
+  EllipsisVertical,
   File,
   FileQuestionMark,
   Folder,
@@ -97,6 +98,10 @@ export function EditIcon(props: LucideProps) {
 
 export function ErrorIcon(props: LucideProps) {
   return <CircleAlert size={control.iconSize} {...props} />;
+}
+
+export function EllipsisVerticalIcon(props: LucideProps) {
+  return <EllipsisVertical size={control.iconSize} {...props} />;
 }
 
 export function TagsIcon(props: LucideProps) {
