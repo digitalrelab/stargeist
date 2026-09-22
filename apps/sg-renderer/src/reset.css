@@ -51,3 +51,20 @@
   * {
   cursor: text !important;
 }
+
+:where([data-resize-handle][data-orientation="vertical"]),
+:root:has([data-resize-handle][data-resizing][data-orientation="vertical"]),
+:root:has([data-resize-handle][data-resizing][data-orientation="vertical"]) * {
+  cursor: col-resize !important;
+}
+
+:where([data-resize-handle][data-orientation="horizontal"]),
+:root:has([data-resize-handle][data-resizing][data-orientation="horizontal"]),
+:root:has([data-resize-handle][data-resizing][data-orientation="horizontal"]) * {
+  cursor: row-resize !important;
+}
+
+:root:has([data-resize-handle][data-resizing]) * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
