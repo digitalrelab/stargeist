@@ -5,7 +5,9 @@ import { Button } from "../button";
 import { colors, radii, shadows, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
-export const Root = BaseDialog.Root;
+export function Root<Payload>(props: Omit<BaseDialog.Root.Props<Payload>, "modal">) {
+  return <BaseDialog.Root {...props} modal />;
+}
 
 export function Trigger<Payload>(
   props: Omit<BaseDialog.Trigger.Props<Payload>, "className" | "style">,
