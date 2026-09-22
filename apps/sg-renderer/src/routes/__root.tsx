@@ -1,5 +1,5 @@
 import { createRootRouteWithContext, Outlet, useMatches } from "@tanstack/react-router";
-import { useRef, type ComponentType, type RefObject } from "react";
+import type { ComponentType } from "react";
 import type { RendererServices } from "#src/application.ts";
 import { FileInspectionProvider, FileInspector } from "#src/files/views.ts";
 import { AppShell, RouteError, SecondarySidebar, WorkArea } from "#src/shell/index.ts";
@@ -21,16 +21,6 @@ export const Route = createRootRouteWithContext<{ application: RendererServices 
 });
 
 function RootLayout() {
-  const frame = useRef<HTMLDivElement>(null);
-
-  return (
-    <FileInspectionProvider fallbackFocus={frame}>
-      <ApplicationLayout frame={frame} />
-    </FileInspectionProvider>
-  );
-}
-
-function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> }) {
   const PrimarySidebar = useMatches({
     select: (matches) => {
       let primarySidebar;
@@ -52,13 +42,15 @@ function ApplicationLayout({ frame }: { frame: RefObject<HTMLDivElement | null> 
   }
 
   return (
-    <AppShell.Root ref={frame} tabIndex={-1}>
-      <AppShell.Navigation>{primarySidebar}</AppShell.Navigation>
-      <SecondarySidebar.Layout panel={<FileInspector />}>
-        <WorkArea.Root>
-          <Outlet />
-        </WorkArea.Root>
-      </SecondarySidebar.Layout>
-    </AppShell.Root>
+    <FileInspectionProvider>
+      <AppShell.Root>
+        <AppShell.Navigation>{primarySidebar}</AppShell.Navigation>
+        <SecondarySidebar.Layout panel={<FileInspector />}>
+          <WorkArea.Root>
+            <Outlet />
+          </WorkArea.Root>
+        </SecondarySidebar.Layout>
+      </AppShell.Root>
+    </FileInspectionProvider>
   );
 }

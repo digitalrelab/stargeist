@@ -28,10 +28,7 @@ export function useFileBrowser({ listing, workspaceId, folder }: FileBrowserProp
       listing,
       selection,
       inspectedIndex: inspection.inspectedIndex(listing.id),
-      viewProps: {
-        ref: view,
-        onFocus: () => inspection.rememberFocus(view),
-      },
+      viewProps: { ref: view },
       dispatch: (command: Command<File, number>) => {
         send(command);
         view.current?.focus({ preventScroll: true });

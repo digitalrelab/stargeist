@@ -50,14 +50,14 @@ function InspectionContent({ target }: { target: FileInspection }) {
   const description = describeFileInspection(target);
 
   if (target.index !== undefined && !target.file) {
-    if (detail._tag === "Failure")
+    if (detail._tag === "Failure" && !detail.waiting)
       return (
         <div {...stylex.props(styles.field)}>
           <p role="alert" {...stylex.props(typography.label)}>
             {failureMessage(detail.cause)}
           </p>
           {canRetryFailure(detail.cause) && (
-            <Button appearance="soft" onClick={retry} disabled={detail.waiting}>
+            <Button appearance="soft" onClick={retry}>
               Retry
             </Button>
           )}

@@ -65,8 +65,8 @@ function setup() {
   };
 }
 
-it("opens inspection from arrow navigation without changing checkbox selection", async () => {
-  const { registry, inspection, send, target } = setup();
+it("shows inspection from arrow navigation without changing checkbox selection", async () => {
+  const { registry, inspection, target } = setup();
   const listing = createFileListing(
     {
       listingId,
@@ -81,26 +81,23 @@ it("opens inspection from arrow navigation without changing checkbox selection",
     inspection.bind(listing, { workspaceId, folder: "/files" }),
   );
   registry.mount(selection.command);
-  registry.set(selection.command, { type: "replace", keys: [2] });
-  const membership = registry.get(selection.selection);
-  send({ type: "close" });
   const navigate = (by: number) => {
     registry.set(selection.command, { type: "move", by });
   };
-  expect(registry.get(inspection.isOpen)).toBe(false);
+  expect(target()).toBeUndefined();
   navigate(1);
   expect(target()).toBeUndefined();
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.file?.name).toBe("file-0");
-  expect(registry.get(inspection.isOpen)).toBe(true);
+  registry.set(selection.command, { type: "replace", keys: [2] });
+  const membership = registry.get(selection.selection);
   navigate(1);
   expect(registry.get(selection.active)).toBe(1);
-  expect(target()?.file?.name).toBe("file-0");
+  expect(target()?.file?.name).toBe("file-2");
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.file?.name).toBe("file-1");
   expect(registry.get(selection.selection)).toBe(membership);
   expect(Selection.count(membership)).toBe(1);
-  send({ type: "close" });
   navigate(-1);
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.file?.name).toBe("file-0");
@@ -199,7 +196,7 @@ it("selection supersedes pending navigation, and activation explicitly inspects 
   expect(Selection.count(members)).toBe(2);
 });
 
-it("describes the remaining selected file and closes when selection becomes empty", () => {
+it("describes the remaining selected file and clears inspection when selection becomes empty", () => {
   const { interact, target, updates } = setup();
   interact(input("select", 1, Selection.replace(listingId, [0])));
   expect(describeFileInspection(target()!)).toEqual({
@@ -339,8 +336,8 @@ it("exposes detail read failures and retries the selected occurrence", async () 
   expect(target()?.file?.name).toBe("remaining.txt");
 });
 
-it("publishes selection and inspection together, then closes without changing membership", async () => {
-  const { registry, inspection, send, target, updates } = setup();
+it("publishes selection and inspection together and cancels queued navigation when selection clears", async () => {
+  const { registry, inspection, target, updates } = setup();
   const files = Array.from({ length: 10 }, (_, index) => fileAt(index));
   const listing = createFileListing({ listingId, files, offset: 0, hasMore: false }, () =>
     Effect.die("Selection must use the cached page"),
@@ -350,10 +347,8 @@ it("publishes selection and inspection together, then closes without changing me
     inspection.bind(listing, { workspaceId, folder: "/files" }),
   );
   registry.mount(selection.command);
-  const visibility: boolean[] = [];
   const indicators: Array<number | undefined> = [];
 
-  registry.subscribe(inspection.isOpen, (open) => visibility.push(open), { immediate: true });
   registry.subscribe(inspection.inspectedIndex(listingId), (name) => indicators.push(name), {
     immediate: true,
   });
@@ -361,21 +356,15 @@ it("publishes selection and inspection together, then closes without changing me
   registry.set(selection.command, { type: "toggle", value: { index: 0, item: fileAt(0) } });
   registry.set(selection.command, { type: "range", index: 9 });
   expect(updates).toEqual(["file-0", "10 files selected"]);
-  expect(visibility).toEqual([false, true]);
   expect(indicators).toEqual([undefined, 0, undefined]);
   expect(describeFileInspection(target()!)).toEqual({
     type: "selection",
     label: "10 files selected",
   });
 
-  send({ type: "close" });
-  expect(updates).toEqual(["file-0", "10 files selected", undefined]);
-  expect(visibility).toEqual([false, true, false]);
-  expect(target()).toBeUndefined();
   expect(Selection.count(registry.get(selection.selection))).toBe(10);
-  await vi.advanceTimersByTimeAsync(300);
-  expect(target()).toBeUndefined();
   registry.set(selection.command, { type: "clear" });
+  expect(updates).toEqual(["file-0", "10 files selected", undefined]);
   expect(target()).toBeUndefined();
   expect(Selection.count(registry.get(selection.selection))).toBe(0);
   expect(registry.get(selection.active)).toBe(9);
@@ -392,21 +381,8 @@ it("publishes selection and inspection together, then closes without changing me
   expect(registry.get(selection.active)).toBe(8);
 });
 
-it("closing cancels queued navigation and remains closed until a new intent", async () => {
-  const { send, interact, target, updates } = setup();
-  interact(input("activate", 0));
-  interact(input("focus", 1));
-  send({ type: "close" });
-  await vi.advanceTimersByTimeAsync(300);
-  expect(target()).toBeUndefined();
-  expect(updates).toEqual(["file-0", undefined]);
-  interact(input("focus", 2));
-  await vi.advanceTimersByTimeAsync(250);
-  expect(target()?.file?.name).toBe("file-2");
-});
-
 it("derives a listing-scoped row indicator from the displayed inspection", async () => {
-  const { registry, inspection, send, interact } = setup();
+  const { registry, inspection, interact } = setup();
   const otherScope = Schema.decodeUnknownSync(ListingId)("other-listing");
   const inspected = inspection.inspectedIndex(listingId);
   const updates: Array<number | undefined> = [];
@@ -429,7 +405,7 @@ it("derives a listing-scoped row indicator from the displayed inspection", async
   expect(registry.get(inspected)).toBeUndefined();
   interact(input("select", 1, Selection.replace(listingId, [0])));
   expect(registry.get(inspected)).toBe(0);
-  send({ type: "close" });
+  interact(input("select", undefined));
   expect(registry.get(inspected)).toBeUndefined();
 
   interact(input("activate", 0, Selection.empty(otherScope)));

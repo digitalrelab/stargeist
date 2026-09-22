@@ -27,7 +27,7 @@ export interface FileInspectionInput {
 
 type Command =
   | { readonly type: "interact"; readonly input: FileInspectionInput }
-  | { readonly type: "close" | "cancel" };
+  | { readonly type: "cancel" };
 
 function resolveInspection(
   input: FileInspectionInput,
@@ -115,11 +115,6 @@ export function createFileInspection() {
           return;
         }
 
-        case "close":
-          ctx.set(navigate, Atom.Reset);
-          ctx.set(input, undefined);
-          return;
-
         case "cancel":
           ctx.set(navigate, Atom.Reset);
           return;
@@ -158,7 +153,6 @@ export function createFileInspection() {
       return current;
     }),
     detail,
-    isOpen: Atom.map(target, (value) => value !== undefined),
     inspectedIndex: Atom.family((scope: ListingId) =>
       Atom.map(target, (value) => {
         if (!value || value.selection.members.scope !== scope) {
