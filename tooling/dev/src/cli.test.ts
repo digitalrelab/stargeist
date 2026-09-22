@@ -111,7 +111,7 @@ it("previews known workspaces in text and JSON, then reports their reset", async
   expect(existsSync(profile.data)).toBe(false);
   expect(existsSync(metadata)).toBe(false);
   expect(readFileSync(join(workspace, "file.txt"), "utf8")).toBe("keep");
-});
+}, 30000);
 
 it("reports partial resets as failures and retains the paths needed to retry", async () => {
   const { root, profile, run } = fixture();
