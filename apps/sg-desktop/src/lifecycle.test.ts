@@ -82,6 +82,7 @@ function desktop(
       Effect.sync(() => {
         windowCount++;
         events.push("window opened");
+        app.emit("browser-window-created");
       }),
       () =>
         Effect.sync(() => {
@@ -208,6 +209,39 @@ it("does not open duplicate windows while activation races with window startup",
   requestQuit();
   await wait(Fiber.join(runtime.fiber));
   expect(open).toHaveBeenCalledOnce();
+});
+
+it("reopens once when activation arrives while the closed window is still releasing", async () => {
+  vi.stubGlobal("process", { ...process, platform: "darwin" });
+  const releasing = signal();
+  const release = signal();
+  const runtime = desktop({
+    releaseWindow: Deferred.succeed(releasing, undefined).pipe(
+      Effect.andThen(Deferred.await(release)),
+    ),
+  });
+  onTestFinished(() => {
+    complete(release);
+  });
+  const first = await wait(Queue.take(runtime.opened));
+  complete(first.close);
+  await wait(Deferred.await(releasing));
+  app.emit("window-all-closed");
+  app.emit("activate");
+  app.emit("activate");
+  expect(runtime.events).toEqual(["backend acquired", "window opened", "window released"]);
+  complete(release);
+  await wait(Queue.take(runtime.opened));
+  requestQuit();
+  await wait(Fiber.join(runtime.fiber));
+  expect(runtime.events).toEqual([
+    "backend acquired",
+    "window opened",
+    "window released",
+    "window opened",
+    "window released",
+    "backend released",
+  ]);
 });
 
 it("keeps the backend on macOS and reopens a closed window on activation", async () => {
