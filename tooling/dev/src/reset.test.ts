@@ -315,6 +315,33 @@ it("requires a new preview if registered workspaces change before reset", async 
   expect(existsSync(profile.data)).toBe(true);
 });
 
+it.each(["appears", "disappears"] as const)(
+  "requires a new preview if registered workspace metadata %s before reset",
+  async (change) => {
+    const { root, profile } = fixture();
+    initializeProfile(profile);
+    const workspace = join(root, "workspace");
+    const metadata = join(workspace, ".stargeist");
+    if (change === "disappears") {
+      mkdirSync(metadata, { recursive: true });
+    }
+    await rememberWorkspaces(profile, [workspace]);
+    const preview = previewReset(profile);
+
+    if (change === "disappears") {
+      rmSync(metadata, { recursive: true });
+    } else {
+      mkdirSync(metadata, { recursive: true });
+    }
+
+    expect(() => resetData(profile, preview)).toThrow(/changed after the preview/);
+    if (change === "appears") {
+      expect(existsSync(metadata)).toBe(true);
+    }
+    expect(existsSync(profile.data)).toBe(true);
+  },
+);
+
 it("refuses a stale preview when the profile disappears before reset", async () => {
   const { root, profile } = fixture();
   initializeProfile(profile);

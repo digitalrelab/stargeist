@@ -55,7 +55,16 @@ export function resetData(profile: DevelopmentProfile, preview = previewReset(pr
         "Workspaces changed after the preview. Preview again and retry.",
       );
     }
-    const workspaces = roots.map((root) => WorkspaceStorage.at(root).reset());
+    const targets = roots.map((root) => WorkspaceStorage.at(root));
+    if (
+      targets.some((target, index) => target.inspect().status !== preview.workspaces[index]?.status)
+    ) {
+      throw new ProfileError(
+        "reset-changed",
+        "Workspaces changed after the preview. Preview again and retry.",
+      );
+    }
+    const workspaces = targets.map((target) => target.reset());
     const result = { ...preview, workspaces, access: "available" as const };
     if (workspaces.some(({ status }) => status === "blocked")) {
       return { ...result, status: "reset-incomplete" as const };
