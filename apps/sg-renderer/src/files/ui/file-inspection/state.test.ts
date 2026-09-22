@@ -411,19 +411,30 @@ it("derives a listing-scoped row indicator from the displayed inspection", async
   expect(registry.get(inspection.inspectedIndex(otherScope))).toBe(0);
 });
 
-it("cancels pending navigation on departure and disposal while preserving displayed inspection", async () => {
+it("clears inspection and pending navigation when leaving a listing", async () => {
   const { send, interact, target, updates, unmount } = setup();
   interact(input("activate", 0));
   interact(input("focus", 1));
-  send({ type: "cancel" });
+  send({ type: "clear", scope: listingId });
   await vi.advanceTimersByTimeAsync(300);
-  expect(target()?.file?.name).toBe("file-0");
+  expect(target()).toBeUndefined();
+  interact(input("activate", 2));
   interact(input("focus", 2));
-  await vi.advanceTimersByTimeAsync(250);
-  interact(input("focus", 3));
   unmount();
   await vi.advanceTimersByTimeAsync(300);
-  expect(updates).toEqual(["file-0", "file-2"]);
+  expect(updates).toEqual(["file-0", undefined, "file-2"]);
+});
+
+it("ignores an old listing cleanup after a new listing starts navigation", async () => {
+  const { send, interact, target } = setup();
+  const nextScope = Schema.decodeUnknownSync(ListingId)("next-listing");
+  interact(input("activate", 0));
+  interact(input("focus", 1, Selection.empty(nextScope)));
+  send({ type: "clear", scope: listingId });
+
+  await vi.advanceTimersByTimeAsync(250);
+  expect(target()?.file?.name).toBe("file-1");
+  expect(target()?.selection.members.scope).toBe(nextScope);
 });
 
 it("retains only the latest target and distinguishes identical names across listing scopes", async () => {

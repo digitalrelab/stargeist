@@ -21,7 +21,7 @@ export function useFileBrowser({ listing, workspaceId, folder }: FileBrowserProp
   );
   const send = useAtomSet(selection.command);
 
-  useEffect(() => inspection.cancelNavigation, [inspection, selection]);
+  useEffect(() => () => inspection.clear(listing.id), [inspection, listing.id, selection]);
 
   return useMemo(
     () => ({

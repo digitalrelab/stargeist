@@ -27,7 +27,7 @@ export interface FileInspectionInput {
 
 type Command =
   | { readonly type: "interact"; readonly input: FileInspectionInput }
-  | { readonly type: "cancel" };
+  | { readonly type: "clear"; readonly scope: ListingId };
 
 function resolveInspection(
   input: FileInspectionInput,
@@ -76,6 +76,7 @@ function resolveInspection(
 
 export function createFileInspection() {
   const input = Atom.make<FileInspectionInput | undefined>(undefined);
+  const scope = Atom.make<ListingId | undefined>(undefined);
   const target = Atom.make((get) => {
     const current = get(input);
     if (!current) return undefined;
@@ -105,6 +106,7 @@ export function createFileInspection() {
     (ctx, action: Command) => {
       switch (action.type) {
         case "interact": {
+          ctx.set(scope, action.input.interaction.selection.scope);
           if (action.input.interaction.type === "focus") {
             ctx.set(navigate, action.input);
           } else {
@@ -115,8 +117,11 @@ export function createFileInspection() {
           return;
         }
 
-        case "cancel":
+        case "clear":
+          if (ctx.get(scope) !== action.scope) return;
+          ctx.set(scope, undefined);
           ctx.set(navigate, Atom.Reset);
+          ctx.set(input, undefined);
           return;
       }
     },
