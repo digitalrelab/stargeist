@@ -1,4 +1,4 @@
-export { createFileListing, type FileListing } from "./state";
+export { createDirectoryContents, type DirectoryContents } from "./state";
 export {
   createFileSelectionController,
   type FileSelection,

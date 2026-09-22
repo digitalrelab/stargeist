@@ -39,7 +39,6 @@ export default {
     },
   },
   packagerConfig: {
-    asar: true,
     name: executableName,
     executableName,
     appBundleId: "com.digitalrelab.stargeist",

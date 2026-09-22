@@ -1,0 +1,4 @@
+[
+  "CREATE TABLE `files` (\n\t`id` text PRIMARY KEY,\n\t`source` text NOT NULL,\n\t`key` text NOT NULL\n);\n",
+  "CREATE UNIQUE INDEX `files_source_key` ON `files` (`source`,`key`);"
+]

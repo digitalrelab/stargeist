@@ -11,9 +11,11 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.preload.json",
-    "test": "vp test run --root ../.. apps/sg-desktop/src --maxWorkers 2"
+    "test": "vp test run --root ../.. apps/sg-desktop/src --maxWorkers 2",
+    "schema:generate": "bun generate-schema.ts"
   },
   "devDependencies": {
+    "@effect/sql-sqlite-node": "4.0.0-rc.116",
     "@electron-forge/cli": "7.11.2",
     "@electron-forge/maker-deb": "7.11.2",
     "@electron-forge/maker-rpm": "7.11.2",
@@ -22,17 +24,20 @@
     "@electron-forge/plugin-vite": "7.11.2",
     "@electron-forge/shared-types": "7.11.2",
     "@stargeist/application": "workspace:*",
-    "@stargeist/database": "workspace:*",
     "@stargeist/dev-tools": "workspace:*",
     "@stargeist/domain": "workspace:*",
     "@stargeist/protocol": "workspace:*",
     "@stargeist/renderer": "workspace:*",
     "@stargeist/std": "workspace:*",
+    "@stargeist/storage": "workspace:*",
     "@types/electron-squirrel-startup": "1.0.2",
+    "drizzle-kit": "1.0.0-rc.5-5935859",
+    "drizzle-orm": "1.0.0-rc.5-5935859",
     "effect": "catalog:",
     "electron": "44.4.3",
     "electron-squirrel-startup": "1.0.1",
     "electron-store": "11.0.2",
+    "mime": "4.1.0",
     "vite-plus": "catalog:"
   },
   "nx": {

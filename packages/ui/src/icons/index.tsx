@@ -12,6 +12,15 @@ import {
   CircleAlert,
   EllipsisVertical,
   File,
+  FileImage,
+  FileVideoCamera,
+  FileAudio,
+  FileText,
+  FileType,
+  FileSpreadsheet,
+  Presentation,
+  FileArchive,
+  FileCode,
   FileQuestionMark,
   FileSearch,
   Folder,
@@ -31,6 +40,42 @@ export function CloseIcon(props: LucideProps) {
 
 export function FileIcon(props: LucideProps) {
   return <File size={control.iconSize} {...props} />;
+}
+
+export function ImageFileIcon(props: LucideProps) {
+  return <FileImage size={control.iconSize} {...props} />;
+}
+
+export function VideoFileIcon(props: LucideProps) {
+  return <FileVideoCamera size={control.iconSize} {...props} />;
+}
+
+export function AudioFileIcon(props: LucideProps) {
+  return <FileAudio size={control.iconSize} {...props} />;
+}
+
+export function DocumentFileIcon(props: LucideProps) {
+  return <FileText size={control.iconSize} {...props} />;
+}
+
+export function TextFileIcon(props: LucideProps) {
+  return <FileType size={control.iconSize} {...props} />;
+}
+
+export function SpreadsheetFileIcon(props: LucideProps) {
+  return <FileSpreadsheet size={control.iconSize} {...props} />;
+}
+
+export function PresentationFileIcon(props: LucideProps) {
+  return <Presentation size={control.iconSize} {...props} />;
+}
+
+export function ArchiveFileIcon(props: LucideProps) {
+  return <FileArchive size={control.iconSize} {...props} />;
+}
+
+export function CodeFileIcon(props: LucideProps) {
+  return <FileCode size={control.iconSize} {...props} />;
 }
 
 export function FileSearchIcon(props: LucideProps) {

@@ -1,4 +1,4 @@
-import { ProviderCredential, ProviderId, type ProviderConnectionError } from "@stargeist/domain/ai";
+import { ProviderCredential, ProviderId, type ProviderConnectionError } from "@stargeist/domain";
 import { Context, type Effect, Schema } from "effect";
 
 export const StoredCredential = Schema.Struct({

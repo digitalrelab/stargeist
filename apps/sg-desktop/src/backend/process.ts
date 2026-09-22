@@ -1,12 +1,12 @@
 import { join } from "node:path";
 import { utilityProcess } from "electron";
 import { Data, Deferred, Effect } from "effect";
-import { StoragePaths } from "../storage";
+import { AppStorage } from "@stargeist/storage";
 
 class BackendError extends Data.TaggedError("BackendError")<{ readonly message: string }> {}
 
 export const startBackendProcess = Effect.gen(function* () {
-  const { profile } = yield* StoragePaths;
+  const { profile } = yield* AppStorage;
   const exited = yield* Deferred.make<number>();
   const onExit = (code: number) => Effect.runSync(Deferred.succeed(exited, code));
 

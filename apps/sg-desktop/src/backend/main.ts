@@ -1,6 +1,6 @@
 import { reportFailure } from "@stargeist/std/errors";
 import { Deferred, Effect, FiberMap, Layer } from "effect";
-import { TemporaryStorage, pathsLayer, temporaryStorageLayer } from "../storage";
+import { TemporaryStorage, AppStorage, temporaryStorageLayer } from "@stargeist/storage";
 import { BackendApplication } from "./application";
 import { backendIpc } from "./ipc";
 
@@ -67,7 +67,7 @@ const program = Effect.gen(function* () {
 }).pipe(
   Effect.scoped,
   Effect.provide(BackendApplication.layer),
-  Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(pathsLayer(profile)))),
+  Effect.provide(temporaryStorageLayer.pipe(Layer.provideMerge(AppStorage.layer(profile)))),
 );
 
 Effect.runFork(

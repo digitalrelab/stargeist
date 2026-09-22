@@ -1,3 +1,0 @@
-[
-  "CREATE TABLE `entries` (\n\t`position` integer PRIMARY KEY,\n\t`name` text NOT NULL,\n\t`kind` text NOT NULL\n);\n"
-]

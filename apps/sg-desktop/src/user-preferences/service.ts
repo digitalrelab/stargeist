@@ -2,7 +2,7 @@ import { basename, dirname } from "node:path";
 import { UserPreferences, UserPreferencesError, UserPreferenceValues } from "@stargeist/domain";
 import Store from "electron-store";
 import { Effect, Layer, Queue, Schema, Stream } from "effect";
-import { StoragePaths } from "../storage";
+import { AppStorage } from "@stargeist/storage";
 
 const decode = Schema.decodeUnknownSync(UserPreferenceValues, { onExcessProperty: "error" });
 const defaults = decode({});
@@ -10,7 +10,7 @@ const defaults = decode({});
 export const userPreferencesLayer = Layer.effect(
   UserPreferences,
   Effect.gen(function* () {
-    const { userPreferences: path } = yield* StoragePaths;
+    const { userPreferences: path } = yield* AppStorage;
     const failure = (operation: UserPreferencesError["operation"]) => (cause: unknown) =>
       new UserPreferencesError({
         operation,

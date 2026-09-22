@@ -7,6 +7,7 @@ export class ProfileError extends Error {
       | "profile-busy"
       | "unsupported-runtime"
       | "coordination-unavailable"
+      | "reset-changed"
       | "invalid-environment",
     message: string,
     options?: ErrorOptions,

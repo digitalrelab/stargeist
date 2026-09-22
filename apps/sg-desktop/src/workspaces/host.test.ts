@@ -67,8 +67,8 @@ it("binds each dialog session to its picker and dispatches only confirmed choice
 
 it("distinguishes picker failure from workspace operation failure", async () => {
   const failure = new WorkspaceError({
-    code: "UnsupportedFormat",
-    message: "Use a compatible version.",
+    code: "InvalidWorkspace",
+    message: "Workspace metadata is invalid.",
   });
   await Effect.runPromise(
     Effect.gen(function* () {

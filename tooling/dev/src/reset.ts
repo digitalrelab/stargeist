@@ -1,4 +1,5 @@
-import { existsSync, renameSync, rmSync } from "node:fs";
+import { lstatSync } from "node:fs";
+import { AppStorage, WorkspaceStorage } from "@stargeist/storage";
 import {
   inspectProfile,
   validateProfilePaths,
@@ -6,7 +7,36 @@ import {
   acquireProfileMaintenance,
   inspectProfileAccess,
   requireOwnedProfile,
+  ProfileError,
 } from "./desktop/index";
+
+const resetTargets = Symbol("resetTargets");
+const changed = () =>
+  new ProfileError("reset-changed", "Reset targets changed after the preview. Preview again.");
+
+function targetIdentity(path: string) {
+  const target = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+  if (!target) {
+    return null;
+  }
+  return `${target.dev}:${target.ino}:${target.birthtimeNs}`;
+}
+
+function inspectTargets(profile: DevelopmentProfile) {
+  const storage = AppStorage.at(profile.root);
+  const app = storage.inspect();
+  const workspaces = storage.inspectWorkspaces().map((root) => WorkspaceStorage.at(root).inspect());
+  const identities = {
+    data: targetIdentity(profile.data),
+    quarantine: targetIdentity(profile.quarantine),
+    workspaces: workspaces.map(({ root, path, status }) => ({
+      root,
+      status,
+      identity: targetIdentity(path),
+    })),
+  };
+  return { storage, app, workspaces, identities };
+}
 
 export function previewReset(profile: DevelopmentProfile) {
   const ownership = inspectProfile(profile);
@@ -16,23 +46,27 @@ export function previewReset(profile: DevelopmentProfile) {
   }
 
   const access = inspectProfileAccess(profile);
+  const { app, workspaces, identities } = inspectTargets(profile);
 
   return {
     command: "reset" as const,
     status: "preview" as const,
-    scope: "data" as const,
+    scope: "development" as const,
     profile: profile.root,
     target: profile.data,
-    exists: existsSync(profile.data),
+    ...app,
     access,
-    cleanupPending: existsSync(profile.quarantine),
+    quarantine: profile.quarantine,
+    workspaces,
+    [resetTargets]: identities,
   };
 }
 
-export function resetData(profile: DevelopmentProfile) {
-  const preview = previewReset(profile);
-
+export function resetData(profile: DevelopmentProfile, preview = previewReset(profile)) {
   if (inspectProfile(profile) === "missing") {
+    if (preview.exists || preview.workspaces.length > 0) {
+      throw changed();
+    }
     return { ...preview, status: "already-empty" as const };
   }
 
@@ -40,36 +74,36 @@ export function resetData(profile: DevelopmentProfile) {
 
   try {
     validateProfilePaths(profile);
-    rmSync(profile.quarantine, { recursive: true, force: true });
+    const current = inspectTargets(profile);
+    const expected = preview[resetTargets];
+    if (JSON.stringify(current.identities) !== JSON.stringify(expected)) {
+      throw changed();
+    }
+    const workspaces = current.workspaces.map(({ root, path }, index) => {
+      if (targetIdentity(path) !== expected.workspaces[index]!.identity) {
+        throw changed();
+      }
+      return WorkspaceStorage.at(root).reset();
+    });
+    const result = { ...preview, workspaces, access: "available" as const };
+    if (workspaces.some(({ status }) => status === "blocked")) {
+      return { ...result, status: "reset-incomplete" as const };
+    }
 
     validateProfilePaths(profile);
-
-    const result = {
-      ...preview,
+    if (
+      targetIdentity(profile.data) !== expected.data ||
+      targetIdentity(profile.quarantine) !== expected.quarantine
+    ) {
+      throw changed();
+    }
+    const outcome = current.storage.reset();
+    return {
+      ...result,
+      ...outcome,
       exists: false,
-      access: "available" as const,
-      cleanupPending: false,
+      cleanupPending: outcome.status === "cleanup-pending",
     };
-
-    if (!existsSync(profile.data)) {
-      return { ...result, status: "already-empty" as const };
-    }
-
-    renameSync(profile.data, profile.quarantine);
-
-    try {
-      rmSync(profile.quarantine, { recursive: true, force: true });
-
-      return { ...result, status: "reset-complete" as const };
-    } catch (error) {
-      return {
-        ...result,
-        status: "cleanup-pending" as const,
-        cleanupPending: true,
-        quarantine: profile.quarantine,
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
   } finally {
     lease.release();
   }

@@ -1,4 +1,4 @@
-import type { ProviderConnectionError, ProviderCredential } from "@stargeist/domain/ai";
+import type { ProviderConnectionError, ProviderCredential } from "@stargeist/domain";
 import type { Effect } from "effect";
 
 export interface ProviderAdapter {

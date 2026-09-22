@@ -2,7 +2,7 @@ import {
   AIProviderConnections,
   ProviderConnectionError,
   type ProviderCredential,
-} from "@stargeist/domain/ai";
+} from "@stargeist/domain";
 import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 import { TestClock } from "effect/testing";
 import { expect, it } from "vite-plus/test";

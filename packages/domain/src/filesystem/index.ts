@@ -1,3 +1,2 @@
-export { FileSystemEntry } from "./entry";
-export { DirectoryListingPage, ListingId, PageOffset, entryPageSize } from "./listing";
+export { DirectoryPage, DirectorySessionId, PageOffset, directoryPageSize } from "./directory";
 export { DirectoryError } from "./errors";

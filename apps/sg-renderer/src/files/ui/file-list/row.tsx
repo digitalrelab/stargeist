@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import { Selection } from "@stargeist/std/selection/react";
-import type { FileSystemEntry } from "@stargeist/domain";
+import type { FileSnapshot } from "@stargeist/domain";
 import { Checkbox, typography } from "@stargeist/ui";
 import { colors, focusRing, fonts, radii } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
@@ -10,12 +10,15 @@ import { FileKind } from "../file-kind";
 import { useFileListContext } from "./context";
 import { layout } from "./layout";
 
-export function FileRow({ entry, index }: { entry: FileSystemEntry; index: number }) {
+export function FileRow({ file, index }: { file: FileSnapshot; index: number }) {
   const list = useFileListContext();
   const browser = useFileBrowserContext();
-  const selected = Selection.useSelected(browser.selection, entry.name);
-  const matchesEntry = useCallback((name: string | undefined) => name === entry.name, [entry.name]);
-  const inspected = useAtomValue(browser.inspectedName, matchesEntry);
+  const selected = Selection.useSelected(browser.selection, index);
+  const matchesRow = useCallback(
+    (inspectedIndex: number | undefined) => inspectedIndex === index,
+    [index],
+  );
+  const inspected = useAtomValue(browser.inspectedIndex, matchesRow);
   const active = index === list.active;
   const id = `${list.gridId}-${index}`;
 
@@ -33,9 +36,9 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
         if (event.shiftKey) {
           list.extend(index, 1);
         } else if (event.metaKey || event.ctrlKey) {
-          list.toggle(index, entry);
+          list.toggle(index, file);
         } else {
-          list.inspect(index, entry);
+          list.inspect(index, file);
         }
       }}
     >
@@ -43,7 +46,7 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
         <Checkbox.Root
           tabIndex={-1}
           checked={selected}
-          aria-label={`Select ${entry.name}`}
+          aria-label={`Select ${file.name}`}
           onClick={(event) => event.stopPropagation()}
           onCheckedChange={(_checked, details) => {
             if ("shiftKey" in details.event && details.event.shiftKey) {
@@ -53,7 +56,7 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
               return;
             }
 
-            list.toggle(index, entry);
+            list.toggle(index, file);
           }}
         >
           <Checkbox.Indicator />
@@ -65,8 +68,8 @@ export function FileRow({ entry, index }: { entry: FileSystemEntry; index: numbe
           {...stylex.props(typography.label, layout.name, styles.action)}
           tabIndex={-1}
         >
-          <FileKind.Icon kind={entry.kind} />
-          <span {...stylex.props(styles.name)}>{entry.name}</span>
+          <FileKind.Icon file={file} />
+          <span {...stylex.props(styles.name)}>{file.name}</span>
         </button>
       </span>
     </div>

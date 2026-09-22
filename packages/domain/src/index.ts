@@ -1,12 +1,21 @@
+export {
+  AIProviderConnections,
+  ConfigureProvider,
+  ConnectionState,
+  ProviderConnection,
+  ProviderConnectionError,
+  ProviderCredential,
+  ProviderId,
+} from "./ai";
 export * from "./workspaces";
 export {
-  FileSystemEntry,
-  DirectoryListingPage,
-  ListingId,
+  DirectoryPage,
+  DirectorySessionId,
   PageOffset,
-  entryPageSize,
+  directoryPageSize,
   DirectoryError,
 } from "./filesystem";
+export * from "./files";
 export {
   UserPreferences,
   UserPreferencesError,

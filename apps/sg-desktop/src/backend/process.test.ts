@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { Cause, Deferred, Effect, Fiber } from "effect";
 import { beforeEach, expect, it, onTestFinished, vi } from "vite-plus/test";
-import { pathsLayer } from "../storage";
+import { AppStorage } from "@stargeist/storage";
 import { startBackendProcess } from "./process";
 
 const native = vi.hoisted(() => ({ fork: vi.fn() }));
@@ -30,7 +30,7 @@ function backend() {
   });
 
   const fiber = Effect.runFork(
-    startBackendProcess.pipe(Effect.scoped, Effect.provide(pathsLayer("/test-profile"))),
+    startBackendProcess.pipe(Effect.scoped, Effect.provide(AppStorage.layer("/test-profile"))),
   );
   onTestFinished(async () => {
     child.emit("exit", 0);

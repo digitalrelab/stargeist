@@ -1,8 +1,9 @@
-import { useAtomValue } from "@effect/atom-react";
-import { FileSearchIcon, typography } from "@stargeist/ui";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import { Button, FileSearchIcon, typography } from "@stargeist/ui";
 import { colors, fonts, space } from "@stargeist/ui/tokens.stylex";
 import * as stylex from "@stylexjs/stylex";
 import { SecondarySidebar } from "#src/shell/index.ts";
+import { canRetryFailure, failureMessage } from "#src/client/index.ts";
 import { FileKind } from "../file-kind";
 import { useFileInspection } from "./context";
 import { describeFileInspection, type FileInspection } from "./state";
@@ -43,13 +44,37 @@ function EmptyInspection() {
 }
 
 function InspectionContent({ target }: { target: FileInspection }) {
+  const inspection = useFileInspection();
+  const detail = useAtomValue(inspection.detail);
+  const retry = useAtomRefresh(inspection.detail);
   const description = describeFileInspection(target);
+
+  if (target.index !== undefined && !target.file) {
+    if (detail._tag === "Failure" && !detail.waiting)
+      return (
+        <div {...stylex.props(styles.field)}>
+          <p role="alert" {...stylex.props(typography.label)}>
+            {failureMessage(detail.cause)}
+          </p>
+          {canRetryFailure(detail.cause) && (
+            <Button appearance="soft" onClick={retry}>
+              Retry
+            </Button>
+          )}
+        </div>
+      );
+    if (detail._tag === "Success" && !detail.waiting)
+      return (
+        <p {...stylex.props(typography.label)}>This file is unavailable. Refresh the folder.</p>
+      );
+    return <p {...stylex.props(typography.label)}>Loading file details…</p>;
+  }
 
   if (description.type === "selection") {
     return <p {...stylex.props(typography.label)}>{description.label}</p>;
   }
 
-  const { folder } = target.files;
+  const { folder } = target.selection;
 
   return (
     <dl {...stylex.props(typography.label, styles.details)}>
@@ -59,12 +84,12 @@ function InspectionContent({ target }: { target: FileInspection }) {
           {description.name}
         </dd>
       </div>
-      {description.kind && (
+      {target.file && (
         <div {...stylex.props(styles.field)}>
           <dt {...stylex.props(styles.label)}>Kind</dt>
           <dd {...stylex.props(styles.kind)}>
-            <FileKind.Icon kind={description.kind} decorative />
-            <FileKind.Label kind={description.kind} />
+            <FileKind.Icon file={target.file} decorative />
+            <FileKind.Label file={target.file} />
           </dd>
         </div>
       )}

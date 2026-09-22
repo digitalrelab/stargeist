@@ -1,0 +1,142 @@
+import { mkdir, mkdtemp, readdir, rename, rm, utimes, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  filesLayer,
+  TemporaryStorage,
+  AppStorage,
+  temporaryStorageLayer,
+} from "@stargeist/storage";
+import { directoryPageSize } from "@stargeist/domain";
+import { Layer, Effect, Exit, Scope } from "effect";
+import { describe, expect, it, onTestFinished } from "vite-plus/test";
+import { openDirectorySession } from "./index";
+
+async function createFixture(names: string[] = []) {
+  const root = await mkdtemp(join(tmpdir(), "stargeist-directory-test-"));
+  onTestFinished(() => rm(root, { recursive: true, force: true }));
+
+  const content = join(root, "content");
+  await mkdir(content);
+  await Promise.all(names.map((name) => writeFile(join(content, name), "")));
+
+  return {
+    content,
+    open: () => openDirectorySession(content),
+    layer: Layer.merge(
+      filesLayer.pipe(Layer.provide(AppStorage.database)),
+      temporaryStorageLayer,
+    ).pipe(Layer.provide(AppStorage.layer(join(root, "profile")))),
+  };
+}
+
+describe("directory sessions", () => {
+  it("rejects negative, unaligned, and unread page positions", async () => {
+    const { layer, open } = await createFixture(["file.txt"]);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const session = yield* open();
+
+        for (const offset of [-directoryPageSize, 1, directoryPageSize]) {
+          expect((yield* session.read(offset).pipe(Effect.flip)).code).toBe(
+            "DirectorySessionExpired",
+          );
+        }
+      }).pipe(Effect.scoped, Effect.provide(layer)),
+    );
+  });
+
+  it("pages only immediate files and preserves earlier pages", async () => {
+    const names = Array.from({ length: directoryPageSize + 4 }, (_, index) => `file-${index}.txt`);
+    const { content, layer, open } = await createFixture(names);
+    await mkdir(join(content, "nested"));
+    await writeFile(join(content, "nested", "not-visible.txt"), "");
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const session = yield* open();
+        const first = session.firstPage;
+        const second = yield* session.read(directoryPageSize);
+
+        expect(first.files).toHaveLength(directoryPageSize);
+        expect(first.hasMore).toBe(true);
+        expect(second.files).toHaveLength(5);
+        expect(second.hasMore).toBe(false);
+        expect([...first.files, ...second.files].map((file) => file.name).sort()).toEqual(
+          [...names, "nested"].sort(),
+        );
+        expect([...first.files, ...second.files].find((file) => file.name === "nested")?.type).toBe(
+          "folder",
+        );
+        expect(yield* session.read(0)).toEqual(first);
+      }).pipe(Effect.scoped, Effect.provide(layer)),
+    );
+  });
+
+  it("keeps concurrent directory sessions independent and releases each with its own scope", async () => {
+    const { layer, open } = await createFixture(["file.txt"]);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const paths = yield* TemporaryStorage;
+        const firstScope = yield* Scope.fork(yield* Effect.scope);
+        const secondScope = yield* Scope.fork(yield* Effect.scope);
+        const first = yield* open().pipe(Scope.provide(firstScope));
+        const second = yield* open().pipe(Scope.provide(secondScope));
+
+        expect(first.directorySessionId).not.toBe(second.directorySessionId);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(2);
+
+        yield* Scope.close(firstScope, Exit.void);
+
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toHaveLength(1);
+        expect((yield* second.read(0)).files).toMatchObject([
+          {
+            name: "file.txt",
+            type: "file",
+            mediaType: "text/plain",
+            id: expect.stringMatching(/^fil_/),
+          },
+        ]);
+
+        yield* Scope.close(secondScope, Exit.void);
+        expect(yield* Effect.promise(() => readdir(paths.directory))).toEqual([]);
+      }).pipe(Effect.scoped, Effect.provide(layer)),
+    );
+  });
+});
+
+it("expires a session when its root is moved and replaced instead of mixing directory objects", async () => {
+  const names = Array.from({ length: directoryPageSize + 4 }, (_, index) => `file-${index}.txt`);
+  const { content, layer, open } = await createFixture(names);
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const session = yield* open();
+      yield* Effect.promise(async () => {
+        await rename(content, `${content}-moved`);
+        await mkdir(content);
+        await Promise.all(names.map((name) => writeFile(join(content, name), "replacement")));
+      });
+      expect(yield* session.read(directoryPageSize).pipe(Effect.flip)).toMatchObject({
+        code: "DirectorySessionExpired",
+      });
+      expect(yield* session.read(0)).toEqual(session.firstPage);
+    }).pipe(Effect.scoped, Effect.provide(layer)),
+  );
+});
+
+it("continues paging after the directory's timestamps change", async () => {
+  const names = Array.from({ length: directoryPageSize + 1 }, (_, index) => `file-${index}.txt`);
+  const { content, layer, open } = await createFixture(names);
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const session = yield* open();
+      yield* Effect.promise(() => utimes(content, new Date("2000-01-01"), new Date("2000-01-01")));
+      const second = yield* session.read(directoryPageSize);
+      expect(second.files).toHaveLength(1);
+      expect(second.hasMore).toBe(false);
+      expect(yield* session.read(0)).toEqual(session.firstPage);
+    }).pipe(Effect.scoped, Effect.provide(layer)),
+  );
+});

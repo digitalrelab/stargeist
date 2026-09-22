@@ -5,7 +5,7 @@ import {
   type ConfigureProvider,
   type ConnectionState,
   type ProviderCredential,
-} from "@stargeist/domain/ai";
+} from "@stargeist/domain";
 import { DateTime, Effect, Layer, Option, Redacted, Schema, Semaphore } from "effect";
 import { Credentials, type StoredCredential } from "./credentials";
 import type { ProviderAdapter } from "./provider";
