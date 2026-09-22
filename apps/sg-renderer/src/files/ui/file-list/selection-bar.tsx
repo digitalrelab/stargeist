@@ -61,12 +61,12 @@ export function FileSelectionBar() {
       }}
     >
       <SelectionBar.Status>{label}</SelectionBar.Status>
-      <Button appearance="soft" size="sm" shape="pill" disabled={!hasSelection}>
+      <Button appearance="soft" size="md" shape="pill" disabled={!hasSelection}>
         <CommandIcon aria-hidden="true" />
         Actions
       </Button>
       {selecting && (
-        <Button appearance="ghost" size="sm" shape="pill" onClick={list.cancel}>
+        <Button appearance="ghost" size="md" shape="pill" onClick={list.cancel}>
           Cancel
         </Button>
       )}
@@ -87,7 +87,7 @@ export function FileSelectionBar() {
           {canRetryFailure(request.cause) && (
             <Button
               appearance="soft"
-              size="sm"
+              size="md"
               shape="pill"
               onClick={list.retry}
               disabled={request.waiting}

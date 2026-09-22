@@ -8,7 +8,7 @@ import {
 } from "motion/react";
 import * as m from "motion/react-m";
 import type { ComponentProps, ReactNode } from "react";
-import { colors, shadows, space } from "../tokens.stylex";
+import { colors, raisedSurface, shadows, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
 interface RootProps {
@@ -40,7 +40,7 @@ function Surface(props: Omit<RootProps, "open">) {
   return (
     <m.div
       {...props}
-      {...stylex.props(typography.label, styles.root)}
+      {...stylex.props(raisedSurface, typography.label, styles.root)}
       role="group"
       inert={!present}
       initial={{ opacity: 0, y: offset }}

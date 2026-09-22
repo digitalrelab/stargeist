@@ -89,3 +89,11 @@ export const colors = stylex.defineVars({
   onControlDisabled: slateDark.slate10,
   focusRing: "oklch(77.429% 0.12152 287.46)",
 });
+
+export const raisedSurface = stylex.createTheme(colors, {
+  control: slateDark.slate4,
+  controlHovered: slateDark.slate5,
+  controlPressed: slateDark.slate6,
+  controlSelected: slateDark.slate6,
+  controlDisabled: slateDark.slate4,
+});
