@@ -15,6 +15,7 @@ export const radii = stylex.defineVars({
   sm: "4px",
   md: "8px",
   lg: "12px",
+  full: "999px",
 });
 
 export const fonts = stylex.defineVars({

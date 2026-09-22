@@ -2,7 +2,7 @@ import { Button as BaseButton } from "@base-ui/react/button";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import * as stylex from "@stylexjs/stylex";
-import { colors, control, focusRing, fonts, space } from "../tokens.stylex";
+import { colors, control, focusRing, fonts, radii, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
 type ButtonStyleProps = {
@@ -153,6 +153,12 @@ const appearances = stylex.create({
 });
 
 const sizes = stylex.create({
+  iconSm: {
+    inlineSize: control.heightSm,
+    blockSize: control.heightSm,
+    flexShrink: 0,
+    padding: 0,
+  },
   icon: {
     inlineSize: control.heightMd,
     blockSize: control.heightMd,
@@ -173,5 +179,5 @@ const sizes = stylex.create({
 
 const shapes = stylex.create({
   default: { borderRadius: control.radius },
-  pill: { borderRadius: 999 },
+  pill: { borderRadius: radii.full },
 });

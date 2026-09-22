@@ -8,7 +8,7 @@ import {
 } from "motion/react";
 import * as m from "motion/react-m";
 import type { ComponentProps, ReactNode } from "react";
-import { colors, raisedSurface, shadows, space } from "../tokens.stylex";
+import { colors, radii, raisedSurface, shadows, space } from "../tokens.stylex";
 import { typography } from "../typography";
 
 interface RootProps {
@@ -69,8 +69,8 @@ const styles = stylex.create({
     gap: space[2],
     minWidth: 0,
     maxWidth: "100%",
-    padding: space[2],
-    borderRadius: space[6],
+    padding: space[1],
+    borderRadius: radii.full,
     backgroundColor: colors.surfaceRaised,
     color: colors.text,
     boxShadow: shadows.raised,
