@@ -1,9 +1,9 @@
 import { entryPageSize, ListingId, type DirectoryListingPage } from "@stargeist/domain";
 import { Selection } from "@stargeist/std/selection";
 import { Deferred, Effect, Schema } from "effect";
-import { AtomRegistry } from "effect/unstable/reactivity";
+import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished } from "vite-plus/test";
-import { createFileListing, createFileSelectionController } from "./index";
+import { createFileListing, createFileSelectionController, type FileInteraction } from "./index";
 
 const initial: DirectoryListingPage = {
   listingId: Schema.decodeUnknownSync(ListingId)("selection"),
@@ -38,7 +38,8 @@ it("crosses a cached page boundary without changing membership and distinguishes
       };
     }),
   );
-  const selection = createFileSelectionController(listing);
+  const received = Atom.make<FileInteraction | undefined>(undefined);
+  const selection = createFileSelectionController(listing, received);
   registry.mount(selection.command);
   registry.mount(listing.pages(entryPageSize));
   await Effect.runPromise(AtomRegistry.getResult(registry, listing.pages(entryPageSize)));
@@ -50,16 +51,16 @@ it("crosses a cached page boundary without changing membership and distinguishes
   await Effect.runPromise(AtomRegistry.getResult(registry, selection.request));
   expect(registry.get(selection.active)).toBe(entryPageSize);
   expect(Selection.count(registry.get(selection.selection))).toBe(0);
-  expect(registry.get(selection.interaction)?.type).toBe("focus");
+  expect(registry.get(received)?.type).toBe("focus");
   registry.set(selection.command, { type: "activate" });
-  expect(registry.get(selection.interaction)).toMatchObject({
+  expect(registry.get(received)).toMatchObject({
     type: "activate",
     focused: { item: { name: "next" } },
   });
   registry.set(selection.command, { type: "move", by: 1 });
   await Effect.runPromise(AtomRegistry.getResult(registry, selection.request));
   expect(registry.get(selection.active)).toBe(entryPageSize + 1);
-  expect(registry.get(selection.interaction)).toMatchObject({
+  expect(registry.get(received)).toMatchObject({
     type: "focus",
     focused: { item: { name: "last" } },
   });
@@ -201,7 +202,8 @@ it("finishes a range across an unloaded page without activating the newly focuse
   const registry = registryForTest();
   const pending = Effect.runSync(Deferred.make<DirectoryListingPage>());
   const listing = createFileListing(initial, () => Deferred.await(pending));
-  const selection = createFileSelectionController(listing);
+  const received = Atom.make<FileInteraction | undefined>(undefined);
+  const selection = createFileSelectionController(listing, received);
   registry.mount(selection.command);
   registry.set(selection.command, {
     type: "focus",
@@ -225,5 +227,5 @@ it("finishes a range across an unloaded page without activating the newly focuse
   expect(registry.get(selection.isSelected("file-255"))).toBe(true);
   expect(registry.get(selection.isSelected("arrived"))).toBe(true);
   expect(registry.get(selection.active)).toBe(entryPageSize);
-  expect(registry.get(selection.interaction)?.type).toBe("select");
+  expect(registry.get(received)?.type).toBe("select");
 });

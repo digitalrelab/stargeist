@@ -11,7 +11,6 @@ interface State<A, Key, Scope> {
   readonly current: Position<A> | undefined;
   readonly anchor: number | undefined;
   readonly range: Range<Key, Scope> | undefined;
-  readonly interaction: Interaction<A, Key, Scope> | undefined;
 }
 
 export function create<A, Key, E, Scope>(
@@ -24,23 +23,23 @@ export function create<A, Key, E, Scope>(
     current: undefined,
     anchor: undefined,
     range: undefined,
-    interaction: undefined,
   });
   const intent = Atom.make<Request | undefined>(undefined);
-  const interaction = Atom.map(state, (value) => value.interaction);
 
   function commit(
     ctx: { set<R, W>(atom: Atom.Writable<R, W>, value: W): void },
-    next: Omit<State<A, Key, Scope>, "interaction">,
+    next: State<A, Key, Scope>,
     type: Interaction<A, Key, Scope>["type"],
   ) {
-    const interaction = { type, focused: next.current, selection: next.selection };
-
     Atom.batch(() => {
-      ctx.set(state, { ...next, interaction });
+      ctx.set(state, next);
 
       if (onInteraction) {
-        ctx.set(onInteraction, interaction);
+        ctx.set(onInteraction, {
+          type,
+          focused: next.current,
+          selection: next.selection,
+        });
       }
     });
   }
@@ -96,7 +95,7 @@ export function create<A, Key, E, Scope>(
     before: State<A, Key, Scope>,
     value: Position<A>,
     operation: Operation,
-  ): Omit<State<A, Key, Scope>, "interaction"> {
+  ): State<A, Key, Scope> {
     let selection = before.selection;
 
     if (operation === "toggle") {
@@ -265,7 +264,6 @@ export function create<A, Key, E, Scope>(
     isSelected: Atom.family((key: Key) =>
       Atom.map(selection, (value) => Membership.contains(value, key)),
     ),
-    interaction,
     operation: Atom.map(intent, (value) => value?.operation),
     request,
     command,

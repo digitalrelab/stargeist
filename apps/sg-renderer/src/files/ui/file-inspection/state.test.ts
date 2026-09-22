@@ -1,7 +1,7 @@
 import { LibraryId, ListingId } from "@stargeist/domain";
 import { Selection, type SelectionState } from "@stargeist/std/selection";
 import { Effect, HashSet, Schema } from "effect";
-import { Atom, AtomRegistry } from "effect/unstable/reactivity";
+import { AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 import { createFileSelectionController } from "../../selection";
 import { createFileListing } from "../../state";
@@ -59,7 +59,7 @@ function setup() {
 }
 
 it("opens inspection from arrow navigation without changing checkbox selection", async () => {
-  const { registry, inspection, send, interact, target } = setup();
+  const { registry, inspection, send, target } = setup();
   const listing = createFileListing(
     {
       listingId,
@@ -69,17 +69,16 @@ it("opens inspection from arrow navigation without changing checkbox selection",
     },
     () => Effect.die("Navigation must use the cached page"),
   );
-  const selection = createFileSelectionController(listing);
+  const selection = createFileSelectionController(
+    listing,
+    inspection.bind(listing, { libraryId, folder: "/files" }),
+  );
   registry.mount(selection.command);
   registry.set(selection.command, { type: "replace", keys: ["file-2"] });
   const membership = registry.get(selection.selection);
+  send({ type: "close" });
   const navigate = (by: number) => {
     registry.set(selection.command, { type: "move", by });
-    const interaction = registry.get(selection.interaction);
-    if (!interaction) {
-      throw new Error("Expected committed navigation intent");
-    }
-    interact({ ...input("focus", undefined), interaction });
   };
   expect(registry.get(inspection.isOpen)).toBe(false);
   navigate(1);
@@ -94,14 +93,11 @@ it("opens inspection from arrow navigation without changing checkbox selection",
   expect(target()?.entry?.name).toBe("file-1");
   expect(registry.get(selection.selection)).toBe(membership);
   expect(Selection.count(membership)).toBe(1);
-  expect(registry.get(selection.interaction)?.type).toBe("focus");
   send({ type: "close" });
   navigate(-1);
   await vi.advanceTimersByTimeAsync(250);
   expect(target()?.entry?.name).toBe("file-0");
   registry.set(selection.command, { type: "all" });
-  const all = registry.get(selection.interaction)!;
-  interact({ ...input("select", undefined), total: 3, interaction: all });
   expect(describeFileInspection(target()!)).toEqual({
     type: "selection",
     label: "3 files selected",
@@ -221,16 +217,10 @@ it("publishes selection and inspection together, then closes without changing me
   const listing = createFileListing({ listingId, entries, offset: 0, hasMore: false }, () =>
     Effect.die("Selection must use the cached page"),
   );
-  const onInteraction = Atom.writable(
-    () => undefined,
-    (ctx, interaction: FileInspectionInput["interaction"]) => {
-      ctx.set(inspection.command, {
-        type: "interact",
-        input: { libraryId, folder: "/files", total: 10, interaction },
-      });
-    },
+  const selection = createFileSelectionController(
+    listing,
+    inspection.bind(listing, { libraryId, folder: "/files" }),
   );
-  const selection = createFileSelectionController(listing, onInteraction);
   registry.mount(selection.command);
   const visibility: boolean[] = [];
   const indicators: Array<string | undefined> = [];

@@ -22,7 +22,7 @@ function useInspection(fallbackFocus: RefObject<HTMLElement | null>) {
 
   return useMemo(
     () => ({
-      command: inspection.command,
+      bind: inspection.bind,
       target: inspection.target,
       isOpen: inspection.isOpen,
       inspectedName: inspection.inspectedName,

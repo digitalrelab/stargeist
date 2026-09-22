@@ -3,6 +3,7 @@ import { Selection } from "@stargeist/std/selection";
 import { Effect, HashSet } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 import type { FileInteraction, FileSelection } from "../../selection";
+import type { FileListing } from "../../state";
 
 export interface FileInspection {
   readonly files: FileSelection;
@@ -86,6 +87,25 @@ export function createFileInspection() {
     },
   ).pipe(Atom.setIdleTTL(0));
 
+  function bind(listing: FileListing, location: Pick<FileSelection, "libraryId" | "folder">) {
+    return Atom.writable(
+      () => undefined,
+      (ctx, interaction: FileInteraction) => {
+        const extent = ctx.get(listing.extent);
+        let total: number | undefined;
+
+        if (!extent.hasMore) {
+          total = extent.count;
+        }
+
+        ctx.set(command, {
+          type: "interact",
+          input: { interaction, ...location, total },
+        });
+      },
+    );
+  }
+
   return {
     target: Atom.readable((get) => get(target)),
     isOpen: Atom.map(target, (value) => value !== undefined),
@@ -99,6 +119,7 @@ export function createFileInspection() {
       }),
     ),
     command,
+    bind,
   };
 }
 

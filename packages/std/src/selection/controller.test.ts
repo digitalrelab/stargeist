@@ -5,10 +5,8 @@ import type { Extent } from "../pagination";
 
 import { Selection, type Command, type Interaction, type Source } from "./index";
 
-function setup(
-  overrides: Partial<Source<string, string, Error, string>> = {},
-  onInteraction?: Atom.Writable<unknown, Interaction<string, string, string>>,
-) {
+function setup(overrides: Partial<Source<string, string, Error, string>> = {}) {
+  const received = Atom.make<Interaction<string, string, string> | undefined>(undefined);
   const reads: number[] = [];
   const ranges: Array<readonly [number, number]> = [];
   const registry = AtomRegistry.make();
@@ -30,7 +28,7 @@ function setup(
         }),
       ...overrides,
     },
-    onInteraction,
+    received,
   );
   const unmount = registry.mount(collection.command);
   const send = (command: Command<string, string>) => registry.set(collection.command, command);
@@ -43,19 +41,19 @@ function setup(
     }
     return [...value.keys].sort((a, b) => a.localeCompare(b));
   };
-  return { registry, collection, send, unmount, selected, active, keys, reads, ranges };
+  return { registry, collection, received, send, unmount, selected, active, keys, reads, ranges };
 }
 
 describe("Collection navigation and selection", () => {
   it("moves focus without changing membership or emitting activation", () => {
-    const { registry, collection, send, active, selected, reads } = setup();
+    const { registry, send, active, selected, reads, received } = setup();
     send({ type: "replace", keys: ["file-42"] });
     const initial = selected();
     send({ type: "move", by: 1 });
     send({ type: "move", by: 1 });
     expect(active()).toBe(1);
     expect(selected()).toBe(initial);
-    expect(registry.get(collection.interaction)?.type).toBe("focus");
+    expect(registry.get(received)?.type).toBe("focus");
     send({ type: "first" });
     send({ type: "move", by: -1 });
     expect(active()).toBe(0);
@@ -67,24 +65,24 @@ describe("Collection navigation and selection", () => {
   });
 
   it("toggles independently, activates explicitly, and clears without clearing focus", () => {
-    const { registry, collection, send, keys, active } = setup();
+    const { registry, send, keys, active, received } = setup();
     send({ type: "focus", value: { index: 2, item: "file-2" } });
     send({ type: "toggle" });
     expect(keys()).toEqual(["file-2"]);
-    expect(registry.get(collection.interaction)?.type).toBe("select");
+    expect(registry.get(received)?.type).toBe("select");
     send({ type: "activate" });
-    expect(registry.get(collection.interaction)).toMatchObject({
+    expect(registry.get(received)).toMatchObject({
       type: "activate",
       focused: { index: 2, item: "file-2" },
     });
     send({ type: "move", by: 1 });
     send({ type: "toggle" });
     expect(keys()).toEqual(["file-2", "file-3"]);
-    expect(registry.get(collection.interaction)?.type).toBe("select");
+    expect(registry.get(received)?.type).toBe("select");
     send({ type: "clear" });
     expect(keys()).toEqual([]);
     expect(active()).toBe(3);
-    expect(registry.get(collection.interaction)?.type).toBe("select");
+    expect(registry.get(received)?.type).toBe("select");
   });
 
   it("selects an unknown collection without reading any pages and isolates listing scopes", () => {
@@ -185,11 +183,9 @@ describe("Collection navigation and selection", () => {
 
   it("publishes each committed selection intent with one consistent focus and membership snapshot", async () => {
     const pending = Effect.runSync(Deferred.make<ReadonlyArray<string>>());
-    const received = Atom.make<Interaction<string, string, string> | undefined>(undefined);
-    const { registry, collection, send } = setup(
-      { readRange: () => Deferred.await(pending) },
-      received,
-    );
+    const { registry, collection, received, send } = setup({
+      readRange: () => Deferred.await(pending),
+    });
     const interactions: Array<Interaction<string, string, string>> = [];
     onTestFinished(
       registry.subscribe(received, (value) => {
@@ -285,7 +281,9 @@ describe("Collection navigation and selection", () => {
 
   it("publishes resolved focus independently of selection and explicit activation", async () => {
     const pending = Effect.runSync(Deferred.make<string>());
-    const { registry, collection, send, selected } = setup({ read: () => Deferred.await(pending) });
+    const { registry, collection, send, selected, received } = setup({
+      read: () => Deferred.await(pending),
+    });
     const focused: number[] = [];
     registry.get(collection.current);
     const unsubscribe = registry.subscribe(collection.current, (value) => {
@@ -306,7 +304,7 @@ describe("Collection navigation and selection", () => {
     expect(registry.get(collection.current)).toEqual({ index: 1, item: "file-1" });
     expect(focused).toEqual([0, 1]);
     expect(Selection.count(selected())).toBe(0);
-    expect(registry.get(collection.interaction)?.type).toBe("focus");
+    expect(registry.get(received)?.type).toBe("focus");
     send({ type: "all" });
     send({ type: "toggle" });
     expect(focused).toEqual([0, 1]);
@@ -314,13 +312,15 @@ describe("Collection navigation and selection", () => {
 
   it("cancels pending activation when navigation moves elsewhere", async () => {
     const pending = Effect.runSync(Deferred.make<string>());
-    const { registry, collection, send, active } = setup({ read: () => Deferred.await(pending) });
+    const { registry, collection, send, active, received } = setup({
+      read: () => Deferred.await(pending),
+    });
     send({ type: "activate" });
     send({ type: "focus", value: { index: 4, item: "file-4" } });
     await Effect.runPromise(Deferred.succeed(pending, "late"));
     expect(active()).toBe(4);
     expect(registry.get(collection.current)).toEqual({ index: 4, item: "file-4" });
-    expect(registry.get(collection.interaction)?.type).toBe("focus");
+    expect(registry.get(received)?.type).toBe("focus");
   });
 
   it("deduplicates frontier reads, restores focus on an empty final page, and ignores empty collections", async () => {
